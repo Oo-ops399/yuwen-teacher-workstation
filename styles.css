@@ -1320,3 +1320,89 @@ label input, label select, label textarea { margin-top: 4px; }
   .global-search { display: none; }
   .bnav-item span:last-child { font-size: 10px; }
 }
+
+/* ================= 个人记账本 ================= */
+.accounting-summary {
+  font-size: 13px;
+  color: var(--text-soft);
+  flex: 1;
+  text-align: right;
+}
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+.view-toggle .btn-ghost.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.acct-cat {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  display: inline-block;
+}
+.acct-note-card {
+  border-left: 3px solid var(--primary);
+}
+
+/* ================= 学情台账 ================= */
+.ledger-class-list {
+  padding: 12px 18px;
+  display: grid;
+  gap: 16px;
+}
+.ledger-class-block {
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.ledger-class-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ledger-class-header h4 {
+  font-size: 14px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ledger-class-header .actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ledger-table th {
+  white-space: nowrap;
+}
+.ledger-summary-area {
+  padding: 16px 18px;
+}
+.ledger-image-preview {
+  text-align: center;
+}
+.ledger-image-preview img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .ledger-class-header { flex-direction: column; align-items: flex-start; }
+  .ledger-class-header .actions { width: 100%; }
+  .view-toggle .btn-ghost { padding: 5px 10px; font-size: 12px; }
+  .accounting-summary { font-size: 12px; }
+  .ledger-table { min-width: 500px; }
+}

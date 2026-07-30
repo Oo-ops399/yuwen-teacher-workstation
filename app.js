@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 4;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks'];
+  const DB_VER = 5;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents'];
 
   let dbInstance = null;
   function openDB() {
@@ -164,7 +164,9 @@
     countdowns: [],
     feedbacks: [],
     feedbackMaterials: [],
-    classFeedbacks: []
+    classFeedbacks: [],
+    accounting: [],
+    ledgerStudents: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -412,7 +414,8 @@
       students: '学员档案', 'student-detail': '学员档案详情',
       communicate: '家长沟通', hours: '课时管理', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
-      settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈'
+      settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
+      accounting: '个人记账本', ledger: '学情台账'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -434,6 +437,8 @@
     if (page === 'data') renderData();
     if (page === 'life') renderLife();
     if (page === 'feedback') renderFeedback();
+    if (page === 'accounting') renderAccounting();
+    if (page === 'ledger') renderLedger();
 
     // 移动端收起侧边栏
     const sidebar = $('#sidebar');
@@ -730,6 +735,36 @@
         $('#searchResult').classList.remove('active');
       }
     });
+
+    // 记账本
+    const addAccountingBtn = $('#addAccountingBtn');
+    if (addAccountingBtn) addAccountingBtn.onclick = () => editAccountingModal();
+    const accountingCatFilter = $('#accountingCatFilter');
+    if (accountingCatFilter) accountingCatFilter.onchange = renderAccounting;
+    const exportAccountingBtn = $('#exportAccountingBtn');
+    if (exportAccountingBtn) exportAccountingBtn.onclick = exportAccountingToWPS;
+    const acctViewTable = $('#acctViewTable');
+    if (acctViewTable) acctViewTable.onclick = () => switchAccountingView('table');
+    const acctViewCard = $('#acctViewCard');
+    if (acctViewCard) acctViewCard.onclick = () => switchAccountingView('card');
+
+    // 学情台账
+    const addLedgerClassBtn = $('#addLedgerClassBtn');
+    if (addLedgerClassBtn) addLedgerClassBtn.onclick = () => editLedgerClassModal();
+    const ledgerClassFilter = $('#ledgerClassFilter');
+    if (ledgerClassFilter) ledgerClassFilter.onchange = renderLedger;
+    const ledgerStudentFilter = $('#ledgerStudentFilter');
+    if (ledgerStudentFilter) ledgerStudentFilter.oninput = renderLedger;
+    const ledgerImportBtn = $('#ledgerImportBtn');
+    if (ledgerImportBtn) ledgerImportBtn.onclick = () => $('#ledgerImportInput').click();
+    const ledgerImportInput = $('#ledgerImportInput');
+    if (ledgerImportInput) ledgerImportInput.onchange = e => handleImportLedgerStudents(e.target.files[0]);
+    const exportLedgerBtn = $('#exportLedgerBtn');
+    if (exportLedgerBtn) exportLedgerBtn.onclick = exportLedgerToWPS;
+    const ledgerSummaryClassBtn = $('#ledgerSummaryClassBtn');
+    if (ledgerSummaryClassBtn) ledgerSummaryClassBtn.onclick = () => generateLedgerImage('class');
+    const ledgerSummaryAllBtn = $('#ledgerSummaryAllBtn');
+    if (ledgerSummaryAllBtn) ledgerSummaryAllBtn.onclick = () => generateLedgerImage('all');
   }
 
   // ================= 个性化设置 =================
@@ -2423,6 +2458,7 @@
         state.communications = []; state.templates = []; state.callbacks = [];
         state.hours = []; state.library = []; state.mindmaps = []; state.todos = [];
         state.clips = []; state.sticky = [];
+        state.accounting = []; state.ledgerStudents = [];
         for (const s of STORES) {
           if (data.payload[s]) {
             for (const item of data.payload[s]) {
@@ -3324,6 +3360,458 @@
     if (queryExpressByPhoneBtn) queryExpressByPhoneBtn.onclick = queryExpressByPhone;
   }
 
+  // ================= 个人记账本 =================
+  let accountingViewMode = 'table';
+  const ACCOUNTING_CATS = ['早餐','中餐','晚餐','衣物','家具','油费','保险费','其他支出'];
+
+  function renderAccounting() {
+    const cat = $('#accountingCatFilter') ? $('#accountingCatFilter').value : '';
+    let list = state.accounting.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    if (cat) list = list.filter(a => a.category === cat);
+
+    const total = list.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+    const summaryEl = $('#accountingSummary');
+    if (summaryEl) summaryEl.innerHTML = `共 <strong>${list.length}</strong> 笔 · 合计 <strong>¥${total.toFixed(2)}</strong>`;
+
+    const el = $('#accountingList');
+    if (list.length === 0) { el.innerHTML = '<div class="info-block">暂无记账记录，点击右上「＋ 记一笔」开始</div>'; return; }
+
+    if (accountingViewMode === 'table') {
+      el.innerHTML = `
+        <div style="overflow-x:auto;padding:12px 18px">
+          <table class="score-table">
+            <thead><tr><th>日期</th><th>分类</th><th>金额</th><th>备注</th><th>操作</th></tr></thead>
+            <tbody>
+              ${list.map(a => `
+                <tr>
+                  <td>${escapeHtml(a.date || '')}</td>
+                  <td><span class="acct-cat">${escapeHtml(a.category || '')}</span></td>
+                  <td style="font-weight:600">¥${(a.amount || 0).toFixed(2)}</td>
+                  <td>${escapeHtml(a.note || '')}</td>
+                  <td>
+                    <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.editAccountingModal('${a.id}')">编辑</button>
+                    <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.confirmDelete('accounting','${a.id}','记账记录')">删除</button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } else {
+      el.innerHTML = `<div class="card-list">${list.map(a => `
+        <div class="student-card acct-note-card">
+          <h4>¥${(a.amount || 0).toFixed(2)} <span class="student-tag">${escapeHtml(a.category || '')}</span></h4>
+          <p>${escapeHtml(a.date || '')}</p>
+          <p>${escapeHtml(a.note || '无备注')}</p>
+          <div class="student-tags">
+            <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.editAccountingModal('${a.id}')">编辑</button>
+            <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.confirmDelete('accounting','${a.id}','记账记录')">删除</button>
+          </div>
+        </div>`).join('')}</div>`;
+    }
+  }
+
+  function switchAccountingView(mode) {
+    accountingViewMode = mode;
+    const tBtn = $('#acctViewTable');
+    const cBtn = $('#acctViewCard');
+    if (tBtn) tBtn.classList.toggle('active', mode === 'table');
+    if (cBtn) cBtn.classList.toggle('active', mode === 'card');
+    renderAccounting();
+  }
+
+  window.editAccountingModal = function (id) {
+    const a = id ? state.accounting.find(x => x.id === id) : {};
+    openModal(id ? '编辑记账' : '记一笔', `
+      <label>消费日期 <input type="date" id="ac_date" value="${a.date || todayStr()}"></label>
+      <label>收支分类
+        <select id="ac_cat">${ACCOUNTING_CATS.map(c => `<option value="${c}" ${a.category===c?'selected':''}>${c}</option>`).join('')}</select>
+      </label>
+      <label>金额（元） <input type="number" id="ac_amount" step="0.01" value="${a.amount || ''}" placeholder="0.00"></label>
+      <label>简短备注 <textarea id="ac_note" rows="2" placeholder="如：午餐外卖">${escapeHtml(a.note || '')}</textarea></label>
+    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ac_save">保存</button>`);
+    $('#ac_save').onclick = async () => {
+      const amount = parseFloat($('#ac_amount').value);
+      if (!amount || amount <= 0) { toast('请输入有效金额'); return; }
+      const data = {
+        id: id || uid(),
+        date: $('#ac_date').value,
+        category: $('#ac_cat').value,
+        amount: amount,
+        note: $('#ac_note').value.trim(),
+        ts: Date.now()
+      };
+      await dbPut('accounting', data);
+      state.accounting = state.accounting.filter(x => x.id !== data.id);
+      state.accounting.push(data);
+      saveLocalCache();
+      closeModal();
+      renderAccounting();
+      toast('已保存');
+    };
+  };
+
+  function exportAccountingToWPS() {
+    if (state.accounting.length === 0) { toast('暂无记账数据'); return; }
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['消费日期', '收支分类', '金额', '备注']];
+    state.accounting.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(a => {
+      rows.push([a.date || '', a.category || '', a.amount || 0, a.note || '']);
+    });
+    const total = state.accounting.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    rows.push(['', '合计', total, '']);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '记账记录');
+    XLSX.writeFile(wb, `个人记账本_${todayStr()}.xlsx`);
+    toast('记账记录已导出');
+  }
+
+  // ================= 班级学员学情台账 =================
+  function renderLedger() {
+    const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
+    const sfilter = ($('#ledgerStudentFilter') ? $('#ledgerStudentFilter').value : '').toLowerCase();
+
+    const cf = $('#ledgerClassFilter');
+    if (cf) {
+      cf.innerHTML = '<option value="">全部班级</option>' +
+        state.classes.map(c => `<option value="${c.id}" ${cid===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+    }
+
+    const el = $('#ledgerClassList');
+    if (state.classes.length === 0) { el.innerHTML = '<div class="info-block">暂无班级，点击右上「＋ 新建班级」开始</div>'; return; }
+
+    let classes = state.classes;
+    if (cid) classes = classes.filter(c => c.id === cid);
+
+    el.innerHTML = classes.map(c => {
+      let students = state.ledgerStudents.filter(s => s.classId === c.id);
+      if (sfilter) students = students.filter(s => (s.name||'').toLowerCase().includes(sfilter));
+      return `
+        <div class="ledger-class-block">
+          <div class="ledger-class-header">
+            <h4>${escapeHtml(c.name)} <span class="student-tag">${students.length} 人</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${escapeHtml(c.time||'')}</span>
+            </h4>
+            <div class="actions">
+              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.editLedgerClassModal('${c.id}')">编辑班级</button>
+              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.addLedgerStudentModal('${c.id}')">＋ 学员</button>
+              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.generateLedgerImage('class','${c.id}')">生成图片</button>
+            </div>
+          </div>
+          ${students.length === 0 ? '<p style="padding:8px 14px;color:var(--text-muted);font-size:12px">暂无学员，可手动添加或通过「导入学员」批量导入</p>' : `
+          <div style="overflow-x:auto;padding:8px 14px">
+            <table class="score-table ledger-table">
+              <thead><tr><th>姓名</th><th>入门测情况</th><th>作业完成情况</th><th>课堂积分</th><th>操作</th></tr></thead>
+              <tbody>
+                ${students.map(s => `
+                  <tr>
+                    <td style="font-weight:600">${escapeHtml(s.name||'')}</td>
+                    <td>${escapeHtml(s.entryTest||'-')}</td>
+                    <td>${escapeHtml(s.homework||'-')}</td>
+                    <td style="font-weight:600">${escapeHtml(String(s.score!=null?s.score:'-'))}</td>
+                    <td>
+                      <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.editLedgerStudentModal('${s.id}')">编辑</button>
+                      <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.confirmDelete('ledgerStudents','${s.id}','${escapeAttr(s.name||'')}')">删除</button>
+                    </td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`}
+        </div>`;
+    }).join('');
+  }
+
+  window.editLedgerClassModal = function (id) {
+    const c = id ? state.classes.find(x => x.id === id) : { type: 'regular' };
+    openModal(id ? '编辑班级' : '新建班级', `
+      <label>班级名称 <input type="text" id="lc_name" value="${escapeHtml(c.name||'')}" placeholder="如：周六提高班"></label>
+      <label>上课时间 <input type="text" id="lc_time" value="${escapeHtml(c.time||'')}" placeholder="如：每周六 14:00-16:00"></label>
+      <label>教室 <input type="text" id="lc_room" value="${escapeHtml(c.room||'')}"></label>
+      <label>备注 <textarea id="lc_note" rows="2">${escapeHtml(c.note||'')}</textarea></label>
+    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="lc_save">保存</button>`);
+    $('#lc_save').onclick = async () => {
+      const data = {
+        id: id || uid(),
+        name: $('#lc_name').value.trim() || '未命名班级',
+        type: c.type || 'regular',
+        time: $('#lc_time').value,
+        room: $('#lc_room').value,
+        studentCount: c.studentCount || 0,
+        note: $('#lc_note').value,
+        ts: Date.now()
+      };
+      await dbPut('classes', data);
+      state.classes = state.classes.filter(x => x.id !== data.id);
+      state.classes.push(data);
+      saveLocalCache();
+      closeModal();
+      renderLedger();
+      toast('保存成功');
+    };
+  };
+
+  window.addLedgerStudentModal = function (classId) {
+    openModal('添加学员', `
+      <label>姓名 <input type="text" id="ls_name" placeholder="学员姓名"></label>
+      <label>入门测情况 <input type="text" id="ls_entry" placeholder="如：85分 / 未测"></label>
+      <label>作业完成情况 <input type="text" id="ls_hw" placeholder="如：全部完成 / 缺交1次"></label>
+      <label>课堂积分 <input type="number" id="ls_score" value="0" placeholder="0"></label>
+    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ls_save">保存</button>`);
+    $('#ls_save').onclick = async () => {
+      const name = $('#ls_name').value.trim();
+      if (!name) { toast('请输入学员姓名'); return; }
+      const data = {
+        id: uid(),
+        classId: classId,
+        name: name,
+        entryTest: $('#ls_entry').value.trim(),
+        homework: $('#ls_hw').value.trim(),
+        score: parseInt($('#ls_score').value) || 0,
+        ts: Date.now()
+      };
+      await dbPut('ledgerStudents', data);
+      state.ledgerStudents.push(data);
+      saveLocalCache();
+      closeModal();
+      renderLedger();
+      toast('已添加');
+    };
+  };
+
+  window.editLedgerStudentModal = function (id) {
+    const s = state.ledgerStudents.find(x => x.id === id);
+    if (!s) return;
+    openModal('编辑学情', `
+      <label>姓名 <input type="text" id="es_name" value="${escapeHtml(s.name||'')}"></label>
+      <label>入门测情况 <input type="text" id="es_entry" value="${escapeHtml(s.entryTest||'')}" placeholder="如：85分 / 未测"></label>
+      <label>作业完成情况 <input type="text" id="es_hw" value="${escapeHtml(s.homework||'')}" placeholder="如：全部完成 / 缺交1次"></label>
+      <label>课堂积分 <input type="number" id="es_score" value="${s.score!=null?s.score:0}"></label>
+    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="es_save">保存</button>`);
+    $('#es_save').onclick = async () => {
+      const name = $('#es_name').value.trim();
+      if (!name) { toast('请输入学员姓名'); return; }
+      const data = Object.assign({}, s, {
+        name: name,
+        entryTest: $('#es_entry').value.trim(),
+        homework: $('#es_hw').value.trim(),
+        score: parseInt($('#es_score').value) || 0,
+        ts: Date.now()
+      });
+      await dbPut('ledgerStudents', data);
+      state.ledgerStudents = state.ledgerStudents.filter(x => x.id !== data.id);
+      state.ledgerStudents.push(data);
+      saveLocalCache();
+      closeModal();
+      renderLedger();
+      toast('已保存');
+    };
+  };
+
+  function handleImportLedgerStudents(file) {
+    if (!file) return;
+    const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
+    if (!cid) { toast('请先选择一个班级再导入'); return; }
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        let rows = [];
+        if (file.name.match(/\.(xlsx|xls)$/i)) {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json(ws);
+        } else {
+          const text = e.target.result;
+          const lines = text.split('\n').filter(l => l.trim());
+          if (lines.length < 2) { toast('文件内容为空'); return; }
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          rows = lines.slice(1).map(line => {
+            const vals = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i]);
+            return obj;
+          });
+        }
+        let count = 0;
+        for (const r of rows) {
+          const name = r['姓名'] || r['name'] || r['学生姓名'] || '';
+          if (!name) continue;
+          const item = {
+            id: uid(),
+            classId: cid,
+            name: name,
+            entryTest: r['入门测'] || r['入门测情况'] || r['entryTest'] || '',
+            homework: r['作业'] || r['作业完成情况'] || r['homework'] || '',
+            score: parseInt(r['课堂积分'] || r['积分'] || r['score'] || '0') || 0,
+            ts: Date.now()
+          };
+          state.ledgerStudents.push(item);
+          await dbPut('ledgerStudents', item);
+          count++;
+        }
+        saveLocalCache();
+        renderLedger();
+        toast(`成功导入 ${count} 名学员`);
+      } catch (err) {
+        toast('导入失败：' + err.message);
+      }
+    };
+    if (file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }
+
+  function exportLedgerToWPS() {
+    if (state.ledgerStudents.length === 0) { toast('暂无学情数据'); return; }
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    state.classes.forEach(c => {
+      const students = state.ledgerStudents.filter(s => s.classId === c.id);
+      if (students.length === 0) return;
+      const rows = [['姓名', '入门测情况', '作业完成情况', '课堂积分']];
+      students.forEach(s => rows.push([s.name||'', s.entryTest||'', s.homework||'', s.score!=null?s.score:'']));
+      const sheetName = (c.name || '班级').slice(0, 28).replace(/[\[\]:*?/\\]/g, '_');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+    });
+    if (wb.SheetNames.length === 0) {
+      const rows = [['班级', '姓名', '入门测情况', '作业完成情况', '课堂积分']];
+      state.ledgerStudents.forEach(s => {
+        const c = state.classes.find(x => x.id === s.classId);
+        rows.push([c?c.name:'', s.name||'', s.entryTest||'', s.homework||'', s.score!=null?s.score:'']);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '全量学情');
+    }
+    XLSX.writeFile(wb, `学情台账_${todayStr()}.xlsx`);
+    toast('学情台账已导出');
+  }
+
+  window.generateLedgerImage = function (scope, classId) {
+    let title, students;
+    if (scope === 'class' && classId) {
+      const c = state.classes.find(x => x.id === classId);
+      if (!c) { toast('班级不存在'); return; }
+      students = state.ledgerStudents.filter(s => s.classId === classId);
+      title = c.name + ' · 学情汇总';
+    } else if (scope === 'class') {
+      const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
+      if (!cid) { toast('请先选择一个班级'); return; }
+      const c = state.classes.find(x => x.id === cid);
+      if (!c) { toast('班级不存在'); return; }
+      students = state.ledgerStudents.filter(s => s.classId === cid);
+      title = c.name + ' · 学情汇总';
+    } else {
+      students = state.ledgerStudents.slice();
+      title = '全部班级 · 学情汇总';
+    }
+    if (students.length === 0) { toast('暂无学员数据'); return; }
+
+    const padding = 40;
+    const rowHeight = 44;
+    const headerHeight = 80;
+    const colWidths = [120, 180, 200, 100];
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    const canvasWidth = tableWidth + padding * 2;
+    const canvasHeight = padding + headerHeight + students.length * rowHeight + padding + 20;
+
+    const canvas = document.createElement('canvas');
+    const scale = 2;
+    canvas.width = canvasWidth * scale;
+    canvas.height = canvasHeight * scale;
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = canvasHeight + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // 背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // 标题
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText(title, padding, padding);
+
+    // 日期
+    ctx.fillStyle = '#999999';
+    ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.fillText('生成日期：' + todayStr(), padding, padding + 28);
+
+    // 表头
+    const tableY = padding + headerHeight - 20;
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(padding, tableY, tableWidth, rowHeight);
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padding, tableY, tableWidth, rowHeight);
+
+    ctx.fillStyle = '#333333';
+    ctx.font = 'bold 13px "PingFang SC", "Microsoft YaHei", sans-serif';
+    const headers = ['姓名', '入门测情况', '作业完成情况', '课堂积分'];
+    let xPos = padding;
+    headers.forEach((h, i) => {
+      ctx.textAlign = i === 3 ? 'center' : 'left';
+      const tx = i === 3 ? xPos + colWidths[i] / 2 : xPos + 10;
+      ctx.fillText(h, tx, tableY + 13);
+      xPos += colWidths[i];
+    });
+
+    // 数据行
+    students.forEach((s, idx) => {
+      const y = tableY + (idx + 1) * rowHeight;
+      if (idx % 2 === 1) {
+        ctx.fillStyle = '#fafafa';
+        ctx.fillRect(padding, y, tableWidth, rowHeight);
+      }
+      ctx.strokeStyle = '#f0f0f0';
+      ctx.strokeRect(padding, y, tableWidth, rowHeight);
+      ctx.fillStyle = '#333333';
+      const cls = state.classes.find(c => c.id === s.classId);
+      const nameDisplay = scope === 'all' && cls ? `[${cls.name}] ${s.name}` : s.name;
+      let xPos2 = padding;
+      const cells = [nameDisplay, s.entryTest || '-', s.homework || '-', String(s.score != null ? s.score : '-')];
+      cells.forEach((cell, i) => {
+        ctx.textAlign = i === 3 ? 'center' : 'left';
+        const tx = i === 3 ? xPos2 + colWidths[i] / 2 : xPos2 + 10;
+        ctx.font = i === 3 ? 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif' : '13px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(cell, tx, y + 13);
+        xPos2 += colWidths[i];
+      });
+    });
+
+    // 底部统计
+    const summaryY = tableY + (students.length + 1) * rowHeight + 10;
+    const totalScore = students.reduce((sum, s) => sum + (parseInt(s.score) || 0), 0);
+    const avgScore = students.length > 0 ? (totalScore / students.length).toFixed(1) : 0;
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`共 ${students.length} 人 · 总积分 ${totalScore} · 平均积分 ${avgScore}`, padding, summaryY);
+
+    // 下载图片
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[·\s]/g, '_')}_${todayStr()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 200);
+      toast('图片已生成，长按预览图可保存至手机');
+    }, 'image/png');
+
+    // 页面预览
+    const summaryEl = $('#ledgerSummary');
+    if (summaryEl) {
+      const dataUrl = canvas.toDataURL('image/png');
+      summaryEl.innerHTML = `
+        <div class="ledger-image-preview">
+          <img src="${dataUrl}" alt="学情汇总图" />
+          <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-muted)">长按图片可保存至手机相册</p>
+        </div>`;
+    }
+  };
+
+
   window.confirmDelete = async function (store, id, name) {
     if (!confirm(`确认删除「${name}」？`)) return;
     await dbDel(store, id);
@@ -3349,7 +3837,12 @@
     confirmDelete: window.confirmDelete, closeModal,
     delLife: delLifeItem,
     delFeedback, delFeedbackMaterial, editFeedbackModal,
-    editClassFeedback: editClassFeedbackModal, delClassFeedback
+    editClassFeedback: editClassFeedbackModal, delClassFeedback,
+    editAccountingModal: window.editAccountingModal,
+    editLedgerClassModal: window.editLedgerClassModal,
+    addLedgerStudentModal: window.addLedgerStudentModal,
+    editLedgerStudentModal: window.editLedgerStudentModal,
+    generateLedgerImage: window.generateLedgerImage
   };
 
   // 启动

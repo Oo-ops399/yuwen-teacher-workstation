@@ -36,6 +36,8 @@
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
     <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
     <a class="nav-item" data-page="life"><span class="nav-icon">☀</span><span class="nav-label">生活助手</span></a>
+    <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
+    <a class="nav-item" data-page="ledger"><span class="nav-icon">📋</span><span class="nav-label">学情台账</span></a>
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
@@ -111,6 +113,8 @@
         <button class="quick-btn" data-page="mindmap">＋ 备课导图</button>
         <button class="quick-btn" data-page="kanban">＋ 待办任务</button>
         <button class="quick-btn" data-page="library">＋ 素材归档</button>
+        <button class="quick-btn" data-page="accounting">¥ 记账本</button>
+        <button class="quick-btn" data-page="ledger">📋 学情台账</button>
       </div>
     </div>
 
@@ -605,6 +609,68 @@
     </div>
   </section>
 
+  <section class="page" id="page-accounting" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>个人记账本</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exportAccountingBtn">导出WPS</button>
+          <button class="btn-primary" id="addAccountingBtn">＋ 记一笔</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="accountingCatFilter">
+          <option value="">全部分类</option>
+          <option value="早餐">早餐</option>
+          <option value="中餐">中餐</option>
+          <option value="晚餐">晚餐</option>
+          <option value="衣物">衣物</option>
+          <option value="家具">家具</option>
+          <option value="油费">油费</option>
+          <option value="保险费">保险费</option>
+          <option value="其他支出">其他支出</option>
+        </select>
+        <div class="accounting-summary" id="accountingSummary"></div>
+        <div class="view-toggle">
+          <button class="btn-ghost active" id="acctViewTable" data-view="table">表格</button>
+          <button class="btn-ghost" id="acctViewCard" data-view="card">便签</button>
+        </div>
+      </div>
+      <div id="accountingList"></div>
+    </div>
+  </section>
+
+  <section class="page" id="page-ledger" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>班级学员学情台账</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="ledgerImportBtn">导入学员</button>
+          <input type="file" id="ledgerImportInput" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn-ghost" id="exportLedgerBtn">导出WPS</button>
+          <button class="btn-primary" id="addLedgerClassBtn">＋ 新建班级</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="ledgerClassFilter">
+          <option value="">全部班级</option>
+        </select>
+        <input type="text" id="ledgerStudentFilter" placeholder="按学员姓名筛选…">
+      </div>
+      <div id="ledgerClassList" class="ledger-class-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>学情汇总</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="ledgerSummaryClassBtn">生成班级汇总图</button>
+          <button class="btn-ghost" id="ledgerSummaryAllBtn">生成全量汇总图</button>
+        </div>
+      </div>
+      <div id="ledgerSummary" class="ledger-summary-area"></div>
+    </div>
+  </section>
+
   <section class="page" id="page-data" hidden>
     <div class="panel">
       <div class="panel-header">
@@ -697,6 +763,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=24"></script>
+<script src="./app.js?v=25"></script>
 </body>
 </html>

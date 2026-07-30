@@ -276,19 +276,36 @@
           <button class="btn-primary" id="addFeedbackBtn">＋ 录入反馈</button>
         </div>
       </div>
-      <div class="filter-row">
-        <select id="feedbackStudentFilter">
-          <option value="">全部学员</option>
-        </select>
-        <select id="feedbackTypeFilter">
-          <option value="">全部类型</option>
-          <option value="课堂表现">课堂表现</option>
-          <option value="作业反馈">作业反馈</option>
-          <option value="阶段总结">阶段总结</option>
-          <option value="考试分析">考试分析</option>
-        </select>
+      <div class="tabs">
+        <button class="tab active" data-ftab="student">学员一对一反馈</button>
+        <button class="tab" data-ftab="class">课堂整体反馈</button>
       </div>
-      <div id="feedbackList" class="card-list"></div>
+      <!-- 学员一对一反馈 -->
+      <div class="tab-content" id="ftab-student">
+        <div class="filter-row">
+          <select id="feedbackStudentFilter">
+            <option value="">全部学员</option>
+          </select>
+          <select id="feedbackTypeFilter">
+            <option value="">全部类型</option>
+            <option value="课堂表现">课堂表现</option>
+            <option value="作业反馈">作业反馈</option>
+            <option value="阶段总结">阶段总结</option>
+            <option value="考试分析">考试分析</option>
+          </select>
+        </div>
+        <div id="feedbackList" class="card-list"></div>
+      </div>
+      <!-- 课堂整体反馈 -->
+      <div class="tab-content" id="ftab-class" hidden>
+        <div class="filter-row">
+          <select id="classFeedbackClassFilter">
+            <option value="">全部班级</option>
+          </select>
+          <button class="btn-primary" id="addClassFeedbackBtn">＋ 录入课堂反馈</button>
+        </div>
+        <div id="classFeedbackList" class="card-list"></div>
+      </div>
     </div>
 
     <div class="panel">
@@ -489,29 +506,59 @@
       <!-- 快递查询 -->
       <div class="life-content" id="ltab-express">
         <div class="life-section">
-          <h3>快递单号记录</h3>
+          <h3>取件码记录</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">收到驿站取件码短信后，记录在这里方便随时查看</p>
           <div class="clip-input">
-            <input type="text" id="expressCompany" placeholder="快递公司（顺丰/中通/圆通…）">
-            <input type="text" id="expressNo" placeholder="快递单号">
-            <input type="tel" id="expressPhone" placeholder="收/寄手机号（可选）">
+            <input type="text" id="expressCompany" placeholder="快递公司">
+            <input type="text" id="expressNo" placeholder="取件码/单号">
+            <input type="tel" id="expressPhone" placeholder="手机号">
+            <input type="text" id="expressLocation" placeholder="驿站位置（如：菜鸟驿站小区南门）">
             <button class="btn-primary" id="addExpressBtn">记录</button>
           </div>
           <ul class="record-list" id="expressList"></ul>
-          <div class="life-links">
-            <a class="btn-link" href="https://www.sf-express.com/" target="_blank" rel="noopener">→ 顺丰官网</a>
-            <a class="btn-link" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">→ 快递100查询</a>
-          </div>
         </div>
         <div class="life-section" style="margin-top:20px">
-          <h3>手机号查快递</h3>
+          <h3>手机号查取件码</h3>
           <div class="clip-input">
-            <input type="tel" id="expressPhoneQuery" placeholder="输入手机号查询快递">
+            <input type="tel" id="expressPhoneQuery" placeholder="输入手机号查本地取件码">
             <button class="btn-primary" id="queryExpressByPhoneBtn">查询</button>
           </div>
           <div id="phoneExpressResult" style="margin-top:12px"></div>
-          <div class="life-links">
-            <a class="btn-link" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">→ 快递100（支持手机号查件）</a>
-            <a class="btn-link" href="https://m.sf-express.com/" target="_blank" rel="noopener">→ 顺丰手机查件</a>
+        </div>
+        <div class="life-section" style="margin-top:20px">
+          <h3>一键查快递（外部平台）</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">点击下方按钮跳转到各平台官方查件页面</p>
+          <div class="express-quick-grid">
+            <a class="express-quick-btn" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">📦</span>
+              <span class="eq-name">快递100</span>
+              <span class="eq-desc">综合查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://m.cainiao.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🐝</span>
+              <span class="eq-name">菜鸟裹裹</span>
+              <span class="eq-desc">淘宝件查询</span>
+            </a>
+            <a class="express-quick-btn" href="https://m.sf-express.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">✈</span>
+              <span class="eq-name">顺丰速运</span>
+              <span class="eq-desc">顺丰查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://www.jd.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🚚</span>
+              <span class="eq-name">京东物流</span>
+              <span class="eq-desc">京东查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://mobile.yangkeduo.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🛒</span>
+              <span class="eq-name">拼多多</span>
+              <span class="eq-desc">订单物流</span>
+            </a>
+            <a class="express-quick-btn" href="https://h5.m.taobao.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🛍</span>
+              <span class="eq-name">淘宝</span>
+              <span class="eq-desc">订单物流</span>
+            </a>
           </div>
         </div>
       </div>
@@ -650,6 +697,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js"></script>
+<script src="./app.js?v=24"></script>
 </body>
 </html>

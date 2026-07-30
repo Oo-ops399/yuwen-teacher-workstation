@@ -910,6 +910,29 @@ label input, label select, label textarea { margin-top: 4px; }
   border-left: 3px solid var(--primary);
 }
 .life-links { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+.express-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.express-quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.15s;
+}
+.express-quick-btn:hover { border-color: var(--primary); background: #fff; }
+.express-quick-btn .eq-icon { font-size: 24px; }
+.express-quick-btn .eq-name { font-size: 13px; font-weight: 500; }
+.express-quick-btn .eq-desc { font-size: 11px; color: var(--text-muted); }
 .weather-card {
   background: var(--bg);
   border-radius: var(--radius);

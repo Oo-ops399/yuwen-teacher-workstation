@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 3;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials'];
+  const DB_VER = 4;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks'];
 
   let dbInstance = null;
   function openDB() {
@@ -163,7 +163,8 @@
     memos: [],
     countdowns: [],
     feedbacks: [],
-    feedbackMaterials: []
+    feedbackMaterials: [],
+    classFeedbacks: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -368,6 +369,36 @@
       };
       state.students.push(demo);
       dbPut('students', demo);
+    }
+    // 预置反馈素材库
+    if (state.feedbackMaterials.length === 0) {
+      const defaultMaterials = [
+        '该生本次课堂表现专注度较高，能够紧跟老师节奏完成各项学习任务。在课堂互动环节中，积极举手回答问题，表达能力和逻辑思维都有明显进步。不过个别知识点掌握还不够扎实，需要课后多加练习巩固',
+        '该生近期作业完成质量稳步提升，书写工整度和准确率都有明显改善。在作文写作中，能够运用本节课学习的修辞手法和句式结构，文章结构更加清晰。但字数控制还需注意，建议平时多读优秀范文积累素材',
+        '该生课堂参与度良好，能够主动参与小组讨论并发表自己的见解。在阅读理解训练中，对文章主旨的把握能力有所提高，但在细节题和推断题上仍有失分，建议加强文本细读训练，养成标注关键信息的习惯',
+        '该生本次单元测验成绩有较大幅度提升，反映出近期学习态度端正、复习到位。在基础知识部分得分率较高，但在阅读理解和作文部分仍有提升空间。建议后续重点突破阅读理解的答题技巧和作文的审题立意',
+        '该生本周课堂状态略有起伏，前半节课注意力集中，后半节课出现走神现象。经提醒后能够及时调整状态。在课堂练习中，基础题完成较好，但拓展题缺乏耐心思考。建议家长在家督促孩子保证充足睡眠，提高课堂专注力',
+        '该生在古诗文学习中表现出浓厚兴趣，能够主动背诵课内要求篇目，并在课堂默写中取得满分。对诗句的理解和赏析能力也有进步。建议在此基础上，适当拓展课外古诗文阅读，进一步提升文学素养和鉴赏能力',
+        '该生作文水平近期有明显进步，能够做到主题明确、条理清楚，语言表达也更加生动丰富。在本次作文训练中，运用了比喻和排比等修辞手法，文章感染力较强。不足之处在于结尾略显仓促，建议注意首尾呼应和情感升华',
+        '该生在课堂上的合作意识较强，能够主动帮助同桌解决学习困难，展现了良好的团队精神。在口语表达训练中，从最初的羞涩不敢发言，到现在能够流利地复述课文内容，进步值得肯定。建议继续锻炼当众表达的自信心',
+        '该生近期在字词基础方面投入较多精力，听写成绩从之前的七十多分提升到九十多分，进步显著。但在词语运用和近义词辨析方面仍有不足，建议在阅读过程中注意积累词语的使用语境，做到不仅会写还要会用',
+        '该生本次月考成绩较上次提升十分，主要进步在阅读理解部分。分析试卷发现，该生掌握了找中心句和关键词的答题方法，失分主要在作文的立意深度上。建议后续在作文训练中，多关注社会热点和生活感悟，提升思想深度',
+        '该生课堂笔记记录认真完整，重点难点标注清晰，已经养成了良好的学习习惯。在课后复习时，能够对照笔记及时查漏补缺。这种踏实的学习态度值得全班同学学习。建议在此基础上，学会用思维导图整理知识框架',
+        '该生在口语交际训练中表现积极，能够根据给定情境进行流畅表达，语言组织能力较强。在小组合作展示环节，主动承担了汇报任务，表现大方得体。建议在表达时注意控制语速，让听众有思考和消化的时间',
+        '该生近期学习目标明确，课堂上遇到不懂的问题能够主动提问，课后也会及时找老师答疑。这种主动学习的态度值得肯定。在本次阶段测试中，基础知识部分满分，但阅读理解的速度有待提升，建议平时进行限时阅读训练',
+        '该生在作文修改环节表现出较强的自检能力，能够根据老师的批注 independently 完成修改，修改后的作文在结构和语言上都有明显改善。这种反思和修改的习惯对写作能力提升非常重要。建议继续保持，逐步形成自己的写作风格',
+        '该生课堂纪律良好，但发言不够主动，多数时候只是被动回答问题。经了解，该生表示担心回答错误被同学笑话。建议家长多鼓励孩子表达自己的观点，不怕犯错。老师也会在课堂上多创造轻松的发言氛围，帮助建立自信',
+        '该生在课外阅读方面投入较多，本学期已读完多本推荐书目，阅读量和阅读面都有扩展。在读书笔记中，能够摘抄好词好句并写出简单的读后感。建议在阅读时多做批注，学会与文本对话，提升深度阅读能力',
+        '该生近期语文综合素养提升明显，在听、说、读、写四个方面均衡发展。课堂听讲效率高，发言有条理，阅读理解能力稳步上升，作文也能做到结构完整、内容充实。建议参加一些语文综合实践活动，进一步提升语文应用能力',
+        '该生在拼音和字形方面的基础较弱，导致看拼音写词语和形近字辨析失分较多。已经针对性安排了每日五分钟的专项练习，目前已有初步改善。建议家长在家配合听写，每天巩固十个易错字词，坚持一个月会有明显效果',
+        '该生在文言文学习中遇到了一些困难，对文言实词的积累和句式的理解还需加强。课堂上已经带领该生梳理了重点字词和特殊句式，并提供了课外练习。建议利用碎片时间多读简单的文言短文，培养语感',
+        '该生学习态度认真踏实，每项作业都能按时高质量完成。在本次期末复习阶段，该生主动制定了复习计划，按模块系统梳理了本学期知识点。这种自主复习的能力非常可贵。建议在考试时注意时间分配，避免在难题上耗时过长'
+      ];
+      defaultMaterials.forEach(text => {
+        const item = { id: uid(), text, ts: Date.now() };
+        state.feedbackMaterials.push(item);
+        dbPut('feedbackMaterials', item);
+      });
     }
   }
 
@@ -639,6 +670,20 @@
     };
     const addFeedbackMaterialBtn = $('#addFeedbackMaterialBtn');
     if (addFeedbackMaterialBtn) addFeedbackMaterialBtn.onclick = addFeedbackMaterial;
+
+    // 课堂反馈 tab 切换
+    $$('.tab[data-ftab]').forEach(tab => {
+      tab.onclick = () => {
+        $$('.tab[data-ftab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $('#ftab-student').hidden = tab.dataset.ftab !== 'student';
+        $('#ftab-class').hidden = tab.dataset.ftab !== 'class';
+      };
+    });
+    const addClassFeedbackBtn = $('#addClassFeedbackBtn');
+    if (addClassFeedbackBtn) addClassFeedbackBtn.onclick = () => editClassFeedbackModal();
+    const classFeedbackClassFilter = $('#classFeedbackClassFilter');
+    if (classFeedbackClassFilter) classFeedbackClassFilter.onchange = renderClassFeedbackList;
 
     // 导入学员
     const importStudentsBtn = $('#importStudentsBtn');
@@ -2630,12 +2675,16 @@
   function renderFeedback() {
     renderFeedbackList();
     renderFeedbackMaterials();
+    renderClassFeedbackList();
     // 填充学员下拉
     const sel1 = $('#feedbackStudentFilter');
     const sel2 = $('#genFeedbackStudent');
     const opts = '<option value="">全部学员</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name||'')}</option>`).join('');
     if (sel1) sel1.innerHTML = opts;
     if (sel2) sel2.innerHTML = '<option value="">选择学员…</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name||'')}</option>`).join('');
+    // 填充班级下拉
+    const sel3 = $('#classFeedbackClassFilter');
+    if (sel3) sel3.innerHTML = '<option value="">全部班级</option>' + state.classes.map(c => `<option value="${c.id}">${escapeHtml(c.name||'')}</option>`).join('');
   }
 
   function renderFeedbackList() {
@@ -2987,32 +3036,120 @@
     const phone = $('#expressPhoneQuery').value.trim();
     if (!phone) { toast('请输入手机号'); return; }
     const el = $('#phoneExpressResult');
-    // 1) 搜索本地记录
     const matched = state.express.filter(e => e.phone === phone);
     let html = '';
     if (matched.length > 0) {
-      html += '<p style="font-size:12px;color:var(--text-soft);margin-bottom:8px">本地记录：</p>';
-      html += matched.map(e => `
-        <div class="record-item">
-          <div><strong>${escapeHtml(e.company)}</strong> <span style="color:var(--text-muted);font-size:12px">${escapeHtml(e.no)}</span></div>
-          <a class="btn-link" href="https://www.kuaidi100.com/chaxun?nu=${encodeURIComponent(e.no)}" target="_blank" rel="noopener" style="font-size:12px">查询物流</a>
-        </div>
-      `).join('');
+      html += `<p style="font-size:13px;font-weight:600;margin-bottom:8px">找到 ${matched.length} 条取件码：</p>`;
+      html += matched.map(e => {
+        const isCode = e.no && e.no.length <= 6 && /^\d+$/.test(e.no);
+        return `
+          <div class="record-item" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+              <strong>${escapeHtml(e.company)}</strong>
+              <span style="font-size:11px;color:var(--text-muted)">${fmtDate(e.ts).slice(5,10)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;width:100%">
+              <span style="font-size:11px;color:var(--text-muted)">${isCode ? '取件码' : '单号'}</span>
+              <span style="font-size:20px;font-weight:700;letter-spacing:3px;font-family:monospace">${escapeHtml(e.no)}</span>
+              <button class="btn-ghost" style="font-size:10px;padding:2px 6px;margin-left:auto" onclick="window.__app.copyText('${escapeAttr(e.no)}')">复制</button>
+            </div>
+            ${e.location ? `<div style="font-size:12px;color:var(--text-soft)">📍 ${escapeHtml(e.location)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
     } else {
-      html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">本地无该手机号的快递记录</p>';
+      html += '<p style="font-size:13px;color:var(--text-muted);padding:12px;text-align:center">该手机号暂无本地取件码记录</p>';
+      html += '<p style="font-size:12px;color:var(--text-soft);padding:0 12px">提示：收到取件码短信后，在上方「取件码记录」中保存，之后就能用手机号快速查到了</p>';
     }
-    // 2) 外部查询链接
     html += `
       <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px">
-        <p style="font-size:12px;color:var(--text-soft);margin-bottom:8px">前往外部平台用手机号查件：</p>
+        <p style="font-size:12px;color:var(--text-soft);margin-bottom:8px">也可前往外部平台查件：</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <a class="btn-ghost" href="https://www.kuaidi100.com/" target="_blank" rel="noopener" style="font-size:12px">快递100</a>
-          <a class="btn-ghost" href="https://m.sf-express.com/" target="_blank" rel="noopener" style="font-size:12px">顺丰速运</a>
-          <a class="btn-ghost" href="https://www.cainiao.com/" target="_blank" rel="noopener" style="font-size:12px">菜鸟裹裹</a>
+          <a class="btn-ghost" href="https://m.cainiao.com/" target="_blank" rel="noopener" style="font-size:12px">菜鸟裹裹</a>
+          <a class="btn-ghost" href="https://m.sf-express.com/" target="_blank" rel="noopener" style="font-size:12px">顺丰</a>
         </div>
       </div>
     `;
     el.innerHTML = html;
+  }
+
+  // ================= 课堂整体反馈 =================
+  function renderClassFeedbackList() {
+    const el = $('#classFeedbackList');
+    if (!el) return;
+    const cf = $('#classFeedbackClassFilter');
+    const cid = cf ? cf.value : '';
+    let list = state.classFeedbacks.slice().reverse();
+    if (cid) list = list.filter(f => f.classId === cid);
+    el.innerHTML = list.map(f => {
+      const cls = state.classes.find(c => c.id === f.classId);
+      const cname = cls ? cls.name : '未关联班级';
+      return `
+        <div class="student-card" style="position:relative">
+          <h4>${escapeHtml(cname)} <span class="student-tag">${escapeHtml(f.date||'')}</span></h4>
+          <div style="margin:8px 0">
+            <p style="font-size:12px;color:var(--text-soft);margin-bottom:2px">📖 本节内容</p>
+            <p style="font-size:13px;white-space:pre-wrap">${escapeHtml(f.content||'')}</p>
+          </div>
+          <div style="margin:8px 0">
+            <p style="font-size:12px;color:var(--text-soft);margin-bottom:2px">👥 学生表现</p>
+            <p style="font-size:13px;white-space:pre-wrap">${escapeHtml(f.performance||'')}</p>
+          </div>
+          <div style="margin:8px 0">
+            <p style="font-size:12px;color:var(--text-soft);margin-bottom:2px">📝 家庭作业</p>
+            <p style="font-size:13px;white-space:pre-wrap">${escapeHtml(f.homework||'')}</p>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted)">${fmtDate(f.ts)}</p>
+          <div style="position:absolute;top:12px;right:12px;display:flex;gap:4px">
+            <button class="btn-ghost" style="font-size:10px;padding:2px 6px" onclick="window.__app.editClassFeedback('${f.id}')">编辑</button>
+            <button class="btn-ghost" style="font-size:10px;padding:2px 6px" onclick="window.__app.delClassFeedback('${f.id}')">删</button>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p style="padding:16px;color:var(--text-muted);font-size:13px;text-align:center">暂无课堂反馈，点击「录入课堂反馈」添加</p>';
+  }
+
+  function editClassFeedbackModal(id) {
+    const existing = id ? state.classFeedbacks.find(f => f.id === id) : null;
+    const classOpts = state.classes.map(c => `<option value="${c.id}" ${existing && existing.classId === c.id ? 'selected' : ''}>${escapeHtml(c.name||'')}</option>`).join('');
+    openModal(existing ? '编辑课堂反馈' : '录入课堂反馈', `
+      <label>班级<select id="cfClass" style="font-size:16px"><option value="">请选择…</option>${classOpts}</select></label>
+      <label>上课日期<input type="date" id="cfDate" style="font-size:16px" value="${existing ? existing.date : todayStr()}"></label>
+      <label>📖 本节课内容<textarea id="cfContent" rows="3" style="font-size:16px" placeholder="如：六年级第三单元古诗三首——望岳、登飞来峰…">${escapeHtml(existing?existing.content:'')}</textarea></label>
+      <label>👥 学生整体表现<textarea id="cfPerformance" rows="4" style="font-size:16px" placeholder="如：大部分同学能够跟上节奏，张小明积极发言…">${escapeHtml(existing?existing.performance:'')}</textarea></label>
+      <label>📝 家庭作业安排<textarea id="cfHomework" rows="3" style="font-size:16px" placeholder="如：1. 背诵望岳 2. 完成练习册P45 3. 预习下一课…">${escapeHtml(existing?existing.homework:'')}</textarea></label>
+    `, `<button class="btn-ghost" onclick="closeModal()">取消</button><button class="btn-primary" id="cfSave">保存</button>`);
+    $('#cfSave').onclick = async () => {
+      const classId = $('#cfClass').value;
+      const date = $('#cfDate').value;
+      const content = $('#cfContent').value.trim();
+      const performance = $('#cfPerformance').value.trim();
+      const homework = $('#cfHomework').value.trim();
+      if (!classId) { toast('请选择班级'); return; }
+      if (!content && !performance && !homework) { toast('请至少填写一项内容'); return; }
+      if (existing) {
+        Object.assign(existing, { classId, date, content, performance, homework, ts: Date.now() });
+        await dbPut('classFeedbacks', existing);
+      } else {
+        const item = { id: uid(), classId, date, content, performance, homework, ts: Date.now() };
+        state.classFeedbacks.push(item);
+        await dbPut('classFeedbacks', item);
+      }
+      saveLocalCache();
+      closeModal();
+      renderClassFeedbackList();
+      toast('课堂反馈已保存');
+    };
+  }
+
+  async function delClassFeedback(id) {
+    if (!confirm('确认删除这条课堂反馈？')) return;
+    await dbDel('classFeedbacks', id);
+    state.classFeedbacks = state.classFeedbacks.filter(f => f.id !== id);
+    saveLocalCache();
+    renderClassFeedbackList();
+    toast('已删除');
   }
 
   // ================= 生活助手 =================
@@ -3025,19 +3162,30 @@
   function renderExpress() {
     const el = $('#expressList');
     if (!el) return;
-    el.innerHTML = state.express.slice().reverse().map(e => `
-      <li class="record-item">
-        <div>
-          <strong>${escapeHtml(e.company)}</strong>
-          <span style="margin-left:8px;color:var(--text-muted);font-size:12px">${escapeHtml(e.no)}</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:11px;color:var(--text-muted)">${fmtDate(e.ts).slice(0,10)}</span>
-          <a class="btn-link" href="https://www.kuaidi100.com/chaxun?nu=${encodeURIComponent(e.no)}" target="_blank" rel="noopener" style="font-size:12px">查询</a>
-          <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delLife('express','${e.id}')">删</button>
-        </div>
-      </li>
-    `).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无快递记录</li>';
+    el.innerHTML = state.express.slice().reverse().map(e => {
+      const isCode = e.no && e.no.length <= 6 && /^\d+$/.test(e.no);
+      const label = isCode ? '取件码' : '单号';
+      return `
+        <li class="record-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+            <div>
+              <strong>${escapeHtml(e.company)}</strong>
+              ${e.phone ? `<span style="margin-left:8px;color:var(--text-muted);font-size:12px">📱${escapeHtml(e.phone)}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:11px;color:var(--text-muted)">${fmtDate(e.ts).slice(5,10)}</span>
+              <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delLife('express','${e.id}')">删</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;width:100%">
+            <span style="font-size:11px;color:var(--text-muted)">${label}：</span>
+            <span style="font-size:18px;font-weight:700;letter-spacing:2px;font-family:monospace">${escapeHtml(e.no)}</span>
+            <button class="btn-ghost" style="font-size:10px;padding:2px 6px;margin-left:auto" onclick="window.__app.copyText('${escapeAttr(e.no)}')">复制</button>
+          </div>
+          ${e.location ? `<div style="font-size:12px;color:var(--text-soft)">📍 ${escapeHtml(e.location)}</div>` : ''}
+        </li>
+      `;
+    }).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无快递记录</li>';
   }
 
   function renderMemos() {
@@ -3080,16 +3228,18 @@
     const company = $('#expressCompany').value.trim();
     const no = $('#expressNo').value.trim();
     const phone = ($('#expressPhone') ? $('#expressPhone').value.trim() : '');
-    if (!company || !no) { toast('请填写快递公司和单号'); return; }
-    const item = { id: uid(), company, no, phone, ts: Date.now() };
+    const location = ($('#expressLocation') ? $('#expressLocation').value.trim() : '');
+    if (!company || !no) { toast('请填写快递公司和取件码/单号'); return; }
+    const item = { id: uid(), company, no, phone, location, ts: Date.now() };
     await dbPut('express', item);
     state.express.push(item);
     saveLocalCache();
     $('#expressCompany').value = '';
     $('#expressNo').value = '';
     if ($('#expressPhone')) $('#expressPhone').value = '';
+    if ($('#expressLocation')) $('#expressLocation').value = '';
     renderExpress();
-    toast('快递已记录');
+    toast('已记录');
   }
 
   async function addMemo() {
@@ -3186,13 +3336,20 @@
   };
 
   window.__app = {
-    editClassModal, editStudentModal, editCommModal, editTemplateModal,
-    editCallbackModal, editHourModal, editLibModal, editTodoModal,
-    editCardModal, downloadLibFile,
-    openStudent, addScore, delScore, saveScores, addReport, saveReport,
-    delReport, delComm, loadMindmapById, delMindmap, copyText, delClip,
-    confirmDelete, closeModal, delLife: delLifeItem,
-    delFeedback, delFeedbackMaterial, editFeedbackModal
+    editClassModal: window.editClassModal, editStudentModal: window.editStudentModal,
+    editCommModal: window.editCommModal, editTemplateModal: window.editTemplateModal,
+    editCallbackModal: window.editCallbackModal, editHourModal: window.editHourModal,
+    editLibModal: window.editLibModal, editTodoModal: window.editTodoModal,
+    editCardModal: window.editCardModal, downloadLibFile: window.downloadLibFile,
+    openStudent: window.openStudent, addScore: window.addScore, delScore: window.delScore,
+    saveScores: window.saveScores, addReport: window.addReport, saveReport: window.saveReport,
+    delReport: window.delReport, delComm: window.delComm,
+    loadMindmapById: window.loadMindmapById, delMindmap: window.delMindmap,
+    copyText: window.copyText, delClip: window.delClip,
+    confirmDelete: window.confirmDelete, closeModal,
+    delLife: delLifeItem,
+    delFeedback, delFeedbackMaterial, editFeedbackModal,
+    editClassFeedback: editClassFeedbackModal, delClassFeedback
   };
 
   // 启动

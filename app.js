@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 1;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky'];
+  const DB_VER = 2;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns'];
 
   let dbInstance = null;
   function openDB() {
@@ -158,7 +158,10 @@
     mindmaps: [],
     todos: [],
     clips: [],
-    sticky: []
+    sticky: [],
+    express: [],
+    memos: [],
+    countdowns: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -376,7 +379,7 @@
       students: '学员档案', 'student-detail': '学员档案详情',
       communicate: '家长沟通', hours: '课时管理', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
-      settings: '个性化设置', data: '数据备份'
+      settings: '个性化设置', data: '数据备份', life: '生活助手'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -396,6 +399,7 @@
     if (page === 'tools') renderTools();
     if (page === 'settings') renderSettings();
     if (page === 'data') renderData();
+    if (page === 'life') renderLife();
 
     // 移动端收起侧边栏
     const sidebar = $('#sidebar');
@@ -452,28 +456,41 @@
     if (editCardBtn) editCardBtn.onclick = () => window.__app.editCardModal();
     const bannerAvatar = $('#bannerAvatar');
     if (bannerAvatar) bannerAvatar.onclick = () => $('#avatarInput').click();
-    $('#uploadAvatarBtn').onclick = () => $('#avatarInput').click();
-    $('#avatarInput').onchange = e => {
+    const uploadAvatarBtn = $('#uploadAvatarBtn');
+    if (uploadAvatarBtn) uploadAvatarBtn.onclick = () => $('#avatarInput').click();
+    const avatarInput = $('#avatarInput');
+    if (avatarInput) avatarInput.onchange = e => {
       handleAvatar(e.target.files[0]);
       renderBanner();
     };
-    $('#copyCard').onclick = copyCard;
+    const copyCardBtn = $('#copyCard');
+    if (copyCardBtn) copyCardBtn.onclick = copyCard;
 
     // 课表
-    $('#addClassBtn').onclick = () => editClassModal();
-    $('#scheduleType').onchange = renderSchedule;
-    $('#classFilter').onchange = renderSchedule;
-    $('#exportClassBtn').onclick = exportClassToWPS;
+    const addClassBtn = $('#addClassBtn');
+    if (addClassBtn) addClassBtn.onclick = () => editClassModal();
+    const scheduleType = $('#scheduleType');
+    if (scheduleType) scheduleType.onchange = renderSchedule;
+    const classFilter = $('#classFilter');
+    if (classFilter) classFilter.onchange = renderSchedule;
+    const exportClassBtn = $('#exportClassBtn');
+    if (exportClassBtn) exportClassBtn.onclick = exportClassToWPS;
 
     // 学员
-    $('#addStudentBtn').onclick = () => editStudentModal();
-    $('#studentFilter').oninput = renderStudentList;
-    $('#tagFilter').onchange = renderStudentList;
-    $('#backStudentList').onclick = () => showPage('students');
-    $('#exportStudentBtn').onclick = exportStudentXLSX;
+    const addStudentBtn = $('#addStudentBtn');
+    if (addStudentBtn) addStudentBtn.onclick = () => editStudentModal();
+    const studentFilter = $('#studentFilter');
+    if (studentFilter) studentFilter.oninput = renderStudentList;
+    const tagFilter = $('#tagFilter');
+    if (tagFilter) tagFilter.onchange = renderStudentList;
+    const backStudentList = $('#backStudentList');
+    if (backStudentList) backStudentList.onclick = () => showPage('students');
+    const exportStudentBtn = $('#exportStudentBtn');
+    if (exportStudentBtn) exportStudentBtn.onclick = exportStudentXLSX;
 
     // 沟通
-    $('#addCommBtn').onclick = () => editCommModal();
+    const addCommBtn = $('#addCommBtn');
+    if (addCommBtn) addCommBtn.onclick = () => editCommModal();
     $$('.tab').forEach(tab => {
       tab.onclick = () => {
         $$('.tab').forEach(t => t.classList.remove('active'));
@@ -487,24 +504,34 @@
     });
 
     // 课时
-    $('#addHourBtn').onclick = () => editHourModal();
-    $('#hourStudentFilter').onchange = renderHours;
-    $('#hourTypeFilter').onchange = renderHours;
+    const addHourBtn = $('#addHourBtn');
+    if (addHourBtn) addHourBtn.onclick = () => editHourModal();
+    const hourStudentFilter = $('#hourStudentFilter');
+    if (hourStudentFilter) hourStudentFilter.onchange = renderHours;
+    const hourTypeFilter = $('#hourTypeFilter');
+    if (hourTypeFilter) hourTypeFilter.onchange = renderHours;
 
     // 素材库
-    $('#addLibBtn').onclick = () => editLibModal();
-    $('#libTypeFilter').onchange = renderLibrary;
+    const addLibBtn = $('#addLibBtn');
+    if (addLibBtn) addLibBtn.onclick = () => editLibModal();
+    const libTypeFilter = $('#libTypeFilter');
+    if (libTypeFilter) libTypeFilter.onchange = renderLibrary;
     const importLibBtn = $('#importLibBtn');
     if (importLibBtn) importLibBtn.onclick = () => $('#libFileInput').click();
     const libFileInput = $('#libFileInput');
     if (libFileInput) libFileInput.onchange = e => handleLibFileImport(e.target.files[0]);
 
     // 思维导图
-    $('#generateMindmapBtn').onclick = generateMindmap;
-    $('#exportMindmapBtn').onclick = exportMindmapPNG;
-    $('#addRootNode').onclick = addRootNode;
-    $('#saveMindmapBtn').onclick = saveCurrentMindmap;
-    $('#loadHistoryBtn').onclick = loadMindmapHistory;
+    const generateMindmapBtn = $('#generateMindmapBtn');
+    if (generateMindmapBtn) generateMindmapBtn.onclick = generateMindmap;
+    const exportMindmapBtn = $('#exportMindmapBtn');
+    if (exportMindmapBtn) exportMindmapBtn.onclick = exportMindmapPNG;
+    const addRootNodeBtn = $('#addRootNode');
+    if (addRootNodeBtn) addRootNodeBtn.onclick = addRootNode;
+    const saveMindmapBtn = $('#saveMindmapBtn');
+    if (saveMindmapBtn) saveMindmapBtn.onclick = saveCurrentMindmap;
+    const loadHistoryBtn = $('#loadHistoryBtn');
+    if (loadHistoryBtn) loadHistoryBtn.onclick = loadMindmapHistory;
     const importMindmapBtn = $('#importMindmapBtn');
     if (importMindmapBtn) importMindmapBtn.onclick = () => $('#mindmapFileInput').click();
     const mindmapFileInput = $('#mindmapFileInput');
@@ -513,17 +540,23 @@
     if (exportMindmapJsonBtn) exportMindmapJsonBtn.onclick = exportMindmapJSON;
 
     // 看板
-    $('#addTodoBtn').onclick = () => editTodoModal();
+    const addTodoBtn = $('#addTodoBtn');
+    if (addTodoBtn) addTodoBtn.onclick = () => editTodoModal();
 
     // 工具
-    $('#timerStart').onclick = () => startTimer();
-    $('#timerPause').onclick = () => pauseTimer();
-    $('#timerReset').onclick = () => resetTimer();
+    const timerStart = $('#timerStart');
+    if (timerStart) timerStart.onclick = () => startTimer();
+    const timerPause = $('#timerPause');
+    if (timerPause) timerPause.onclick = () => pauseTimer();
+    const timerReset = $('#timerReset');
+    if (timerReset) timerReset.onclick = () => resetTimer();
     $$('.timer-presets button').forEach(b => {
       b.onclick = () => { setTimer(parseInt(b.dataset.sec)); };
     });
-    $('#clipAdd').onclick = addClip;
-    $('#stickyNote').oninput = e => {
+    const clipAdd = $('#clipAdd');
+    if (clipAdd) clipAdd.onclick = addClip;
+    const stickyNote = $('#stickyNote');
+    if (stickyNote) stickyNote.oninput = e => {
       const note = { id: 'main', text: e.target.value, ts: Date.now() };
       state.sticky = [note];
       dbPut('sticky', note);
@@ -531,24 +564,33 @@
     };
 
     // 个性化
-    $('#bgColor').oninput = e => updateSetting('bgColor', e.target.value);
-    $('#resetBgColor').onclick = () => { updateSetting('bgColor', ''); $('#bgColor').value = '#f6f7fb'; };
-    $('#bgImageInput').onchange = e => handleBgImage(e.target.files[0]);
-    $('#clearBgImage').onclick = () => { updateSetting('bgImage', ''); applyBgImage(''); };
-    $('#fontFamily').onchange = e => updateSetting('fontFamily', e.target.value);
-    $('#fontSize').oninput = e => {
-      $('#fontSizeVal').textContent = e.target.value + 'px';
+    const bgColor = $('#bgColor');
+    if (bgColor) bgColor.oninput = e => updateSetting('bgColor', e.target.value);
+    const resetBgColor = $('#resetBgColor');
+    if (resetBgColor) resetBgColor.onclick = () => { updateSetting('bgColor', ''); if (bgColor) bgColor.value = '#f5f5f5'; };
+    const bgImageInput = $('#bgImageInput');
+    if (bgImageInput) bgImageInput.onchange = e => handleBgImage(e.target.files[0]);
+    const clearBgImage = $('#clearBgImage');
+    if (clearBgImage) clearBgImage.onclick = () => { updateSetting('bgImage', ''); applyBgImage(''); };
+    const fontFamily = $('#fontFamily');
+    if (fontFamily) fontFamily.onchange = e => updateSetting('fontFamily', e.target.value);
+    const fontSizeEl = $('#fontSize');
+    if (fontSizeEl) fontSizeEl.oninput = e => {
+      const fsv = $('#fontSizeVal');
+      if (fsv) fsv.textContent = e.target.value + 'px';
       updateSetting('fontSize', e.target.value);
     };
-    $$('#themePalette button').forEach(b => {
-      b.onclick = () => {};
-    });
+    $$('#themePalette button').forEach(b => { b.onclick = () => {}; });
 
     // 数据
-    $('#backupBtn').onclick = backupData;
-    $('#restoreInput').onchange = e => restoreData(e.target.files[0]);
-    $('#gitmindSync').onclick = testGitmind;
-    $('#clearAllBtn').onclick = clearAllData;
+    const backupBtn = $('#backupBtn');
+    if (backupBtn) backupBtn.onclick = backupData;
+    const restoreInput = $('#restoreInput');
+    if (restoreInput) restoreInput.onchange = e => restoreData(e.target.files[0]);
+    const gitmindSync = $('#gitmindSync');
+    if (gitmindSync) gitmindSync.onclick = testGitmind;
+    const clearAllBtn = $('#clearAllBtn');
+    if (clearAllBtn) clearAllBtn.onclick = clearAllData;
 
     // WPS 导出按钮
     const exportAllBtn = $('#exportAllBtn');
@@ -565,6 +607,9 @@
     if (exportKanbanBtn) exportKanbanBtn.onclick = exportKanbanToWPS;
     const exportAllDataBtn = $('#exportAllDataBtn');
     if (exportAllDataBtn) exportAllDataBtn.onclick = exportAllToWPS;
+
+    // 生活助手
+    bindLifeEvents();
 
     // 悬浮球
     $('#floatBall').onclick = () => $('#floatMenu').hidden = !$('#floatMenu').hidden;
@@ -2527,6 +2572,161 @@
     }, 100);
   }
 
+  // ================= 生活助手 =================
+  function renderLife() {
+    renderExpress();
+    renderMemos();
+    renderCountdowns();
+  }
+
+  function renderExpress() {
+    const el = $('#expressList');
+    if (!el) return;
+    el.innerHTML = state.express.slice().reverse().map(e => `
+      <li class="record-item">
+        <div>
+          <strong>${escapeHtml(e.company)}</strong>
+          <span style="margin-left:8px;color:var(--text-muted);font-size:12px">${escapeHtml(e.no)}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-muted)">${fmtDate(e.ts).slice(0,10)}</span>
+          <a class="btn-link" href="https://www.kuaidi100.com/chaxun?nu=${encodeURIComponent(e.no)}" target="_blank" rel="noopener" style="font-size:12px">查询</a>
+          <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delLife('express','${e.id}')">删</button>
+        </div>
+      </li>
+    `).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无快递记录</li>';
+  }
+
+  function renderMemos() {
+    const el = $('#memoList');
+    if (!el) return;
+    el.innerHTML = state.memos.slice().reverse().map(m => `
+      <li class="record-item">
+        <span>${escapeHtml(m.text)}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-muted)">${fmtDate(m.ts).slice(5,10)}</span>
+          <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delLife('memos','${m.id}')">删</button>
+        </div>
+      </li>
+    `).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无记事</li>';
+  }
+
+  function renderCountdowns() {
+    const el = $('#cdList');
+    if (!el) return;
+    const now = Date.now();
+    el.innerHTML = state.countdowns.map(c => {
+      const diff = new Date(c.date).getTime() - now;
+      const days = Math.ceil(diff / 86400000);
+      const text = days > 0 ? `还剩 ${days} 天` : days === 0 ? '今天' : `已过 ${-days} 天`;
+      const color = days > 0 && days <= 7 ? 'var(--danger)' : 'var(--text-muted)';
+      return `
+        <li class="record-item">
+          <div>
+            <strong>${escapeHtml(c.name)}</strong>
+            <span style="margin-left:8px;font-size:12px;color:var(--text-muted)">${c.date}</span>
+          </div>
+          <span style="font-size:14px;font-weight:600;color:${color}">${text}</span>
+          <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delLife('countdowns','${c.id}')">删</button>
+        </li>
+      `;
+    }).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无倒计时</li>';
+  }
+
+  async function addExpress() {
+    const company = $('#expressCompany').value.trim();
+    const no = $('#expressNo').value.trim();
+    if (!company || !no) { toast('请填写快递公司和单号'); return; }
+    const item = { id: uid(), company, no, ts: Date.now() };
+    await dbPut('express', item);
+    state.express.push(item);
+    saveLocalCache();
+    $('#expressCompany').value = '';
+    $('#expressNo').value = '';
+    renderExpress();
+    toast('快递已记录');
+  }
+
+  async function addMemo() {
+    const text = $('#memoInput').value.trim();
+    if (!text) return;
+    const item = { id: uid(), text, ts: Date.now() };
+    await dbPut('memos', item);
+    state.memos.push(item);
+    saveLocalCache();
+    $('#memoInput').value = '';
+    renderMemos();
+  }
+
+  async function addCountdown() {
+    const name = $('#cdName').value.trim();
+    const date = $('#cdDate').value;
+    if (!name || !date) { toast('请填写事件名称和日期'); return; }
+    const item = { id: uid(), name, date, ts: Date.now() };
+    await dbPut('countdowns', item);
+    state.countdowns.push(item);
+    saveLocalCache();
+    $('#cdName').value = '';
+    $('#cdDate').value = '';
+    renderCountdowns();
+    toast('倒计时已添加');
+  }
+
+  async function delLifeItem(store, id) {
+    await dbDel(store, id);
+    state[store] = state[store].filter(x => x.id !== id);
+    saveLocalCache();
+    if (store === 'express') renderExpress();
+    if (store === 'memos') renderMemos();
+    if (store === 'countdowns') renderCountdowns();
+  }
+
+  async function queryWeather() {
+    const city = $('#weatherCity').value.trim();
+    if (!city) { toast('请输入城市名'); return; }
+    $('#weatherResult').innerHTML = '<p class="hint">查询中…</p>';
+    try {
+      const resp = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`);
+      const data = await resp.json();
+      const cur = data.current_condition[0];
+      const desc = cur.weatherDesc[0].value;
+      const temp = cur.temp_C;
+      const humidity = cur.humidity;
+      const wind = cur.windspeedKmph;
+      $('#weatherResult').innerHTML = `
+        <div style="padding:16px;text-align:center">
+          <div style="font-size:36px;font-weight:700">${temp}°C</div>
+          <div style="font-size:14px;color:var(--text-soft);margin:4px 0">${desc}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+            湿度 ${humidity}% · 风速 ${wind}km/h
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      $('#weatherResult').innerHTML = '<p class="hint" style="color:var(--danger)">查询失败，请稍后重试</p>';
+    }
+  }
+
+  // 生活助手事件绑定
+  function bindLifeEvents() {
+    $$('.life-tab').forEach(tab => {
+      tab.onclick = () => {
+        $$('.life-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $$('.life-content').forEach(c => c.hidden = true);
+        $('#ltab-' + tab.dataset.ltab).hidden = false;
+      };
+    });
+    const addExpressBtn = $('#addExpressBtn');
+    if (addExpressBtn) addExpressBtn.onclick = addExpress;
+    const addMemoBtn = $('#addMemoBtn');
+    if (addMemoBtn) addMemoBtn.onclick = addMemo;
+    const addCdBtn = $('#addCdBtn');
+    if (addCdBtn) addCdBtn.onclick = addCountdown;
+    const weatherBtn = $('#weatherBtn');
+    if (weatherBtn) weatherBtn.onclick = queryWeather;
+  }
+
   window.confirmDelete = async function (store, id, name) {
     if (!confirm(`确认删除「${name}」？`)) return;
     await dbDel(store, id);
@@ -2544,7 +2744,7 @@
     editCardModal, downloadLibFile,
     openStudent, addScore, delScore, saveScores, addReport, saveReport,
     delReport, delComm, loadMindmapById, delMindmap, copyText, delClip,
-    confirmDelete, closeModal
+    confirmDelete, closeModal, delLife: delLifeItem
   };
 
   // 启动

@@ -34,6 +34,7 @@
     <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
     <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
+    <a class="nav-item" data-page="life"><span class="nav-icon">☀</span><span class="nav-label">生活助手</span></a>
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
@@ -392,6 +393,77 @@
           <h3>字体大小</h3>
           <input type="range" id="fontSize" min="12" max="20" value="14">
           <span id="fontSizeVal">14px</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-life" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>生活助手</h2>
+      </div>
+      <div class="life-tabs">
+        <button class="life-tab active" data-ltab="express">快递查询</button>
+        <button class="life-tab" data-ltab="weather">天气</button>
+        <button class="life-tab" data-ltab="memo">备忘记事</button>
+        <button class="life-tab" data-ltab="countdown">倒计时</button>
+      </div>
+
+      <!-- 快递查询 -->
+      <div class="life-content" id="ltab-express">
+        <div class="life-section">
+          <h3>快递单号记录</h3>
+          <div class="clip-input">
+            <input type="text" id="expressCompany" placeholder="快递公司（顺丰/中通/圆通…）">
+            <input type="text" id="expressNo" placeholder="快递单号">
+            <button class="btn-primary" id="addExpressBtn">记录</button>
+          </div>
+          <ul class="record-list" id="expressList"></ul>
+          <div class="life-links">
+            <a class="btn-link" href="https://www.sf-express.com/" target="_blank" rel="noopener">→ 顺丰官网</a>
+            <a class="btn-link" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">→ 快递100查询</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 天气 -->
+      <div class="life-content" id="ltab-weather" hidden>
+        <div class="life-section">
+          <h3>今日天气</h3>
+          <div class="weather-card" id="weatherCard">
+            <p class="hint">输入城市名查看天气</p>
+            <div class="clip-input">
+              <input type="text" id="weatherCity" placeholder="如：北京">
+              <button class="btn-primary" id="weatherBtn">查询</button>
+            </div>
+            <div id="weatherResult"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 备忘记事 -->
+      <div class="life-content" id="ltab-memo" hidden>
+        <div class="life-section">
+          <h3>随手记事</h3>
+          <div class="clip-input">
+            <input type="text" id="memoInput" placeholder="记一件事…">
+            <button class="btn-primary" id="addMemoBtn">添加</button>
+          </div>
+          <ul class="record-list" id="memoList"></ul>
+        </div>
+      </div>
+
+      <!-- 倒计时 -->
+      <div class="life-content" id="ltab-countdown" hidden>
+        <div class="life-section">
+          <h3>重要日期倒计时</h3>
+          <div class="clip-input">
+            <input type="text" id="cdName" placeholder="事件名称（如：期末考试）">
+            <input type="date" id="cdDate">
+            <button class="btn-primary" id="addCdBtn">添加</button>
+          </div>
+          <ul class="record-list" id="cdList"></ul>
         </div>
       </div>
     </div>

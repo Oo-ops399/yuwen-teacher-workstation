@@ -865,6 +865,41 @@ label input, label select, label textarea { margin-top: 4px; }
 }
 .theme-palette button.active { box-shadow: 0 0 0 2px var(--primary); transform: scale(1.1); }
 
+/* ================= 生活助手 ================= */
+.life-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 18px;
+  gap: 4px;
+  overflow-x: auto;
+}
+.life-tab {
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-soft);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.life-tab.active { color: var(--primary); border-color: var(--primary); }
+.life-content { padding: 16px 18px; }
+.life-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--primary);
+}
+.life-links { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+.weather-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
 /* ================= 数据 ================= */
 .data-block {
   padding: 14px 18px;

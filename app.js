@@ -4566,6 +4566,17 @@
   };
 
   // 启动
+  // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
+  const CURRENT_JS_VER = '38';
+  (function checkVersion() {
+    const stored = getSetting('jsVer', '');
+    if (stored && stored !== CURRENT_JS_VER) {
+      console.log('[v3.2.1] 检测到旧版本，准备刷新数据迁移');
+      updateSetting('jsVer', CURRENT_JS_VER);
+    }
+    updateSetting('jsVer', CURRENT_JS_VER);
+  })();
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

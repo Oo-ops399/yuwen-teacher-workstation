@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#5b6cff">
+<meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
 <title>语文教师专属工作台</title>
 <link rel="stylesheet" href="./styles.css">
@@ -25,7 +25,6 @@
   </div>
   <nav class="nav-list">
     <a class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span class="nav-label">工作台首页</span></a>
-    <a class="nav-item" data-page="card"><span class="nav-icon">◉</span><span class="nav-label">电子名片</span></a>
     <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
     <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
     <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
@@ -38,7 +37,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v1.0 · 语文教师版</span>
+    <span class="version">v2.0 · 语文教师版</span>
   </div>
 </aside>
 
@@ -49,13 +48,37 @@
     <h1 class="page-title" id="pageTitle">工作台首页</h1>
     <div class="topbar-right">
       <div class="global-search">
-        <input type="text" id="globalSearch" placeholder="全局搜索：学生、关键词…" />
+        <input type="text" id="globalSearch" placeholder="搜索学生、关键词…" />
         <div id="searchResult" class="search-result"></div>
       </div>
+      <button class="btn-ghost btn-export-all" id="exportAllBtn" title="导出全部数据到WPS">导出WPS</button>
     </div>
   </header>
 
   <section class="page" id="page-dashboard">
+    <!-- 名片横幅装饰区 -->
+    <div class="card-banner" id="cardBanner">
+      <div class="banner-left">
+        <div class="banner-avatar" id="bannerAvatar">
+          <span id="bannerAvatarPlaceholder">语</span>
+        </div>
+      </div>
+      <div class="banner-info">
+        <h2 id="bannerName">点击编辑名片</h2>
+        <p id="bannerTitle">语文教师</p>
+        <div class="banner-meta">
+          <span id="bannerOrg"></span>
+          <span id="bannerGrade"></span>
+        </div>
+        <p class="banner-motto" id="bannerMotto"></p>
+      </div>
+      <div class="banner-actions">
+        <button class="btn-ghost" id="editCardBtn">编辑名片</button>
+        <button class="btn-ghost" id="copyCard">复制分享</button>
+      </div>
+      <input type="file" id="avatarInput" accept="image/*" hidden>
+    </div>
+
     <div class="grid-cards">
       <div class="stat-card">
         <div class="stat-num" id="stat-students">0</div>
@@ -101,38 +124,10 @@
         <h2>使用说明</h2>
       </div>
       <div class="info-block">
-        <p>· 本工作台所有数据保存在浏览器本地数据库（IndexedDB），清除浏览器缓存不会丢失。</p>
-        <p>· 建议每周使用「数据备份」导出 JSON 文件长期保存，或同步至夸克网盘。</p>
-        <p>· 全局悬浮球常驻右下角，可快速新建学员/沟通/课表/话术/备课导图。</p>
-        <p>· 底部导航栏在所有页面均显示，方便快速切换。</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="page" id="page-card" hidden>
-    <div class="panel">
-      <div class="panel-header">
-        <h2>个人电子名片</h2>
-        <button class="btn-primary" id="copyCard">一键复制名片</button>
-      </div>
-      <div class="card-editor">
-        <div class="avatar-uploader">
-          <div class="avatar-preview" id="avatarPreview">
-            <span id="avatarPlaceholder">＋ 上传头像</span>
-          </div>
-          <input type="file" id="avatarInput" accept="image/*" hidden>
-          <button class="btn-ghost" id="uploadAvatarBtn">更换头像</button>
-        </div>
-        <div class="card-form">
-          <label>姓名 <input type="text" data-card="name" placeholder="姓名"></label>
-          <label>职称 <input type="text" data-card="title" placeholder="如：高级语文教师"></label>
-          <label>所在机构 <input type="text" data-card="org" placeholder="如：XX 培训学校"></label>
-          <label>教学年级 <input type="text" data-card="grade" placeholder="如：小学 1-6 年级"></label>
-          <label>教学特色 <input type="text" data-card="feature" placeholder="如：阅读写作 / 古诗文"></label>
-          <label>联系电话 <input type="text" data-card="phone" placeholder="如：138xxxxxxxx"></label>
-          <label>微信号 <input type="text" data-card="wechat" placeholder="微信"></label>
-          <label>教学理念 <textarea data-card="motto" rows="3" placeholder="一句话教学理念"></textarea></label>
-        </div>
+        <p>· 所有数据保存在浏览器本地数据库（IndexedDB），清除缓存不会丢失。</p>
+        <p>· 每周使用「数据备份」导出 JSON 文件，或同步至夸克网盘长期保存。</p>
+        <p>· 右上角「导出WPS」可一键导出全部学员、成绩、沟通记录到Excel表格。</p>
+        <p>· 底部导航栏在所有页面均显示，悬浮球常驻右下角。</p>
       </div>
     </div>
   </section>
@@ -147,13 +142,13 @@
             <option value="summer">暑假班</option>
           </select>
           <button class="btn-primary" id="addClassBtn">＋ 新建班级</button>
+          <button class="btn-ghost" id="exportClassBtn">导出WPS</button>
         </div>
       </div>
       <div class="filter-row">
         <select id="classFilter">
           <option value="">全部班级</option>
         </select>
-        <button class="btn-ghost" id="exportClassBtn">导出当前课表</button>
       </div>
       <div id="scheduleList" class="schedule-list"></div>
     </div>
@@ -163,7 +158,10 @@
     <div class="panel">
       <div class="panel-header">
         <h2>学员综合档案</h2>
-        <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exportAllStudentsBtn">导出WPS</button>
+          <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
+        </div>
       </div>
       <div class="filter-row">
         <input type="text" id="studentFilter" placeholder="按姓名/年级/班次筛选…">
@@ -185,7 +183,7 @@
         <h2 id="studentDetailTitle">学员档案</h2>
         <div class="header-actions">
           <button class="btn-ghost" id="backStudentList">← 返回</button>
-          <button class="btn-primary" id="exportStudentBtn">导出 WPS 表格</button>
+          <button class="btn-primary" id="exportStudentBtn">导出WPS</button>
         </div>
       </div>
       <div class="student-detail" id="studentDetail"></div>
@@ -196,7 +194,10 @@
     <div class="panel">
       <div class="panel-header">
         <h2>家长沟通中心</h2>
-        <button class="btn-primary" id="addCommBtn">＋ 记录沟通</button>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exportCommBtn">导出WPS</button>
+          <button class="btn-primary" id="addCommBtn">＋ 记录沟通</button>
+        </div>
       </div>
       <div class="tabs">
         <button class="tab active" data-tab="timeline">沟通时间线</button>
@@ -213,7 +214,10 @@
     <div class="panel">
       <div class="panel-header">
         <h2>课时管理</h2>
-        <button class="btn-primary" id="addHourBtn">＋ 消课/补课登记</button>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exportHoursBtn">导出WPS</button>
+          <button class="btn-primary" id="addHourBtn">＋ 消课/补课登记</button>
+        </div>
       </div>
       <div class="filter-row">
         <select id="hourStudentFilter">
@@ -234,7 +238,12 @@
     <div class="panel">
       <div class="panel-header">
         <h2>语文教学素材库</h2>
-        <button class="btn-primary" id="addLibBtn">＋ 新增素材</button>
+        <div class="header-actions">
+          <button class="btn-ghost" id="importLibBtn">导入文件</button>
+          <input type="file" id="libFileInput" accept=".zip,.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.ppt,.pptx" hidden>
+          <button class="btn-ghost" id="exportLibBtn">导出WPS</button>
+          <button class="btn-primary" id="addLibBtn">＋ 新增素材</button>
+        </div>
       </div>
       <div class="filter-row">
         <select id="libTypeFilter">
@@ -243,6 +252,7 @@
           <option value="讲义">讲义</option>
           <option value="答题模板">答题模板</option>
           <option value="练习题">练习题</option>
+          <option value="文件">导入文件</option>
         </select>
       </div>
       <div id="libList" class="card-list"></div>
@@ -254,7 +264,10 @@
       <div class="panel-header">
         <h2>AI 思维导图备课</h2>
         <div class="header-actions">
-          <button class="btn-ghost" id="exportMindmapBtn">导出 PNG</button>
+          <button class="btn-ghost" id="importMindmapBtn">导入导图</button>
+          <input type="file" id="mindmapFileInput" accept=".json,.mm,.xmind" hidden>
+          <button class="btn-ghost" id="exportMindmapJsonBtn">导出JSON</button>
+          <button class="btn-ghost" id="exportMindmapBtn">导出PNG</button>
           <button class="btn-primary" id="generateMindmapBtn">生成思维导图</button>
         </div>
       </div>
@@ -273,7 +286,7 @@
         </div>
         <div class="mindmap-output">
           <div class="mm-toolbar">
-            <span class="mm-tip">可双击节点编辑 · 拖拽节点调整</span>
+            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 右键添加子节点</span>
             <button class="btn-ghost" id="addRootNode">＋ 新增主节点</button>
             <button class="btn-ghost" id="saveMindmapBtn">保存到本地</button>
           </div>
@@ -290,7 +303,10 @@
     <div class="panel">
       <div class="panel-header">
         <h2>工作事务看板</h2>
-        <button class="btn-primary" id="addTodoBtn">＋ 新增任务</button>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exportKanbanBtn">导出WPS</button>
+          <button class="btn-primary" id="addTodoBtn">＋ 新增任务</button>
+        </div>
       </div>
       <div class="kanban-board">
         <div class="kanban-col" data-status="todo">
@@ -354,17 +370,6 @@
       </div>
       <div class="settings-grid">
         <div class="setting-item">
-          <h3>主题配色</h3>
-          <div class="theme-palette" id="themePalette">
-            <button data-theme="indigo" style="--c:#5b6cff" title="靛蓝"></button>
-            <button data-theme="rose" style="--c:#ff5d8f" title="玫红"></button>
-            <button data-theme="teal" style="--c:#2ec4b6" title="青绿"></button>
-            <button data-theme="amber" style="--c:#f59e0b" title="琥珀"></button>
-            <button data-theme="violet" style="--c:#8b5cf6" title="紫罗兰"></button>
-            <button data-theme="slate" style="--c:#475569" title="墨黑"></button>
-          </div>
-        </div>
-        <div class="setting-item">
           <h3>背景颜色</h3>
           <input type="color" id="bgColor">
           <button class="btn-ghost" id="resetBgColor">恢复默认</button>
@@ -381,7 +386,6 @@
             <option value="pingfang">苹方 / 微软雅黑</option>
             <option value="serif">思源宋体</option>
             <option value="kaiti">楷体</option>
-            <option value="hand">手写体</option>
           </select>
         </div>
         <div class="setting-item">
@@ -407,6 +411,11 @@
         <h3>本地恢复</h3>
         <p>选择此前导出的 JSON 文件，恢复全部数据。</p>
         <input type="file" id="restoreInput" accept=".json">
+      </div>
+      <div class="data-block">
+        <h3>导出全部到 WPS / Excel</h3>
+        <p>一键导出全部学员、成绩、沟通、课时记录为 Excel 表格。</p>
+        <button class="btn-primary" id="exportAllDataBtn">导出全部 WPS 表格</button>
       </div>
       <div class="data-block">
         <h3>GitMind 同步</h3>

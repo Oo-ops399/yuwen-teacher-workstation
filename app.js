@@ -192,6 +192,17 @@
     // 应用个性化设置
     applySettings();
 
+    // 移动端 touch-action 修复
+    $$('button, .btn-primary, .btn-ghost, .nav-item, .bnav-item, .quick-btn').forEach(el => {
+      el.style.touchAction = 'manipulation';
+    });
+
+    // 移动端弹窗从底部滑入
+    if (window.innerWidth <= 768) {
+      const mask = $('#modalMask');
+      if (mask) mask.classList.add('mobile-modal');
+    }
+
     // 渲染首页
     showPage('dashboard');
     renderDashboard();
@@ -357,7 +368,7 @@
     const target = $('#page-' + page);
     if (target) target.hidden = false;
     const titles = {
-      dashboard: '工作台首页', card: '电子名片', schedule: '班级课表',
+      dashboard: '工作台首页', schedule: '班级课表',
       students: '学员档案', 'student-detail': '学员档案详情',
       communicate: '家长沟通', hours: '课时管理', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
@@ -371,7 +382,6 @@
 
     // 渲染对应页面
     if (page === 'dashboard') renderDashboard();
-    if (page === 'card') renderCard();
     if (page === 'schedule') renderSchedule();
     if (page === 'students') renderStudentList();
     if (page === 'communicate') renderCommunicate();
@@ -384,9 +394,11 @@
     if (page === 'data') renderData();
 
     // 移动端收起侧边栏
-    if (window.innerWidth <= 768) {
-      $('#sidebar').classList.remove('mobile-open');
-      $('#sidebarMask').classList.remove('active');
+    const sidebar = $('#sidebar');
+    const sidebarMask = $('#sidebarMask');
+    if (sidebar && sidebar.classList.contains('mobile-open')) {
+      sidebar.classList.remove('mobile-open');
+      if (sidebarMask) sidebarMask.classList.remove('active');
     }
   }
 
@@ -431,19 +443,23 @@
       $('#sidebarMask').classList.remove('active');
     };
 
-    // 名片
+    // 名片横幅
+    const editCardBtn = $('#editCardBtn');
+    if (editCardBtn) editCardBtn.onclick = () => window.__app.editCardModal();
+    const bannerAvatar = $('#bannerAvatar');
+    if (bannerAvatar) bannerAvatar.onclick = () => $('#avatarInput').click();
     $('#uploadAvatarBtn').onclick = () => $('#avatarInput').click();
-    $('#avatarInput').onchange = e => handleAvatar(e.target.files[0]);
-    $$('[data-card]').forEach(el => {
-      el.addEventListener('input', saveCard);
-    });
+    $('#avatarInput').onchange = e => {
+      handleAvatar(e.target.files[0]);
+      renderBanner();
+    };
     $('#copyCard').onclick = copyCard;
 
     // 课表
     $('#addClassBtn').onclick = () => editClassModal();
     $('#scheduleType').onchange = renderSchedule;
     $('#classFilter').onchange = renderSchedule;
-    $('#exportClassBtn').onclick = exportClassCSV;
+    $('#exportClassBtn').onclick = exportClassToWPS;
 
     // 学员
     $('#addStudentBtn').onclick = () => editStudentModal();
@@ -474,6 +490,10 @@
     // 素材库
     $('#addLibBtn').onclick = () => editLibModal();
     $('#libTypeFilter').onchange = renderLibrary;
+    const importLibBtn = $('#importLibBtn');
+    if (importLibBtn) importLibBtn.onclick = () => $('#libFileInput').click();
+    const libFileInput = $('#libFileInput');
+    if (libFileInput) libFileInput.onchange = e => handleLibFileImport(e.target.files[0]);
 
     // 思维导图
     $('#generateMindmapBtn').onclick = generateMindmap;
@@ -481,6 +501,12 @@
     $('#addRootNode').onclick = addRootNode;
     $('#saveMindmapBtn').onclick = saveCurrentMindmap;
     $('#loadHistoryBtn').onclick = loadMindmapHistory;
+    const importMindmapBtn = $('#importMindmapBtn');
+    if (importMindmapBtn) importMindmapBtn.onclick = () => $('#mindmapFileInput').click();
+    const mindmapFileInput = $('#mindmapFileInput');
+    if (mindmapFileInput) mindmapFileInput.onchange = e => handleMindmapImport(e.target.files[0]);
+    const exportMindmapJsonBtn = $('#exportMindmapJsonBtn');
+    if (exportMindmapJsonBtn) exportMindmapJsonBtn.onclick = exportMindmapJSON;
 
     // 看板
     $('#addTodoBtn').onclick = () => editTodoModal();
@@ -511,7 +537,7 @@
       updateSetting('fontSize', e.target.value);
     };
     $$('#themePalette button').forEach(b => {
-      b.onclick = () => updateSetting('theme', b.dataset.theme);
+      b.onclick = () => {};
     });
 
     // 数据
@@ -519,6 +545,22 @@
     $('#restoreInput').onchange = e => restoreData(e.target.files[0]);
     $('#gitmindSync').onclick = testGitmind;
     $('#clearAllBtn').onclick = clearAllData;
+
+    // WPS 导出按钮
+    const exportAllBtn = $('#exportAllBtn');
+    if (exportAllBtn) exportAllBtn.onclick = exportAllToWPS;
+    const exportAllStudentsBtn = $('#exportAllStudentsBtn');
+    if (exportAllStudentsBtn) exportAllStudentsBtn.onclick = exportStudentsToWPS;
+    const exportCommBtn = $('#exportCommBtn');
+    if (exportCommBtn) exportCommBtn.onclick = exportCommunicationsToWPS;
+    const exportHoursBtn = $('#exportHoursBtn');
+    if (exportHoursBtn) exportHoursBtn.onclick = exportHoursToWPS;
+    const exportLibBtn = $('#exportLibBtn');
+    if (exportLibBtn) exportLibBtn.onclick = exportLibraryToWPS;
+    const exportKanbanBtn = $('#exportKanbanBtn');
+    if (exportKanbanBtn) exportKanbanBtn.onclick = exportKanbanToWPS;
+    const exportAllDataBtn = $('#exportAllDataBtn');
+    if (exportAllDataBtn) exportAllDataBtn.onclick = exportAllToWPS;
 
     // 悬浮球
     $('#floatBall').onclick = () => $('#floatMenu').hidden = !$('#floatMenu').hidden;
@@ -569,19 +611,6 @@
     applySettings();
   }
   function applySettings() {
-    const theme = getSetting('theme', 'indigo');
-    const themes = {
-      indigo: { p: '#5b6cff', pl: '#8a7bff' },
-      rose: { p: '#ff5d8f', pl: '#ff8aae' },
-      teal: { p: '#2ec4b6', pl: '#5fdac6' },
-      amber: { p: '#f59e0b', pl: '#fbbf24' },
-      violet: { p: '#8b5cf6', pl: '#a78bfa' },
-      slate: { p: '#475569', pl: '#64748b' }
-    };
-    const t = themes[theme] || themes.indigo;
-    document.documentElement.style.setProperty('--primary', t.p);
-    document.documentElement.style.setProperty('--primary-light', t.pl);
-
     const bg = getSetting('bgColor', '');
     if (bg) document.body.style.background = bg;
     else document.body.style.background = '';
@@ -631,8 +660,6 @@
   }
 
   function renderSettings() {
-    const theme = getSetting('theme', 'indigo');
-    $$('#themePalette button').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
     const bg = getSetting('bgColor', '#f6f7fb');
     $('#bgColor').value = bg;
     const fontVal = getSetting('fontFamily', 'default');
@@ -644,6 +671,7 @@
 
   // ================= 首页 =================
   function renderDashboard() {
+    renderBanner();
     $('#stat-students').textContent = state.students.length;
     $('#stat-classes').textContent = state.classes.length;
     $('#stat-comm').textContent = state.communications.length;
@@ -673,6 +701,91 @@
       $('#avatarPreview').innerHTML = '';
     }
   }
+
+  function renderBanner() {
+    const card = state.card[0] || {};
+    const bannerName = $('#bannerName');
+    const bannerTitle = $('#bannerTitle');
+    const bannerOrg = $('#bannerOrg');
+    const bannerGrade = $('#bannerGrade');
+    const bannerMotto = $('#bannerMotto');
+    const bannerAvatar = $('#bannerAvatar');
+    if (bannerName) bannerName.textContent = card.name || '语文教师';
+    if (bannerTitle) bannerTitle.textContent = card.title || '';
+    if (bannerOrg) bannerOrg.textContent = card.org || '';
+    if (bannerGrade) bannerGrade.textContent = card.grade || '';
+    if (bannerMotto) bannerMotto.textContent = card.motto || '';
+    const avatar = getSetting('avatar', '');
+    if (bannerAvatar) {
+      if (avatar) {
+        bannerAvatar.style.backgroundImage = `url(${avatar})`;
+        bannerAvatar.textContent = '';
+      } else {
+        bannerAvatar.style.backgroundImage = '';
+        bannerAvatar.textContent = '👤';
+      }
+    }
+  }
+
+  window.editCardModal = function () {
+    const card = state.card[0] || { id: 'main' };
+    const body = `
+      <label>姓名 <input type="text" id="cm_card_name" value="${escapeHtml(card.name||'')}"></label>
+      <label>职称 <input type="text" id="cm_card_title" value="${escapeHtml(card.title||'')}"></label>
+      <label>机构 <input type="text" id="cm_card_org" value="${escapeHtml(card.org||'')}"></label>
+      <label>年级 <input type="text" id="cm_card_grade" value="${escapeHtml(card.grade||'')}"></label>
+      <label>特色 <input type="text" id="cm_card_feature" value="${escapeHtml(card.feature||'')}"></label>
+      <label>电话 <input type="text" id="cm_card_phone" value="${escapeHtml(card.phone||'')}"></label>
+      <label>微信 <input type="text" id="cm_card_wechat" value="${escapeHtml(card.wechat||'')}"></label>
+      <label>理念 <textarea id="cm_card_motto" rows="2">${escapeHtml(card.motto||'')}</textarea></label>
+      <div style="margin-top:12px">
+        <label>头像</label>
+        <div id="cm_avatarPreview" style="width:80px;height:80px;border-radius:50%;border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background-size:cover;background-position:center;margin-top:8px;font-size:32px">${getSetting('avatar','')?'':'👤'}</div>
+        <input type="file" id="cm_avatarInput" accept="image/*" style="display:none">
+      </div>
+    `;
+    openModal('编辑名片', body, `
+      <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
+      <button class="btn-primary" id="cm_card_save">保存</button>
+    `);
+    const avatarUrl = getSetting('avatar', '');
+    if (avatarUrl) {
+      $('#cm_avatarPreview').style.backgroundImage = `url(${avatarUrl})`;
+      $('#cm_avatarPreview').textContent = '';
+    }
+    $('#cm_avatarPreview').onclick = () => $('#cm_avatarInput').click();
+    $('#cm_avatarInput').onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        $('#cm_avatarPreview').style.backgroundImage = `url(${ev.target.result})`;
+        $('#cm_avatarPreview').textContent = '';
+        updateSetting('avatar', ev.target.result);
+      };
+      reader.readAsDataURL(file);
+    };
+    $('#cm_card_save').onclick = async () => {
+      const data = {
+        id: 'main',
+        name: $('#cm_card_name').value,
+        title: $('#cm_card_title').value,
+        org: $('#cm_card_org').value,
+        grade: $('#cm_card_grade').value,
+        feature: $('#cm_card_feature').value,
+        phone: $('#cm_card_phone').value,
+        wechat: $('#cm_card_wechat').value,
+        motto: $('#cm_card_motto').value,
+        ts: Date.now()
+      };
+      state.card = [data];
+      await dbPut('card', data);
+      saveLocalCache();
+      closeModal();
+      renderBanner();
+      toast('名片已保存');
+    };
+  };
   function saveCard() {
     const data = { id: 'main', ts: Date.now() };
     $$('[data-card]').forEach(el => data[el.dataset.card] = el.value);
@@ -783,13 +896,18 @@
     };
   };
 
-  function exportClassCSV() {
+  function exportClassToWPS() {
     if (state.classes.length === 0) { toast('暂无班级数据'); return; }
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
     const rows = [['班级名称', '类型', '上课时间', '教室', '人数', '备注']];
-    state.classes.forEach(c => rows.push([c.name, c.type === 'summer' ? '暑假班' : '常规班', c.time, c.room, c.studentCount || 0, c.note || '']));
-    const csv = rows.map(r => r.map(cell => `"${(cell||'').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
-    downloadFile('\uFEFF' + csv, `班级课表_${todayStr()}.csv`, 'text/csv;charset=utf-8');
-    toast('课表已导出');
+    state.classes.forEach(c => rows.push([
+      c.name || '', c.type === 'summer' ? '暑假班' : '常规班',
+      c.time || '', c.room || '', c.studentCount || 0, c.note || ''
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '班级课表');
+    XLSX.writeFile(wb, `班级课表_${todayStr()}.xlsx`);
+    toast('课表已导出为WPS格式');
   }
 
   // ================= 学员档案 =================
@@ -1436,10 +1554,20 @@
     if (filter) list = list.filter(l => l.type === filter);
     const el = $('#libList');
     if (list.length === 0) { el.innerHTML = '<div class="info-block">暂无素材</div>'; return; }
-    el.innerHTML = list.map(l => `
+    el.innerHTML = list.map(l => {
+      let contentHtml = '';
+      if (l.type === '文件' && l.content) {
+        // 图片文件 - 显示缩略图
+        contentHtml = `<div style="margin-top:8px"><img src="${l.content}" style="max-width:120px;max-height:80px;border-radius:6px;border:1px solid #e5e7eb" /></div>`;
+      } else if (l.type === '文件') {
+        // 非图片文件 - 显示文件名和下载按钮
+        contentHtml = `<div style="margin-top:8px;font-size:12px;color:#6b7280">${escapeHtml(l.fileName || l.title)} · ${l.fileSize || ''}</div>`;
+      }
+      return `
       <div class="lib-item">
         <h4>${escapeHtml(l.title)}</h4>
         <p>${escapeHtml(l.note || '')}</p>
+        ${contentHtml}
         <div class="lib-meta">
           <span>${escapeHtml(l.type)}</span>
           <span>${escapeHtml(l.grade || '')}</span>
@@ -1448,10 +1576,73 @@
         <div style="margin-top:8px">
           <button class="btn-ghost" onclick="window.__app.editLibModal('${l.id}')">编辑</button>
           <button class="btn-ghost" onclick="window.__app.confirmDelete('library','${l.id}','素材')">删除</button>
+          ${l.type === '文件' && l.content ? `<button class="btn-ghost" onclick="window.__app.downloadLibFile('${l.id}')">下载</button>` : ''}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
+
+  function handleLibFileImport(file) {
+    if (!file) return;
+    const fileName = file.name;
+    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+    const fileType = file.type || '';
+    const isImage = fileType.startsWith('image/');
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const data = {
+        id: uid(),
+        type: '文件',
+        title: fileName,
+        fileName: fileName,
+        fileSize: fileSize,
+        fileType: fileType,
+        content: isImage ? e.target.result : '',
+        note: '',
+        grade: '',
+        ts: Date.now()
+      };
+      await dbPut('library', data);
+      state.library.push(data);
+      saveLocalCache();
+      renderLibrary();
+      toast('文件已导入素材库');
+    };
+    if (isImage) {
+      reader.readAsDataURL(file);
+    } else {
+      // 非图片文件只存元信息
+      const data = {
+        id: uid(),
+        type: '文件',
+        title: fileName,
+        fileName: fileName,
+        fileSize: fileSize,
+        fileType: fileType,
+        content: '',
+        note: '',
+        grade: '',
+        ts: Date.now()
+      };
+      dbPut('library', data);
+      state.library.push(data);
+      saveLocalCache();
+      renderLibrary();
+      toast('文件已导入素材库');
+    }
+  }
+
+  window.downloadLibFile = function (id) {
+    const l = state.library.find(x => x.id === id);
+    if (!l || !l.content) { toast('该文件无可下载内容'); return; }
+    const link = document.createElement('a');
+    link.href = l.content;
+    link.download = l.fileName || l.title;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   window.editLibModal = function (id) {
     const l = id ? state.library.find(x => x.id === id) : {};
     const body = `
@@ -1833,6 +2024,40 @@
     img.src = url;
   }
 
+  function handleMindmapImport(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data || !data.root) { toast('JSON 格式不正确，需要包含 root 字段'); return; }
+        mmData = data;
+        mmData.id = mmData.id || uid();
+        mmData.title = mmData.title || '导入备课';
+        mmData.ts = mmData.ts || Date.now();
+        layoutAndRenderMindmap();
+        toast('思维导图已导入');
+      } catch (err) {
+        toast('JSON 解析失败：' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function exportMindmapJSON() {
+    if (!mmData) { toast('请先生成导图'); return; }
+    // 清除内部布局属性后导出
+    const cleanData = JSON.parse(JSON.stringify(mmData));
+    function cleanNode(n) {
+      delete n._x; delete n._y; delete n._w; delete n._h;
+      (n.children || []).forEach(c => cleanNode(c));
+    }
+    cleanNode(cleanData.root);
+    const json = JSON.stringify(cleanData, null, 2);
+    downloadFile(json, `${mmData.title || '思维导图'}_${todayStr()}.json`, 'application/json');
+    toast('已导出 JSON');
+  }
+
   // ================= 工作看板 =================
   function renderKanban() {
     $$('.kanban-items').forEach(col => {
@@ -2114,6 +2339,110 @@
     toast('已清空所有数据');
   }
 
+  // ================= WPS 导出 =================
+  function exportAllToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: 学员总表
+    const stuRows = [['姓名', '年级', '班级', '学校', '家长电话', '课时', '薄弱项', '标签']];
+    state.students.forEach(s => stuRows.push([
+      s.name || '', s.grade || '', s.className || '', s.school || '',
+      s.phone || '', s.hours || 0, s.weakness || '', (s.tags || []).join('、')
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stuRows), '学员总表');
+
+    // Sheet 2: 成绩明细
+    const scoreRows = [['学员', '类型', '日期', '分数']];
+    state.students.forEach(s => {
+      (s.scores || []).forEach(sc => scoreRows.push([s.name || '', sc.type || '', sc.date || '', sc.score || 0]));
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scoreRows), '成绩明细');
+
+    // Sheet 3: 沟通记录
+    const commRows = [['学员', '沟通类型', '日期', '内容']];
+    state.communications.forEach(c => {
+      const s = state.students.find(x => x.id === c.studentId);
+      commRows.push([s ? s.name : '', c.type || '', fmtDate(c.ts), c.content || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(commRows), '沟通记录');
+
+    // Sheet 4: 课时记录
+    const hourRows = [['学员', '类型', '日期', '课时数', '备注']];
+    state.hours.forEach(h => {
+      const s = state.students.find(x => x.id === h.studentId);
+      hourRows.push([s ? s.name : '', h.type || '', h.date || '', h.hours || 0, h.note || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hourRows), '课时记录');
+
+    XLSX.writeFile(wb, `语文工作台_全量导出_${todayStr()}.xlsx`);
+    toast('WPS 全量导出已完成');
+  }
+
+  function exportStudentsToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['姓名', '年级', '班级', '学校', '家长电话', '课时', '薄弱项', '标签']];
+    state.students.forEach(s => rows.push([
+      s.name || '', s.grade || '', s.className || '', s.school || '',
+      s.phone || '', s.hours || 0, s.weakness || '', (s.tags || []).join('、')
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '学员列表');
+    XLSX.writeFile(wb, `学员列表_${todayStr()}.xlsx`);
+    toast('学员列表已导出');
+  }
+
+  function exportCommunicationsToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['学员', '沟通类型', '日期', '内容']];
+    state.communications.forEach(c => {
+      const s = state.students.find(x => x.id === c.studentId);
+      rows.push([s ? s.name : '', c.type || '', fmtDate(c.ts), c.content || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '沟通记录');
+    XLSX.writeFile(wb, `沟通记录_${todayStr()}.xlsx`);
+    toast('沟通记录已导出');
+  }
+
+  function exportHoursToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['学员', '类型', '日期', '课时数', '备注']];
+    state.hours.forEach(h => {
+      const s = state.students.find(x => x.id === h.studentId);
+      rows.push([s ? s.name : '', h.type || '', h.date || '', h.hours || 0, h.note || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '课时记录');
+    XLSX.writeFile(wb, `课时记录_${todayStr()}.xlsx`);
+    toast('课时记录已导出');
+  }
+
+  function exportLibraryToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['标题', '类型', '适用年级', '备注', '日期']];
+    state.library.forEach(l => rows.push([
+      l.title || '', l.type || '', l.grade || '', l.note || '', fmtDate(l.ts)
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '素材清单');
+    XLSX.writeFile(wb, `素材清单_${todayStr()}.xlsx`);
+    toast('素材清单已导出');
+  }
+
+  function exportKanbanToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['标题', '状态', '截止日期', '是否周期', '备注', '日期']];
+    state.todos.forEach(t => rows.push([
+      t.title || '', t.status === 'todo' ? '待办' : (t.status === 'doing' ? '进行中' : '已完成'),
+      t.dueDate || '', t.cycle ? '是' : '否', t.note || '', fmtDate(t.ts)
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '看板任务');
+    XLSX.writeFile(wb, `看板任务_${todayStr()}.xlsx`);
+    toast('看板任务已导出');
+  }
+
   // ================= 全局搜索 =================
   function doSearch(q) {
     if (!q) { $('#searchResult').classList.remove('active'); return; }
@@ -2208,6 +2537,7 @@
   window.__app = {
     editClassModal, editStudentModal, editCommModal, editTemplateModal,
     editCallbackModal, editHourModal, editLibModal, editTodoModal,
+    editCardModal, downloadLibFile,
     openStudent, addScore, delScore, saveScores, addReport, saveReport,
     delReport, delComm, loadMindmapById, delMindmap, copyText, delClip,
     confirmDelete, closeModal

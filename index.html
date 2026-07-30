@@ -28,7 +28,6 @@
     <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
     <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
     <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
-    <a class="nav-item" data-page="hours"><span class="nav-icon">⏱</span><span class="nav-label">课时管理</span></a>
     <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
     <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
     <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
@@ -41,7 +40,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v2.0 · 语文教师版</span>
+    <span class="version">v3.0 · 语文教师版</span>
   </div>
 </aside>
 
@@ -123,6 +122,29 @@
         <h2>近期提醒</h2>
       </div>
       <ul class="reminder-list" id="reminderList"></ul>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>备课助手 · 六年级下册</h2>
+      </div>
+      <div class="prep-section">
+        <h3 class="prep-section-title">预置资料包</h3>
+        <div class="prep-pack-grid" id="prepPackGrid"></div>
+      </div>
+      <div class="prep-section">
+        <h3 class="prep-section-title">在线搜索资料</h3>
+        <div class="prep-search-row">
+          <input type="text" id="prepSearchInput" placeholder="搜索六年级语文复习资料…">
+          <select id="prepSearchPlatform">
+            <option value="baidu">百度</option>
+            <option value="docin">豆丁网</option>
+            <option value="doc88">道客巴巴</option>
+            <option value="cnki">知网基础</option>
+          </select>
+          <button class="btn-primary" id="prepSearchBtn">搜索</button>
+        </div>
+      </div>
     </div>
 
     <div class="panel">
@@ -217,30 +239,6 @@
       <div class="tab-content" id="tab-timeline"></div>
       <div class="tab-content" id="tab-template" hidden></div>
       <div class="tab-content" id="tab-callback" hidden></div>
-    </div>
-  </section>
-
-  <section class="page" id="page-hours" hidden>
-    <div class="panel">
-      <div class="panel-header">
-        <h2>课时管理</h2>
-        <div class="header-actions">
-          <button class="btn-ghost" id="exportHoursBtn">导出WPS</button>
-          <button class="btn-primary" id="addHourBtn">＋ 消课/补课登记</button>
-        </div>
-      </div>
-      <div class="filter-row">
-        <select id="hourStudentFilter">
-          <option value="">全部学员</option>
-        </select>
-        <select id="hourTypeFilter">
-          <option value="">全部类型</option>
-          <option value="消课">消课</option>
-          <option value="补课">补课</option>
-          <option value="请假">请假</option>
-        </select>
-      </div>
-      <div id="hourList" class="record-list"></div>
     </div>
   </section>
 
@@ -468,28 +466,70 @@
       </div>
       <div class="settings-grid">
         <div class="setting-item">
-          <h3>背景颜色</h3>
+          <h3>预设背景图</h3>
+          <p>点击选择喜欢的渐变背景</p>
+          <div class="bg-preset-grid" id="bgPresetGrid">
+            <button class="bg-preset-btn" data-preset="1" style="background:linear-gradient(135deg,#f5f7fa,#c3cfe2)"></button>
+            <button class="bg-preset-btn" data-preset="2" style="background:linear-gradient(135deg,#e0c3fc,#8ec5fc)"></button>
+            <button class="bg-preset-btn" data-preset="3" style="background:linear-gradient(135deg,#f093fb,#f5576c)"></button>
+            <button class="bg-preset-btn" data-preset="4" style="background:linear-gradient(135deg,#a1c4fd,#c2e9fb)"></button>
+            <button class="bg-preset-btn" data-preset="5" style="background:linear-gradient(135deg,#d4fc79,#96e6a1)"></button>
+            <button class="bg-preset-btn" data-preset="6" style="background:linear-gradient(135deg,#f9f7f3,#e8e2d8)"></button>
+          </div>
+        </div>
+        <div class="setting-item">
+          <h3>自定义背景颜色</h3>
           <input type="color" id="bgColor">
           <button class="btn-ghost" id="resetBgColor">恢复默认</button>
         </div>
         <div class="setting-item">
-          <h3>背景图片</h3>
+          <h3>自定义背景图片</h3>
           <input type="file" id="bgImageInput" accept="image/*">
           <button class="btn-ghost" id="clearBgImage">清除背景图</button>
+        </div>
+        <div class="setting-item">
+          <h3>液态效果（毛玻璃）</h3>
+          <p>开启后面板呈毛玻璃半透明质感，配合背景图效果更佳</p>
+          <button class="btn-primary" id="toggleGlassBtn">一键切换液态效果</button>
+          <span class="setting-status" id="glassStatus">当前：关闭</span>
+        </div>
+        <div class="setting-item">
+          <h3>透明效果</h3>
+          <p>开启后面板半透明，可透出背景图</p>
+          <button class="btn-primary" id="toggleTransparentBtn">一键切换透明效果</button>
+          <span class="setting-status" id="transparentStatus">当前：关闭</span>
         </div>
         <div class="setting-item">
           <h3>字体切换</h3>
           <select id="fontFamily">
             <option value="default">系统默认</option>
-            <option value="pingfang">苹方 / 微软雅黑</option>
-            <option value="serif">思源宋体</option>
-            <option value="kaiti">楷体</option>
           </select>
+          <div style="margin-top:8px">
+            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+            <button class="btn-ghost" id="importFontBtn">导入字体 (.ttf/.otf)</button>
+          </div>
         </div>
         <div class="setting-item">
           <h3>字体大小</h3>
           <input type="range" id="fontSize" min="12" max="20" value="14">
           <span id="fontSizeVal">14px</span>
+        </div>
+        <div class="setting-item">
+          <h3>卡片圆角大小</h3>
+          <input type="range" id="radiusSize" min="4" max="24" value="12">
+          <span id="radiusSizeVal">12px</span>
+        </div>
+        <div class="setting-item">
+          <h3>紧凑模式</h3>
+          <p>减小间距，一屏显示更多内容</p>
+          <button class="btn-primary" id="toggleCompactBtn">一键切换紧凑模式</button>
+          <span class="setting-status" id="compactStatus">当前：关闭</span>
+        </div>
+        <div class="setting-item">
+          <h3>动画开关</h3>
+          <p>关闭过渡动画以提升性能</p>
+          <button class="btn-primary" id="toggleAnimationBtn">一键切换动画</button>
+          <span class="setting-status" id="animationStatus">当前：开启</span>
         </div>
       </div>
     </div>
@@ -615,6 +655,7 @@
         <h2>个人记账本</h2>
         <div class="header-actions">
           <button class="btn-ghost" id="exportAccountingBtn">导出WPS</button>
+          <button class="btn-ghost" id="genReceiptBtn">生成月度小票</button>
           <button class="btn-primary" id="addAccountingBtn">＋ 记一笔</button>
         </div>
       </div>
@@ -639,6 +680,21 @@
       <div id="accountingList"></div>
     </div>
   </section>
+
+  <!-- 电子小票预览 -->
+  <div id="receiptPreview" class="receipt-preview" hidden>
+    <div class="receipt-preview-header">
+      <h3>月度消费小票</h3>
+      <button class="modal-close" id="receiptClose">×</button>
+    </div>
+    <div class="receipt-preview-body">
+      <canvas id="receiptCanvas"></canvas>
+    </div>
+    <div class="receipt-preview-footer">
+      <button class="btn-primary" id="saveReceiptBtn">保存到手机</button>
+      <button class="btn-ghost" id="shareReceiptBtn">分享图片</button>
+    </div>
+  </div>
 
   <section class="page" id="page-ledger" hidden>
     <div class="panel">
@@ -725,10 +781,9 @@
 <!-- 底部导航 -->
 <nav id="bottomNav" class="bottom-nav">
   <a class="bnav-item active" data-page="dashboard"><span>⌂</span><span>首页</span></a>
-  <a class="bnav-item" data-page="students"><span>☷</span><span>学员</span></a>
-  <a class="bnav-item" data-page="communicate"><span>✉</span><span>沟通</span></a>
-  <a class="bnav-item" data-page="mindmap"><span>◈</span><span>备课</span></a>
-  <a class="bnav-item" data-page="kanban"><span>▤</span><span>看板</span></a>
+  <a class="bnav-item" data-page="life"><span>☀</span><span>生活</span></a>
+  <a class="bnav-item" data-page="ledger"><span>📋</span><span>学情</span></a>
+  <a class="bnav-item" data-page="data"><span>⇋</span><span>备份</span></a>
 </nav>
 
 <!-- 悬浮球 -->
@@ -763,6 +818,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=25"></script>
+<script src="./app.js?v=35"></script>
 </body>
 </html>

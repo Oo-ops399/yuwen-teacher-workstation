@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 5;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents'];
+  const DB_VER = 6;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents'];
 
   let dbInstance = null;
   function openDB() {
@@ -153,7 +153,6 @@
     communications: [],
     templates: [],
     callbacks: [],
-    hours: [],
     library: [],
     mindmaps: [],
     todos: [],
@@ -197,8 +196,12 @@
     // 绑定事件
     bindEvents();
 
+    // 恢复自定义字体
+    await restoreCustomFonts();
+
     // 应用个性化设置
     applySettings();
+    renderSettings();
 
     // 移动端 touch-action 修复
     $$('button, .btn-primary, .btn-ghost, .nav-item, .bnav-item, .quick-btn').forEach(el => {
@@ -412,7 +415,7 @@
     const titles = {
       dashboard: '工作台首页', schedule: '班级课表',
       students: '学员档案', 'student-detail': '学员档案详情',
-      communicate: '家长沟通', hours: '课时管理', library: '教学素材库',
+      communicate: '家长沟通', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
       settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
       accounting: '个人记账本', ledger: '学情台账'
@@ -428,7 +431,6 @@
     if (page === 'schedule') renderSchedule();
     if (page === 'students') renderStudentList();
     if (page === 'communicate') renderCommunicate();
-    if (page === 'hours') renderHours();
     if (page === 'library') renderLibrary();
     if (page === 'mindmap') renderMindmapHistory();
     if (page === 'kanban') renderKanban();
@@ -542,14 +544,6 @@
       };
     });
 
-    // 课时
-    const addHourBtn = $('#addHourBtn');
-    if (addHourBtn) addHourBtn.onclick = () => editHourModal();
-    const hourStudentFilter = $('#hourStudentFilter');
-    if (hourStudentFilter) hourStudentFilter.onchange = renderHours;
-    const hourTypeFilter = $('#hourTypeFilter');
-    if (hourTypeFilter) hourTypeFilter.onchange = renderHours;
-
     // 素材库
     const addLibBtn = $('#addLibBtn');
     if (addLibBtn) addLibBtn.onclick = () => editLibModal();
@@ -610,7 +604,17 @@
     const bgImageInput = $('#bgImageInput');
     if (bgImageInput) bgImageInput.onchange = e => handleBgImage(e.target.files[0]);
     const clearBgImage = $('#clearBgImage');
-    if (clearBgImage) clearBgImage.onclick = () => { updateSetting('bgImage', ''); applyBgImage(''); };
+    if (clearBgImage) clearBgImage.onclick = () => { updateSetting('bgImage', ''); updateSetting('bgPreset', ''); applyBgImage(''); document.body.style.background = ''; renderSettings(); };
+    // 预设背景
+    $$('.bg-preset-btn').forEach(btn => {
+      btn.onclick = () => {
+        updateSetting('bgPreset', btn.dataset.preset);
+        updateSetting('bgImage', '');
+        applySettings();
+        renderSettings();
+        toast('背景已切换');
+      };
+    });
     const fontFamily = $('#fontFamily');
     if (fontFamily) fontFamily.onchange = e => updateSetting('fontFamily', e.target.value);
     const fontSizeEl = $('#fontSize');
@@ -618,6 +622,50 @@
       const fsv = $('#fontSizeVal');
       if (fsv) fsv.textContent = e.target.value + 'px';
       updateSetting('fontSize', e.target.value);
+    };
+    // 导入字体
+    const importFontBtn = $('#importFontBtn');
+    if (importFontBtn) importFontBtn.onclick = () => $('#fontFileInput').click();
+    const fontFileInput = $('#fontFileInput');
+    if (fontFileInput) fontFileInput.onchange = e => importFont(e.target.files[0]);
+    // 圆角
+    const radiusSizeEl = $('#radiusSize');
+    if (radiusSizeEl) radiusSizeEl.oninput = e => {
+      const rsv = $('#radiusSizeVal');
+      if (rsv) rsv.textContent = e.target.value + 'px';
+      updateSetting('radiusSize', e.target.value);
+    };
+    // 液态效果
+    const toggleGlassBtn = $('#toggleGlassBtn');
+    if (toggleGlassBtn) toggleGlassBtn.onclick = () => {
+      const isOn = getSetting('glassMode', '') !== '1';
+      updateSetting('glassMode', isOn ? '1' : '');
+      renderSettings();
+      toast(isOn ? '液态效果已开启' : '液态效果已关闭');
+    };
+    // 透明效果
+    const toggleTransparentBtn = $('#toggleTransparentBtn');
+    if (toggleTransparentBtn) toggleTransparentBtn.onclick = () => {
+      const isOn = getSetting('transparentMode', '') !== '1';
+      updateSetting('transparentMode', isOn ? '1' : '');
+      renderSettings();
+      toast(isOn ? '透明效果已开启' : '透明效果已关闭');
+    };
+    // 紧凑模式
+    const toggleCompactBtn = $('#toggleCompactBtn');
+    if (toggleCompactBtn) toggleCompactBtn.onclick = () => {
+      const isOn = getSetting('compactMode', '') !== '1';
+      updateSetting('compactMode', isOn ? '1' : '');
+      renderSettings();
+      toast(isOn ? '紧凑模式已开启' : '紧凑模式已关闭');
+    };
+    // 动画开关
+    const toggleAnimationBtn = $('#toggleAnimationBtn');
+    if (toggleAnimationBtn) toggleAnimationBtn.onclick = () => {
+      const isOff = getSetting('noAnimation', '') !== '1';
+      updateSetting('noAnimation', isOff ? '1' : '');
+      renderSettings();
+      toast(isOff ? '动画已关闭' : '动画已开启');
     };
     $$('#themePalette button').forEach(b => { b.onclick = () => {}; });
 
@@ -638,8 +686,6 @@
     if (exportAllStudentsBtn) exportAllStudentsBtn.onclick = exportStudentsToWPS;
     const exportCommBtn = $('#exportCommBtn');
     if (exportCommBtn) exportCommBtn.onclick = exportCommunicationsToWPS;
-    const exportHoursBtn = $('#exportHoursBtn');
-    if (exportHoursBtn) exportHoursBtn.onclick = exportHoursToWPS;
     const exportLibBtn = $('#exportLibBtn');
     if (exportLibBtn) exportLibBtn.onclick = exportLibraryToWPS;
     const exportKanbanBtn = $('#exportKanbanBtn');
@@ -743,6 +789,14 @@
     if (accountingCatFilter) accountingCatFilter.onchange = renderAccounting;
     const exportAccountingBtn = $('#exportAccountingBtn');
     if (exportAccountingBtn) exportAccountingBtn.onclick = exportAccountingToWPS;
+    const genReceiptBtn = $('#genReceiptBtn');
+    if (genReceiptBtn) genReceiptBtn.onclick = openReceiptGenerator;
+    const receiptClose = $('#receiptClose');
+    if (receiptClose) receiptClose.onclick = () => { const rp = $('#receiptPreview'); if (rp) rp.hidden = true; };
+    const saveReceiptBtn = $('#saveReceiptBtn');
+    if (saveReceiptBtn) saveReceiptBtn.onclick = saveReceipt;
+    const shareReceiptBtn = $('#shareReceiptBtn');
+    if (shareReceiptBtn) shareReceiptBtn.onclick = shareReceipt;
     const acctViewTable = $('#acctViewTable');
     if (acctViewTable) acctViewTable.onclick = () => switchAccountingView('table');
     const acctViewCard = $('#acctViewCard');
@@ -765,9 +819,24 @@
     if (ledgerSummaryClassBtn) ledgerSummaryClassBtn.onclick = () => generateLedgerImage('class');
     const ledgerSummaryAllBtn = $('#ledgerSummaryAllBtn');
     if (ledgerSummaryAllBtn) ledgerSummaryAllBtn.onclick = () => generateLedgerImage('all');
+
+    // 备课助手
+    const prepSearchBtn = $('#prepSearchBtn');
+    if (prepSearchBtn) prepSearchBtn.onclick = doPrepSearch;
+    const prepSearchInput = $('#prepSearchInput');
+    if (prepSearchInput) prepSearchInput.onkeydown = e => { if (e.key === 'Enter') doPrepSearch(); };
   }
 
   // ================= 个性化设置 =================
+  const BG_PRESETS = {
+    '1': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+    '2': 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+    '3': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    '4': 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
+    '5': 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)',
+    '6': 'linear-gradient(135deg, #f9f7f3 0%, #e8e2d8 100%)'
+  };
+
   function getSetting(key, def) {
     const item = state.settings.find(s => s.id === key);
     return item ? item.value : def;
@@ -782,30 +851,131 @@
   }
   function applySettings() {
     const bg = getSetting('bgColor', '');
-    if (bg) document.body.style.background = bg;
-    else document.body.style.background = '';
-
+    const bgPreset = getSetting('bgPreset', '');
     const bgImg = getSetting('bgImage', '');
-    applyBgImage(bgImg);
 
-    const font = getSetting('fontFamily', '');
+    // 背景处理：优先级 bgColor > bgPreset > bgImage > 默认
+    if (bg) {
+      document.body.style.background = bg;
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundAttachment = '';
+    } else if (bgPreset && BG_PRESETS[bgPreset]) {
+      // 预设渐变背景：直接通过 backgroundImage 设置渐变
+      document.body.style.backgroundImage = BG_PRESETS[bgPreset];
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundAttachment = 'fixed';
+      document.body.style.backgroundColor = '';
+    } else if (bgImg) {
+      applyBgImage(bgImg);
+    } else {
+      // 清除所有背景
+      document.body.style.background = '';
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundAttachment = '';
+    }
+
+    // 字体
+    const font = getSetting('fontFamily', 'default');
     const fontMap = {
-      'default': '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+      'default': '-apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif',
       'pingfang': '"PingFang SC", "Microsoft YaHei", sans-serif',
       'serif': '"Source Han Serif SC", "Songti SC", serif',
-      'kaiti': '"KaiTi", "STKaiti", serif',
-      'hand': '"Comic Sans MS", cursive'
+      'kaiti': '"KaiTi", "STKaiti", serif'
     };
-    if (font && fontMap[font]) document.documentElement.style.setProperty('--font-family', fontMap[font]);
-    else if (font) document.documentElement.style.setProperty('--font-family', font);
+    let fontValue;
+    if (!font || font === 'default') fontValue = fontMap['default'];
+    else if (fontMap[font]) fontValue = fontMap[font];
+    else fontValue = `"${font}", ${fontMap['default']}`;
+    document.documentElement.style.setProperty('--font-family', fontValue);
+    document.body.style.fontFamily = fontValue;
 
+    // 字体大小
     const fs = getSetting('fontSize', '14');
     document.documentElement.style.setProperty('--font-size', fs + 'px');
+    document.body.style.fontSize = fs + 'px';
+
+    // 圆角
+    const radius = getSetting('radiusSize', '12');
+    document.documentElement.style.setProperty('--radius', radius + 'px');
+
+    // 液态效果
+    if (getSetting('glassMode', '') === '1') document.documentElement.classList.add('glass-mode');
+    else document.documentElement.classList.remove('glass-mode');
+
+    // 透明效果
+    if (getSetting('transparentMode', '') === '1') document.documentElement.classList.add('transparent-mode');
+    else document.documentElement.classList.remove('transparent-mode');
+
+    // 紧凑模式
+    if (getSetting('compactMode', '') === '1') document.documentElement.classList.add('compact-mode');
+    else document.documentElement.classList.remove('compact-mode');
+
+    // 动画开关
+    if (getSetting('noAnimation', '') === '1') document.documentElement.classList.add('no-animation');
+    else document.documentElement.classList.remove('no-animation');
   }
   function applyBgImage(dataUrl) {
     document.body.style.backgroundImage = dataUrl ? `url(${dataUrl})` : '';
     document.body.style.backgroundSize = 'cover';
     document.body.style.backgroundAttachment = 'fixed';
+  }
+
+  // 自定义字体管理
+  let loadedFonts = {};
+
+  async function importFont(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['ttf', 'otf', 'woff', 'woff2'].includes(ext)) {
+      toast('仅支持 .ttf, .otf, .woff, .woff2 字体文件'); return;
+    }
+    const fontName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, ' ').trim() || 'CustomFont';
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const dataUrl = e.target.result;
+        const fontFace = new FontFace(fontName, `url(${dataUrl})`);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        loadedFonts[fontName] = fontFace;
+        const savedFonts = JSON.parse(getSetting('customFonts', '{}'));
+        savedFonts[fontName] = { name: fontName, dataUrl: dataUrl, fileName: file.name };
+        await updateSetting('customFonts', JSON.stringify(savedFonts));
+        await updateSetting('fontFamily', fontName);
+        renderSettings();
+        toast(`字体「${fontName}」已导入并应用`);
+      } catch (err) {
+        toast('字体加载失败：' + err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function restoreCustomFonts() {
+    const savedFontsStr = getSetting('customFonts', '{}');
+    let savedFonts;
+    try { savedFonts = JSON.parse(savedFontsStr); } catch (e) { return; }
+    for (const [name, info] of Object.entries(savedFonts)) {
+      try {
+        const fontFace = new FontFace(name, `url(${info.dataUrl})`);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        loadedFonts[name] = fontFace;
+      } catch (e) { console.warn('恢复字体失败:', name, e); }
+    }
+  }
+
+  function getAvailableFonts() {
+    const preset = [
+      { value: 'default', label: '系统默认' },
+      { value: 'pingfang', label: '苹方 / 微软雅黑' },
+      { value: 'serif', label: '思源宋体' },
+      { value: 'kaiti', label: '楷体' }
+    ];
+    const custom = Object.keys(loadedFonts).map(name => ({ value: name, label: name + '（已导入）' }));
+    return [...preset, ...custom];
   }
   function handleAvatar(file) {
     if (!file) return;
@@ -831,12 +1001,29 @@
 
   function renderSettings() {
     const bg = getSetting('bgColor', '#f6f7fb');
-    $('#bgColor').value = bg;
+    const bgColorEl = $('#bgColor'); if (bgColorEl) bgColorEl.value = bg;
+    // 动态字体列表
     const fontVal = getSetting('fontFamily', 'default');
-    $('#fontFamily').value = fontVal || 'default';
+    const fontSelect = $('#fontFamily');
+    if (fontSelect) {
+      const fonts = getAvailableFonts();
+      fontSelect.innerHTML = fonts.map(f => `<option value="${f.value}" ${fontVal === f.value ? 'selected' : ''}>${f.label}</option>`).join('');
+    }
     const fs = getSetting('fontSize', '14');
-    $('#fontSize').value = fs;
-    $('#fontSizeVal').textContent = fs + 'px';
+    const fontSizeEl = $('#fontSize'); if (fontSizeEl) fontSizeEl.value = fs;
+    const fontSizeValEl = $('#fontSizeVal'); if (fontSizeValEl) fontSizeValEl.textContent = fs + 'px';
+    // 圆角
+    const radius = getSetting('radiusSize', '12');
+    const radiusEl = $('#radiusSize'); if (radiusEl) radiusEl.value = radius;
+    const radiusValEl = $('#radiusSizeVal'); if (radiusValEl) radiusValEl.textContent = radius + 'px';
+    // 状态显示
+    const glassStatus = $('#glassStatus'); if (glassStatus) glassStatus.textContent = '当前：' + (getSetting('glassMode', '') === '1' ? '开启' : '关闭');
+    const transparentStatus = $('#transparentStatus'); if (transparentStatus) transparentStatus.textContent = '当前：' + (getSetting('transparentMode', '') === '1' ? '开启' : '关闭');
+    const compactStatus = $('#compactStatus'); if (compactStatus) compactStatus.textContent = '当前：' + (getSetting('compactMode', '') === '1' ? '开启' : '关闭');
+    const animationStatus = $('#animationStatus'); if (animationStatus) animationStatus.textContent = '当前：' + (getSetting('noAnimation', '') === '1' ? '关闭' : '开启');
+    // 预设背景选中态
+    const bgPreset = getSetting('bgPreset', '');
+    $$('.bg-preset-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.preset === bgPreset));
   }
 
   // ================= 首页 =================
@@ -846,6 +1033,7 @@
     $('#stat-classes').textContent = state.classes.length;
     $('#stat-comm').textContent = state.communications.length;
     $('#stat-todo').textContent = state.todos.filter(t => t.status !== 'done').length;
+    renderPrepPacks();
 
     // 待回访
     const callbacks = state.callbacks.filter(c => !c.done);
@@ -1190,7 +1378,6 @@
       <div class="sd-section">
         <h3>请假补课记录</h3>
         <ul class="report-list" id="leaveList"></ul>
-        <button class="btn-ghost" onclick="window.__app.editHourModal('${s.id}')">＋ 新增记录</button>
       </div>
 
       <div class="sd-section">
@@ -1342,15 +1529,7 @@
   function renderStudentLeave(s) {
     const list = $('#leaveList');
     if (!list) return;
-    const items = state.hours.filter(h => h.studentId === s.id);
-    if (items.length === 0) list.innerHTML = '<li style="color:#9ca3af">暂无请假补课记录</li>';
-    else list.innerHTML = items.map(h => `
-      <li>
-        <strong>${h.date}</strong> · <span class="type-tag ${h.type==='请假'?'leave':(h.type==='补课'?'makeup':'')}">${h.type}</span>
-        ${h.hours ? `· ${h.hours} 课时` : ''}
-        ${h.note ? `· ${escapeHtml(h.note)}` : ''}
-      </li>
-    `).join('');
+    list.innerHTML = '<li style="color:#9ca3af">课时管理模块已移除</li>';
   }
   function renderStudentReport(s) {
     const list = $('#reportList');
@@ -1637,84 +1816,6 @@
       document.body.removeChild(ta);
       toast('已复制');
     }
-  };
-
-  // ================= 课时管理 =================
-  function renderHours() {
-    const filterStu = $('#hourStudentFilter').value;
-    const filterType = $('#hourTypeFilter').value;
-    $('#hourStudentFilter').innerHTML = '<option value="">全部学员</option>' +
-      state.students.map(s => `<option value="${s.id}" ${filterStu===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
-
-    let list = state.hours;
-    if (filterStu) list = list.filter(h => h.studentId === filterStu);
-    if (filterType) list = list.filter(h => h.type === filterType);
-
-    const el = $('#hourList');
-    if (list.length === 0) { el.innerHTML = '<div class="info-block">暂无记录</div>'; return; }
-    el.innerHTML = list.slice().reverse().map(h => {
-      const s = state.students.find(x => x.id === h.studentId);
-      return `
-        <div class="record-item">
-          <div>
-            <strong>${escapeHtml(s ? s.name : '未知')}</strong>
-            <span class="type-tag ${h.type==='请假'?'leave':(h.type==='补课'?'makeup':'')}">${h.type}</span>
-            · ${h.date} ${h.hours ? '· ' + h.hours + ' 课时' : ''}
-            <p style="font-size:12px;color:#6b7280;margin-top:4px">${escapeHtml(h.note || '')}</p>
-          </div>
-          <button class="btn-ghost" onclick="window.__app.confirmDelete('hours','${h.id}','课时记录')">删除</button>
-        </div>
-      `;
-    }).join('');
-  }
-
-  window.editHourModal = function (sid) {
-    const body = `
-      <label>学员
-        <select id="hm_student">
-          ${state.students.map(s => `<option value="${s.id}" ${sid===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
-        </select>
-      </label>
-      <label>类型
-        <select id="hm_type">
-          <option>消课</option><option>补课</option><option>请假</option>
-        </select>
-      </label>
-      <label>日期 <input type="date" id="hm_date" value="${todayStr()}"></label>
-      <label>课时数 <input type="number" id="hm_hours" value="1" step="0.5"></label>
-      <label>备注 <textarea id="hm_note" rows="2"></textarea></label>
-    `;
-    openModal('课时登记', body, `
-      <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
-      <button class="btn-primary" id="hm_save">保存</button>
-    `);
-    $('#hm_save').onclick = async () => {
-      const type = $('#hm_type').value;
-      const data = {
-        id: uid(),
-        studentId: $('#hm_student').value,
-        type,
-        date: $('#hm_date').value,
-        hours: parseFloat($('#hm_hours').value) || 0,
-        note: $('#hm_note').value,
-        ts: Date.now()
-      };
-      await dbPut('hours', data);
-      state.hours.push(data);
-      saveLocalCache();
-      // 同步更新学员课时
-      if (type === '消课' || type === '补课') {
-        const s = state.students.find(x => x.id === data.studentId);
-        if (s) {
-          s.hours = (s.hours || 0) + (type === '补课' ? data.hours : -data.hours);
-          await dbPut('students', s);
-        }
-      }
-      closeModal();
-      renderHours();
-      if (currentStudentId) renderStudentDetail();
-      toast('已登记');
-    };
   };
 
   // ================= 教学素材 =================
@@ -2456,7 +2557,7 @@
         await dbClearAll();
         state.settings = []; state.card = []; state.classes = []; state.students = [];
         state.communications = []; state.templates = []; state.callbacks = [];
-        state.hours = []; state.library = []; state.mindmaps = []; state.todos = [];
+        state.library = []; state.mindmaps = []; state.todos = [];
         state.clips = []; state.sticky = [];
         state.accounting = []; state.ledgerStudents = [];
         for (const s of STORES) {
@@ -2538,14 +2639,6 @@
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(commRows), '沟通记录');
 
-    // Sheet 4: 课时记录
-    const hourRows = [['学员', '类型', '日期', '课时数', '备注']];
-    state.hours.forEach(h => {
-      const s = state.students.find(x => x.id === h.studentId);
-      hourRows.push([s ? s.name : '', h.type || '', h.date || '', h.hours || 0, h.note || '']);
-    });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hourRows), '课时记录');
-
     XLSX.writeFile(wb, `语文工作台_全量导出_${todayStr()}.xlsx`);
     toast('WPS 全量导出已完成');
   }
@@ -2574,19 +2667,6 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '沟通记录');
     XLSX.writeFile(wb, `沟通记录_${todayStr()}.xlsx`);
     toast('沟通记录已导出');
-  }
-
-  function exportHoursToWPS() {
-    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
-    const wb = XLSX.utils.book_new();
-    const rows = [['学员', '类型', '日期', '课时数', '备注']];
-    state.hours.forEach(h => {
-      const s = state.students.find(x => x.id === h.studentId);
-      rows.push([s ? s.name : '', h.type || '', h.date || '', h.hours || 0, h.note || '']);
-    });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '课时记录');
-    XLSX.writeFile(wb, `课时记录_${todayStr()}.xlsx`);
-    toast('课时记录已导出');
   }
 
   function exportLibraryToWPS() {
@@ -3465,6 +3545,182 @@
     toast('记账记录已导出');
   }
 
+  // ================= 月度电子小票 =================
+  let receiptMonth = '';
+
+  function getAvailableMonths() {
+    const months = new Set();
+    state.accounting.forEach(a => { if (a.date) months.add(a.date.substring(0, 7)); });
+    return Array.from(months).sort().reverse();
+  }
+
+  function openReceiptGenerator() {
+    const months = getAvailableMonths();
+    if (months.length === 0) { toast('暂无记账数据'); return; }
+    const options = months.map(m => `<option value="${m}">${m}</option>`).join('');
+    openModal('选择月份', `<label>选择月份<select id="receiptMonthSelect">${options}</select></label>`,
+      `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="genReceiptConfirm">生成小票</button>`);
+    $('#genReceiptConfirm').onclick = () => {
+      receiptMonth = $('#receiptMonthSelect').value;
+      closeModal();
+      generateReceipt();
+    };
+  }
+
+  function generateReceipt() {
+    const [year, month] = receiptMonth.split('-');
+    const items = state.accounting.filter(a => (a.date || '').startsWith(receiptMonth)).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (items.length === 0) { toast('该月无记账数据'); return; }
+    const padding = 32, lineHeight = 28, headerHeight = 120, footerHeight = 100;
+    const canvasWidth = 380;
+    const canvasHeight = padding + headerHeight + items.length * lineHeight + footerHeight + padding;
+    const scale = 2;
+    const canvas = $('#receiptCanvas');
+    if (!canvas) return;
+    canvas.width = canvasWidth * scale;
+    canvas.height = canvasHeight * scale;
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = canvasHeight + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    // 背景
+    ctx.fillStyle = '#fffef7';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    // 顶部虚线
+    ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(padding, padding); ctx.lineTo(canvasWidth - padding, padding); ctx.stroke(); ctx.setLineDash([]);
+    let y = padding + 20;
+    // 标题
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 20px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('消 费 小 票', canvasWidth / 2, y);
+    y += 32;
+    ctx.fillStyle = '#666'; ctx.font = '14px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillText(`${year} 年 ${parseInt(month)} 月`, canvasWidth / 2, y);
+    y += 28;
+    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(canvasWidth - padding, y); ctx.stroke();
+    y += 16;
+    // 表头
+    ctx.fillStyle = '#999'; ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('日期', padding, y); ctx.fillText('分类', padding + 90, y);
+    ctx.textAlign = 'right'; ctx.fillText('金额', canvasWidth - padding, y);
+    y += 8;
+    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(canvasWidth - padding, y); ctx.stroke();
+    // 数据行
+    items.forEach(item => {
+      y += lineHeight;
+      ctx.fillStyle = '#333'; ctx.font = '13px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText((item.date || '').substring(5), padding, y);
+      ctx.fillText(item.category || '', padding + 90, y);
+      ctx.textAlign = 'right'; ctx.font = '13px "SF Mono","Menlo",monospace';
+      ctx.fillText('¥' + (item.amount || 0).toFixed(2), canvasWidth - padding, y);
+    });
+    // 合计
+    y += 16;
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(canvasWidth - padding, y); ctx.stroke();
+    y += 24;
+    const total = items.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('合计：¥' + total.toFixed(2), canvasWidth - padding, y);
+    // 底部
+    y += 40;
+    ctx.fillStyle = '#999'; ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('语文教师工作台 · 月度账单', canvasWidth / 2, y);
+    ctx.fillText('生成日期：' + todayStr(), canvasWidth / 2, y + 18);
+    y += 30;
+    ctx.strokeStyle = '#d0d0d0'; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(canvasWidth - padding, y); ctx.stroke();
+    // 显示预览
+    const rp = $('#receiptPreview'); if (rp) rp.hidden = false;
+  }
+
+  function saveReceipt() {
+    const canvas = $('#receiptCanvas'); if (!canvas) return;
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `消费小票_${receiptMonth}_${todayStr()}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 200);
+      toast('小票已保存');
+    }, 'image/png');
+  }
+
+  async function shareReceipt() {
+    const canvas = $('#receiptCanvas'); if (!canvas) return;
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const file = new File([blob], `消费小票_${receiptMonth}.png`, { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: '月度消费小票' }); } catch (e) {}
+    } else { toast('当前浏览器不支持分享，请使用「保存到手机」'); }
+  }
+
+  // ================= 备课助手 =================
+  const PREP_PACKS = [
+    { id: 'gushi', title: '古诗文专项复习', desc: '六年级下册全部古诗文汇总、注释、译文、默写练习', icon: '📜', files: ['古诗文汇总表.pdf', '古诗默写练习.docx', '古诗鉴赏要点.txt'] },
+    { id: 'reading', title: '阅读理解专项', desc: '期末阅读常见题型、答题模板、练习篇目', icon: '📖', files: ['阅读答题模板.pdf', '课内阅读重点篇目.txt', '课外阅读练习.docx'] },
+    { id: 'writing', title: '作文专项复习', desc: '六年级下册单元作文范文、写作技巧、好词好句', icon: '✏️', files: ['单元作文范文集.pdf', '作文开头结尾模板.txt', '好词好句积累.docx'] },
+    { id: 'basic', title: '基础知识过关', desc: '生字词、多音字、近反义词、病句修改等基础题', icon: '📝', files: ['生字词听写表.pdf', '多音字近反词汇总.txt', '病句修改练习.docx'] },
+    { id: 'mock', title: '模拟试卷 3 套', desc: '六年级语文期末模拟试卷（含答案）', icon: '📋', files: ['模拟试卷一（含答案）.pdf', '模拟试卷二（含答案）.pdf', '模拟试卷三（含答案）.pdf'] },
+    { id: 'map', title: '知识点思维导图', desc: '全册知识点框架图（可打印张贴）', icon: '🗺️', files: ['六下语文知识框架图.pdf', '单元知识点梳理.txt'] }
+  ];
+
+  function renderPrepPacks() {
+    const grid = $('#prepPackGrid');
+    if (!grid) return;
+    grid.innerHTML = PREP_PACKS.map(pack => `
+      <div class="prep-pack-card">
+        <div class="prep-pack-icon">${pack.icon}</div>
+        <div class="prep-pack-info">
+          <h4>${pack.title}</h4>
+          <p>${pack.desc}</p>
+          <div class="prep-pack-files">${pack.files.map(f => `<span class="prep-file-tag">${f}</span>`).join('')}</div>
+        </div>
+        <button class="btn-ghost prep-download-btn" data-pack="${pack.id}">下载清单</button>
+      </div>`).join('');
+    $$('.prep-download-btn').forEach(btn => {
+      btn.onclick = () => downloadPrepPack(btn.dataset.pack);
+    });
+  }
+
+  function downloadPrepPack(packId) {
+    const pack = PREP_PACKS.find(p => p.id === packId);
+    if (!pack) return;
+    const content = [
+      `=== ${pack.title} ===`,
+      `描述：${pack.desc}`,
+      '',
+      '包含文件：',
+      ...pack.files.map((f, i) => `${i + 1}. ${f}`),
+      '',
+      '提示：请将对应资料文件上传到「教学素材库」模块中管理，',
+      '或使用下方「在线搜索」从外部平台获取资料。'
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${pack.title}_文件清单.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`「${pack.title}」清单已下载`);
+  }
+
+  function doPrepSearch() {
+    const input = $('#prepSearchInput');
+    if (!input || !input.value.trim()) { toast('请输入搜索关键词'); return; }
+    const query = input.value.trim();
+    const platform = $('#prepSearchPlatform') ? $('#prepSearchPlatform').value : 'baidu';
+    const prefix = '六年级下册语文 ';
+    const urls = {
+      baidu: `https://www.baidu.com/s?wd=${encodeURIComponent(prefix + query)}`,
+      docin: `https://www.docin.com/search.do?nkey=${encodeURIComponent(prefix + query)}`,
+      doc88: `https://www.doc88.com/s?k=${encodeURIComponent(prefix + query)}`,
+      cnki: `https://kns.cnki.net/kns8/defaultresult/index?kwd=${encodeURIComponent('小学六年级语文 ' + query)}`
+    };
+    window.open(urls[platform], '_blank', 'noopener');
+  }
+
   // ================= 班级学员学情台账 =================
   function renderLedger() {
     const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
@@ -3826,7 +4082,7 @@
   window.__app = {
     editClassModal: window.editClassModal, editStudentModal: window.editStudentModal,
     editCommModal: window.editCommModal, editTemplateModal: window.editTemplateModal,
-    editCallbackModal: window.editCallbackModal, editHourModal: window.editHourModal,
+    editCallbackModal: window.editCallbackModal,
     editLibModal: window.editLibModal, editTodoModal: window.editTodoModal,
     editCardModal: window.editCardModal, downloadLibFile: window.downloadLibFile,
     openStudent: window.openStudent, addScore: window.addScore, delScore: window.delScore,
@@ -3842,7 +4098,8 @@
     editLedgerClassModal: window.editLedgerClassModal,
     addLedgerStudentModal: window.addLedgerStudentModal,
     editLedgerStudentModal: window.editLedgerStudentModal,
-    generateLedgerImage: window.generateLedgerImage
+    generateLedgerImage: window.generateLedgerImage,
+    openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt
   };
 
   // 启动

@@ -249,6 +249,10 @@
 
     // 注册 Service Worker（防止浏览器回收页面资源）
     if ('serviceWorker' in navigator) {
+      // 清掉旧版本SW的缓存，强制获取最新资源
+      if ('caches' in window) {
+        caches.keys().then(ks => ks.filter(k => k !== 'yuwen-teacher-v2').forEach(k => caches.delete(k)));
+      }
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }

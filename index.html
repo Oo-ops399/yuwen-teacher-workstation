@@ -31,17 +31,17 @@
     <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
     <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
     <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
-    <a class="nav-item" data-page="prep"><span class="nav-icon">📚</span><span class="nav-label">备课助手</span></a>
+    <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
     <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
     <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
     <a class="nav-item" data-page="life"><span class="nav-icon">☀</span><span class="nav-label">生活助手</span></a>
     <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
-    <a class="nav-item" data-page="ledger"><span class="nav-icon">📋</span><span class="nav-label">学情台账</span></a>
+    <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.1 · 语文教师版</span>
+    <span class="version">v3.2 · 语文教师版</span>
   </div>
 </aside>
 
@@ -55,6 +55,25 @@
         <input type="text" id="globalSearch" placeholder="搜索学生、关键词…" />
         <div id="searchResult" class="search-result"></div>
       </div>
+      <div class="font-quick-wrapper">
+        <button class="btn-ghost font-quick-btn" id="fontQuickBtn" title="字号/字体快捷调整">A±</button>
+        <div class="font-quick-panel" id="fontQuickPanel" hidden>
+          <div class="fq-row">
+            <label>字号</label>
+            <input type="range" id="fqFontSize" min="12" max="20" value="14">
+            <span id="fqFontSizeVal">14px</span>
+          </div>
+          <div class="fq-row">
+            <label>字体</label>
+            <select id="fqFontFamily"></select>
+          </div>
+          <div class="fq-row">
+            <button class="btn-ghost fq-import-btn" id="fqImportFontBtn">导入字体</button>
+            <button class="btn-ghost fq-del-btn" id="fqDelFontBtn" hidden>删除自定义</button>
+          </div>
+          <input type="file" id="fqFontFileInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+        </div>
+      </div>
       <button class="btn-ghost btn-export-all" id="exportAllBtn" title="导出全部数据到WPS">导出WPS</button>
     </div>
   </header>
@@ -63,37 +82,37 @@
     <!-- 名片横幅装饰区 -->
     <div class="card-banner-wrapper" id="cardBannerWrapper">
       <div class="card-style-switcher" id="cardStyleSwitcher">
-        <button class="card-style-btn" data-style="minimal" title="极简白底">1</button>
-        <button class="card-style-btn" data-style="dark" title="深色商务">2</button>
-        <button class="card-style-btn" data-style="gradient" title="渐变彩色">3</button>
-        <button class="card-style-btn" data-style="dualimg" title="双图卡片">4</button>
-        <button class="card-style-btn" data-style="capsule" title="标签胶囊">5</button>
-        <button class="card-style-btn" data-style="idcard" title="证件照式">6</button>
-        <button class="card-style-btn" data-style="social" title="社交媒体式">7</button>
+        <button class="card-style-btn" data-style="social" title="社交资料页风">1</button>
+        <button class="card-style-btn" data-style="idcard" title="校园证件卡风">2</button>
+        <button class="card-style-btn" data-style="instagram" title="Instagram主页风">3</button>
       </div>
       <div class="card-banner card-flip-container" id="cardBanner">
         <div class="card-flip-inner" id="cardFlipInner">
           <!-- 正面 -->
           <div class="card-face card-front" id="cardFront">
             <div class="banner-left">
-              <div class="banner-avatar" id="bannerAvatar">
+              <div class="banner-avatar" id="bannerAvatar" title="点击更换头像">
                 <span id="bannerAvatarPlaceholder">语</span>
               </div>
-              <div class="banner-extra-img" id="bannerExtraImg" hidden>📷</div>
             </div>
             <div class="banner-info">
-              <h2 id="bannerName">点击编辑名片</h2>
-              <p id="bannerTitle">语文教师</p>
+              <h2 id="bannerName" data-field="name">点击编辑名片</h2>
+              <p id="bannerTitle" data-field="title">语文教师</p>
               <div class="banner-meta">
-                <span id="bannerOrg"></span>
-                <span id="bannerGrade"></span>
+                <span id="bannerOrg" data-field="org"></span>
+                <span id="bannerGrade" data-field="grade"></span>
               </div>
               <div class="banner-tags" id="bannerTags"></div>
-              <p class="banner-motto" id="bannerMotto"></p>
+              <p class="banner-motto" id="bannerMotto" data-field="motto"></p>
+              <div class="banner-stats" id="bannerStats">
+                <div class="stat-item"><span class="stat-num" id="statPosts">0</span><span class="stat-label">作品</span></div>
+                <div class="stat-item"><span class="stat-num" id="statFollowers">0</span><span class="stat-label">粉丝</span></div>
+                <div class="stat-item"><span class="stat-num" id="statFollowing">0</span><span class="stat-label">关注</span></div>
+              </div>
             </div>
             <div class="banner-actions">
-              <button class="btn-ghost" id="editCardBtn">编辑名片</button>
-              <button class="btn-ghost" id="copyCard">复制分享</button>
+              <button class="btn-ghost" id="editCardBtn">编辑</button>
+              <button class="btn-ghost" id="copyCard">分享</button>
               <button class="btn-ghost" id="flipCardBtn">翻面</button>
             </div>
             <input type="file" id="avatarInput" accept="image/*" hidden>
@@ -417,6 +436,17 @@
             <button class="btn-primary" id="prepSearchBtnPrimary">搜索</button>
           </div>
         </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">我的资料 · 小学段</h3>
+          <div class="prep-myfiles-toolbar">
+            <input type="file" id="prepFileInputPrimary" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.zip" hidden>
+            <button class="btn-ghost" id="prepUploadBtnPrimary">＋ 上传文件</button>
+            <button class="btn-ghost" id="prepExportBtnPrimary">导出全部</button>
+            <button class="btn-ghost" id="prepImportBtnPrimary">导入资料包</button>
+            <input type="file" id="prepImportInputPrimary" accept=".json" hidden>
+          </div>
+          <div class="prep-file-grid" id="prepFileGridPrimary"></div>
+        </div>
       </div>
       <!-- 初中段 -->
       <div class="tab-content" id="ptab-junior" hidden>
@@ -436,6 +466,17 @@
             </select>
             <button class="btn-primary" id="prepSearchBtnJunior">搜索</button>
           </div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">我的资料 · 初中段</h3>
+          <div class="prep-myfiles-toolbar">
+            <input type="file" id="prepFileInputJunior" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.zip" hidden>
+            <button class="btn-ghost" id="prepUploadBtnJunior">＋ 上传文件</button>
+            <button class="btn-ghost" id="prepExportBtnJunior">导出全部</button>
+            <button class="btn-ghost" id="prepImportBtnJunior">导入资料包</button>
+            <input type="file" id="prepImportInputJunior" accept=".json" hidden>
+          </div>
+          <div class="prep-file-grid" id="prepFileGridJunior"></div>
         </div>
       </div>
     </div>
@@ -828,7 +869,7 @@
 <nav id="bottomNav" class="bottom-nav">
   <a class="bnav-item active" data-page="dashboard"><span>⌂</span><span>首页</span></a>
   <a class="bnav-item" data-page="life"><span>☀</span><span>生活</span></a>
-  <a class="bnav-item" data-page="ledger"><span>📋</span><span>学情</span></a>
+  <a class="bnav-item" data-page="ledger"><span>☱</span><span>学情</span></a>
   <a class="bnav-item" data-page="data"><span>⇋</span><span>备份</span></a>
 </nav>
 
@@ -864,6 +905,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=36"></script>
+<script src="./app.js?v=37"></script>
 </body>
 </html>

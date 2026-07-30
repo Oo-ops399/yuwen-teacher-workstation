@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 6;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents'];
+  const DB_VER = 7;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles'];
 
   let dbInstance = null;
   function openDB() {
@@ -449,6 +449,8 @@
       $('#ptab-junior').hidden = savedSection !== 'junior';
       renderPrepPacks('primary');
       renderPrepPacks('junior');
+      renderPrepFiles('primary');
+      renderPrepFiles('junior');
     }
 
     // 移动端收起侧边栏
@@ -543,14 +545,14 @@
     const cardBannerEl = $('#cardBanner');
     if (cardBannerEl) {
       let touchStartX = 0;
-      const CARD_STYLES = ['minimal', 'dark', 'gradient', 'dualimg', 'capsule', 'idcard', 'social'];
+      const CARD_STYLES = ['social', 'idcard', 'instagram'];
       cardBannerEl.addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].screenX;
       }, { passive: true });
       cardBannerEl.addEventListener('touchend', e => {
         const delta = e.changedTouches[0].screenX - touchStartX;
         if (Math.abs(delta) < 50) return;
-        const current = getSetting('cardStyle', 'minimal');
+        const current = getSetting('cardStyle', 'social');
         let idx = CARD_STYLES.indexOf(current);
         idx = delta < 0 ? (idx + 1) % CARD_STYLES.length : (idx - 1 + CARD_STYLES.length) % CARD_STYLES.length;
         updateSetting('cardStyle', CARD_STYLES[idx]);
@@ -658,18 +660,19 @@
 
     // 个性化
     const bgColor = $('#bgColor');
-    if (bgColor) bgColor.oninput = e => updateSetting('bgColor', e.target.value);
+    if (bgColor) bgColor.oninput = e => { updateSetting('bgColor', e.target.value); updateSetting('bgPreset', ''); updateSetting('bgImage', ''); applySettings(); };
     const resetBgColor = $('#resetBgColor');
     if (resetBgColor) resetBgColor.onclick = () => { updateSetting('bgColor', ''); if (bgColor) bgColor.value = '#f5f5f5'; };
     const bgImageInput = $('#bgImageInput');
     if (bgImageInput) bgImageInput.onchange = e => handleBgImage(e.target.files[0]);
     const clearBgImage = $('#clearBgImage');
-    if (clearBgImage) clearBgImage.onclick = () => { updateSetting('bgImage', ''); updateSetting('bgPreset', ''); applyBgImage(''); document.body.style.background = ''; renderSettings(); };
+    if (clearBgImage) clearBgImage.onclick = () => { updateSetting('bgImage', ''); updateSetting('bgPreset', ''); updateSetting('bgColor', ''); applyBgImage(''); document.body.style.background = ''; renderSettings(); };
     // 预设背景
     $$('.bg-preset-btn').forEach(btn => {
       btn.onclick = () => {
         updateSetting('bgPreset', btn.dataset.preset);
         updateSetting('bgImage', '');
+        updateSetting('bgColor', '');
         applySettings();
         renderSettings();
         toast('背景已切换');
@@ -688,6 +691,57 @@
     if (importFontBtn) importFontBtn.onclick = () => $('#fontFileInput').click();
     const fontFileInput = $('#fontFileInput');
     if (fontFileInput) fontFileInput.onchange = e => importFont(e.target.files[0]);
+
+    // v3.2: 顶部栏字体快捷面板
+    const fqBtn = $('#fontQuickBtn');
+    const fqPanel = $('#fontQuickPanel');
+    if (fqBtn && fqPanel) {
+      fqBtn.onclick = (e) => {
+        e.stopPropagation();
+        fqPanel.hidden = !fqPanel.hidden;
+        if (!fqPanel.hidden) renderFontQuickPanel();
+      };
+      // 点击外部关闭
+      document.addEventListener('click', e => {
+        if (!fqPanel.hidden && !fqPanel.contains(e.target) && e.target !== fqBtn) {
+          fqPanel.hidden = true;
+        }
+      });
+      // 字号滑条
+      const fqFs = $('#fqFontSize');
+      const fqFsVal = $('#fqFontSizeVal');
+      if (fqFs) fqFs.oninput = e => {
+        if (fqFsVal) fqFsVal.textContent = e.target.value + 'px';
+        updateSetting('fontSize', e.target.value);
+      };
+      // 字体下拉
+      const fqFf = $('#fqFontFamily');
+      if (fqFf) fqFf.onchange = e => updateSetting('fontFamily', e.target.value);
+      // 导入字体
+      const fqImportBtn = $('#fqImportFontBtn');
+      const fqFontFileInput = $('#fqFontFileInput');
+      if (fqImportBtn && fqFontFileInput) {
+        fqImportBtn.onclick = () => fqFontFileInput.click();
+        fqFontFileInput.onchange = e => {
+          importFont(e.target.files[0]).then(() => renderFontQuickPanel());
+        };
+      }
+      // 删除自定义字体
+      const fqDelBtn = $('#fqDelFontBtn');
+      if (fqDelBtn) fqDelBtn.onclick = () => {
+        const fqFf2 = $('#fqFontFamily');
+        if (!fqFf2) return;
+        const val = fqFf2.value;
+        if (fontMap[val] || val === 'default') { toast('预设字体不可删除'); return; }
+        const saved = JSON.parse(getSetting('customFonts', '{}'));
+        delete saved[val];
+        updateSetting('customFonts', JSON.stringify(saved));
+        if (loadedFonts[val]) { document.fonts.delete(loadedFonts[val]); delete loadedFonts[val]; }
+        updateSetting('fontFamily', 'default');
+        renderFontQuickPanel();
+        toast('字体已删除');
+      };
+    }
     // 圆角
     const radiusSizeEl = $('#radiusSize');
     if (radiusSizeEl) radiusSizeEl.oninput = e => {
@@ -900,6 +954,25 @@
         updateSetting('prepSection', tab.dataset.ptab);
       };
     });
+
+    // v3.2: 备课助手 — 文件上传/导入/导出
+    ['primary', 'junior'].forEach(sec => {
+      const cap = sec === 'junior' ? 'Junior' : 'Primary';
+      const uploadBtn = $('#prepUploadBtn' + cap);
+      const fileInput = $('#prepFileInput' + cap);
+      if (uploadBtn && fileInput) {
+        uploadBtn.onclick = () => fileInput.click();
+        fileInput.onchange = e => { uploadPrepFile(sec, e.target.files[0]); fileInput.value = ''; };
+      }
+      const exportBtn = $('#prepExportBtn' + cap);
+      if (exportBtn) exportBtn.onclick = () => exportPrepData(sec);
+      const importBtn = $('#prepImportBtn' + cap);
+      const importInput = $('#prepImportInput' + cap);
+      if (importBtn && importInput) {
+        importBtn.onclick = () => importInput.click();
+        importInput.onchange = e => { importPrepData(sec, e.target.files[0]); importInput.value = ''; };
+      }
+    });
   }
 
   // ================= 个性化设置 =================
@@ -1067,11 +1140,35 @@
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
+      // 清除其他背景设置，确保图片生效
+      updateSetting('bgColor', '');
+      updateSetting('bgPreset', '');
       applyBgImage(e.target.result);
       updateSetting('bgImage', e.target.result);
+      renderSettings();
       toast('背景图已设置');
     };
     reader.readAsDataURL(file);
+  }
+
+  // v3.2: 渲染顶部栏字体快捷面板
+  function renderFontQuickPanel() {
+    const fqFs = $('#fqFontSize');
+    const fqFsVal = $('#fqFontSizeVal');
+    const fs = getSetting('fontSize', '14');
+    if (fqFs) fqFs.value = fs;
+    if (fqFsVal) fqFsVal.textContent = fs + 'px';
+    const fqFf = $('#fqFontFamily');
+    if (fqFf) {
+      const fonts = getAvailableFonts();
+      const current = getSetting('fontFamily', 'default');
+      fqFf.innerHTML = fonts.map(f => `<option value="${f.value}" ${current === f.value ? 'selected' : ''}>${f.label}</option>`).join('');
+    }
+    const fqDelBtn = $('#fqDelFontBtn');
+    if (fqDelBtn) {
+      const val = getSetting('fontFamily', 'default');
+      fqDelBtn.hidden = !loadedFonts[val];
+    }
   }
 
   function renderSettings() {
@@ -1158,28 +1255,34 @@
       }
     }
 
-    // v3.1: 应用名片样式
-    const cardStyle = getSetting('cardStyle', 'minimal');
+    // v3.2: 应用名片样式
+    const cardStyle = getSetting('cardStyle', 'social');
     const container = $('#cardBanner');
     if (container) {
       container.setAttribute('data-card-style', cardStyle);
-      // 双图样式显示第二张图占位
-      const extraImg = $('#bannerExtraImg');
-      if (extraImg) extraImg.hidden = (cardStyle !== 'dualimg');
     }
     $$('.card-style-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.style === cardStyle);
     });
 
-    // v3.1: 渲染标签
+    // v3.2: 渲染标签（可编辑）
     const tagsEl = $('#bannerTags');
     if (tagsEl) {
       const tags = [];
       if (card.feature) tags.push(card.feature);
       if (card.grade) tags.push(card.grade);
       if (card.title) tags.push(card.title);
-      tagsEl.innerHTML = tags.map(t => `<span class="banner-tag">${escapeHtml(t)}</span>`).join('');
+      tagsEl.innerHTML = tags.map((t, i) => `<span class="banner-tag" data-tag-idx="${i}" contenteditable="true">${escapeHtml(t)}</span>`).join('')
+        + '<span class="banner-tag-add" title="添加标签">+</span>';
     }
+
+    // v3.2: 渲染统计数据（Instagram样式用）
+    const statPosts = $('#statPosts');
+    const statFollowers = $('#statFollowers');
+    const statFollowing = $('#statFollowing');
+    if (statPosts) statPosts.textContent = card.statPosts || '0';
+    if (statFollowers) statFollowers.textContent = card.statFollowers || '0';
+    if (statFollowing) statFollowing.textContent = card.statFollowing || '0';
 
     // v3.1: 渲染背面内容
     const mottoBack = $('#cardMottoBack');
@@ -1197,6 +1300,102 @@
       const hasContact = card.phone || card.wechat || card.name;
       qrArea.innerHTML = hasContact ? '<div class="qr-placeholder">QR</div>' : '';
     }
+
+    // v3.2: 启用原地编辑
+    setupInlineEdit();
+  }
+
+  // v3.2: 名片原地编辑 — 文字 contenteditable + 头像点击换图 + 标签增删
+  function setupInlineEdit() {
+    const fields = ['bannerName', 'bannerTitle', 'bannerOrg', 'bannerGrade', 'bannerMotto'];
+    fields.forEach(id => {
+      const el = $('#' + id);
+      if (!el) return;
+      el.setAttribute('contenteditable', 'true');
+      if (!el.dataset.inited) {
+        el.dataset.inited = '1';
+        el.addEventListener('blur', () => {
+          const card = state.card[0] || { id: 'main' };
+          const field = el.dataset.field;
+          if (field) {
+            card[field] = el.textContent.trim();
+            card.ts = Date.now();
+            state.card = [card];
+            dbPut('card', card);
+            saveLocalCache();
+            toast('已保存');
+          }
+        });
+        // Enter 退出编辑（motto 允许换行）
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && id !== 'bannerMotto') {
+            e.preventDefault();
+            el.blur();
+          }
+        });
+      }
+    });
+
+    // 头像点击换图
+    const bannerAvatar = $('#bannerAvatar');
+    const avatarInput = $('#avatarInput');
+    if (bannerAvatar && avatarInput && !bannerAvatar.dataset.inited) {
+      bannerAvatar.dataset.inited = '1';
+      bannerAvatar.addEventListener('click', () => avatarInput.click());
+    }
+
+    // 标签编辑与添加
+    const tagsEl = $('#bannerTags');
+    if (tagsEl && !tagsEl.dataset.inited) {
+      tagsEl.dataset.inited = '1';
+      // 标签失焦保存
+      tagsEl.addEventListener('blur', e => {
+        if (e.target.classList.contains('banner-tag')) {
+          saveCardTags();
+        }
+      }, true);
+      // 标签双击删除
+      tagsEl.addEventListener('dblclick', e => {
+        if (e.target.classList.contains('banner-tag')) {
+          e.target.remove();
+          saveCardTags();
+          toast('标签已删除');
+        }
+      });
+      // 添加标签
+      const addBtn = tagsEl.querySelector('.banner-tag-add');
+      if (addBtn) {
+        addBtn.onclick = () => {
+          const newTag = document.createElement('span');
+          newTag.className = 'banner-tag';
+          newTag.setAttribute('contenteditable', 'true');
+          newTag.textContent = '新标签';
+          tagsEl.insertBefore(newTag, addBtn);
+          newTag.focus();
+          // 全选文字
+          const range = document.createRange();
+          range.selectNodeContents(newTag);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        };
+      }
+    }
+  }
+
+  function saveCardTags() {
+    const tagsEl = $('#bannerTags');
+    if (!tagsEl) return;
+    const tags = Array.from(tagsEl.querySelectorAll('.banner-tag')).map(t => t.textContent.trim()).filter(Boolean);
+    const card = state.card[0] || { id: 'main' };
+    // 前三个标签映射到 feature/grade/title
+    card.feature = tags[0] || '';
+    card.grade = tags[1] || '';
+    card.title = tags[2] || '';
+    card.ts = Date.now();
+    state.card = [card];
+    dbPut('card', card);
+    saveLocalCache();
   }
 
   window.editCardModal = function () {
@@ -1210,6 +1409,14 @@
       <label>电话 <input type="text" id="cm_card_phone" value="${escapeHtml(card.phone||'')}"></label>
       <label>微信 <input type="text" id="cm_card_wechat" value="${escapeHtml(card.wechat||'')}"></label>
       <label>理念 <textarea id="cm_card_motto" rows="2">${escapeHtml(card.motto||'')}</textarea></label>
+      <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:8px">
+        <label style="font-size:12px;color:var(--text-muted)">Instagram样式统计（选填）</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input type="number" id="cm_card_statPosts" value="${card.statPosts||'0'}" placeholder="作品" style="width:60px">
+          <input type="number" id="cm_card_statFollowers" value="${card.statFollowers||'0'}" placeholder="粉丝" style="width:60px">
+          <input type="number" id="cm_card_statFollowing" value="${card.statFollowing||'0'}" placeholder="关注" style="width:60px">
+        </div>
+      </div>
       <div style="margin-top:12px">
         <label>头像</label>
         <div id="cm_avatarPreview" style="width:80px;height:80px;border-radius:50%;border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background-size:cover;background-position:center;margin-top:8px;font-size:32px">${getSetting('avatar','')?'':'👤'}</div>
@@ -1248,6 +1455,9 @@
         phone: $('#cm_card_phone').value,
         wechat: $('#cm_card_wechat').value,
         motto: $('#cm_card_motto').value,
+        statPosts: $('#cm_card_statPosts') ? $('#cm_card_statPosts').value : '0',
+        statFollowers: $('#cm_card_statFollowers') ? $('#cm_card_statFollowers').value : '0',
+        statFollowing: $('#cm_card_statFollowing') ? $('#cm_card_statFollowing').value : '0',
         ts: Date.now()
       };
       state.card = [data];
@@ -3851,6 +4061,128 @@
     window.open(urls[platform], '_blank', 'noopener');
   }
 
+  // v3.2: 备课助手 — 我的资料文件管理
+  function uploadPrepFile(section, file) {
+    if (!file) return;
+    // 限制 20MB
+    if (file.size > 20 * 1024 * 1024) { toast('文件不能超过 20MB'); return; }
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const data = {
+        id: uid(),
+        section: section,
+        name: file.name,
+        type: file.type || file.name.split('.').pop(),
+        size: file.size,
+        dataUrl: e.target.result,
+        ts: Date.now()
+      };
+      await dbPut('prepFiles', data);
+      renderPrepFiles(section);
+      toast(`「${file.name}」已上传`);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function renderPrepFiles(section) {
+    const gridId = section === 'junior' ? '#prepFileGridJunior' : '#prepFileGridPrimary';
+    const grid = $(gridId);
+    if (!grid) return;
+    const all = await dbAll('prepFiles');
+    const files = all.filter(f => f.section === section).sort((a, b) => b.ts - a.ts);
+    if (files.length === 0) {
+      grid.innerHTML = '<div class="prep-file-empty">暂无资料，点击上方「上传文件」添加</div>';
+      return;
+    }
+    grid.innerHTML = files.map(f => {
+      const sizeStr = f.size > 1024 * 1024 ? (f.size / 1024 / 1024).toFixed(1) + 'MB' : Math.max(1, Math.round(f.size / 1024)) + 'KB';
+      return `<div class="prep-file-card">
+        <div class="prep-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
+        <div class="prep-file-meta">${sizeStr} · ${fmtDate(f.ts).slice(5, 10)}</div>
+        <div class="prep-file-actions">
+          <button onclick="window.__app.downloadPrepFile('${f.id}')">下载</button>
+          <button class="del-btn" onclick="window.__app.deletePrepFile('${f.id}')">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function downloadPrepFile(id) {
+    const file = await dbGet('prepFiles', id);
+    if (!file) { toast('文件不存在'); return; }
+    // 从 dataUrl 提取 base64 和 mime
+    const arr = file.dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1] || 'application/octet-stream';
+    const bstr = atob(arr[1]);
+    const u8 = new Uint8Array(bstr.length);
+    for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+    const blob = new Blob([u8], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = file.name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 200);
+    toast(`「${file.name}」已下载`);
+  }
+
+  async function deletePrepFile(id) {
+    const file = await dbGet('prepFiles', id);
+    if (!file) return;
+    await dbDel('prepFiles', id);
+    renderPrepFiles(file.section);
+    toast('已删除');
+  }
+
+  async function exportPrepData(section) {
+    const all = await dbAll('prepFiles');
+    const files = all.filter(f => f.section === section);
+    if (files.length === 0) { toast('暂无资料可导出'); return; }
+    const exportData = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      section: section,
+      files: files.map(f => ({ name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl, ts: f.ts }))
+    };
+    const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `备课资料_${section === 'junior' ? '初中段' : '小学段'}_${todayStr()}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 200);
+    toast(`已导出 ${files.length} 个文件`);
+  }
+
+  async function importPrepData(section, file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.files || !Array.isArray(data.files)) { toast('文件格式不正确'); return; }
+        let count = 0;
+        for (const f of data.files) {
+          const rec = {
+            id: uid(),
+            section: section,
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            dataUrl: f.dataUrl,
+            ts: f.ts || Date.now()
+          };
+          await dbPut('prepFiles', rec);
+          count++;
+        }
+        renderPrepFiles(section);
+        toast(`成功导入 ${count} 个文件`);
+      } catch (err) {
+        toast('导入失败：' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // ================= 班级学员学情台账 =================
   function renderLedger() {
     const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
@@ -4229,7 +4561,8 @@
     addLedgerStudentModal: window.addLedgerStudentModal,
     editLedgerStudentModal: window.editLedgerStudentModal,
     generateLedgerImage: window.generateLedgerImage,
-    openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt
+    openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt,
+    downloadPrepFile, deletePrepFile
   };
 
   // 启动

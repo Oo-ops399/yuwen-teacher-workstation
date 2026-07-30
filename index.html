@@ -31,6 +31,7 @@
     <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
     <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
     <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
+    <a class="nav-item" data-page="prep"><span class="nav-icon">📚</span><span class="nav-label">备课助手</span></a>
     <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
     <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
@@ -40,7 +41,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.0 · 语文教师版</span>
+    <span class="version">v3.1 · 语文教师版</span>
   </div>
 </aside>
 
@@ -60,26 +61,54 @@
 
   <section class="page" id="page-dashboard">
     <!-- 名片横幅装饰区 -->
-    <div class="card-banner" id="cardBanner">
-      <div class="banner-left">
-        <div class="banner-avatar" id="bannerAvatar">
-          <span id="bannerAvatarPlaceholder">语</span>
+    <div class="card-banner-wrapper" id="cardBannerWrapper">
+      <div class="card-style-switcher" id="cardStyleSwitcher">
+        <button class="card-style-btn" data-style="minimal" title="极简白底">1</button>
+        <button class="card-style-btn" data-style="dark" title="深色商务">2</button>
+        <button class="card-style-btn" data-style="gradient" title="渐变彩色">3</button>
+        <button class="card-style-btn" data-style="dualimg" title="双图卡片">4</button>
+        <button class="card-style-btn" data-style="capsule" title="标签胶囊">5</button>
+        <button class="card-style-btn" data-style="idcard" title="证件照式">6</button>
+        <button class="card-style-btn" data-style="social" title="社交媒体式">7</button>
+      </div>
+      <div class="card-banner card-flip-container" id="cardBanner">
+        <div class="card-flip-inner" id="cardFlipInner">
+          <!-- 正面 -->
+          <div class="card-face card-front" id="cardFront">
+            <div class="banner-left">
+              <div class="banner-avatar" id="bannerAvatar">
+                <span id="bannerAvatarPlaceholder">语</span>
+              </div>
+              <div class="banner-extra-img" id="bannerExtraImg" hidden>📷</div>
+            </div>
+            <div class="banner-info">
+              <h2 id="bannerName">点击编辑名片</h2>
+              <p id="bannerTitle">语文教师</p>
+              <div class="banner-meta">
+                <span id="bannerOrg"></span>
+                <span id="bannerGrade"></span>
+              </div>
+              <div class="banner-tags" id="bannerTags"></div>
+              <p class="banner-motto" id="bannerMotto"></p>
+            </div>
+            <div class="banner-actions">
+              <button class="btn-ghost" id="editCardBtn">编辑名片</button>
+              <button class="btn-ghost" id="copyCard">复制分享</button>
+              <button class="btn-ghost" id="flipCardBtn">翻面</button>
+            </div>
+            <input type="file" id="avatarInput" accept="image/*" hidden>
+          </div>
+          <!-- 背面 -->
+          <div class="card-face card-back" id="cardBack">
+            <div class="card-back-content" id="cardBackContent">
+              <div class="card-qr-area" id="cardQrArea"></div>
+              <div class="card-motto-back" id="cardMottoBack"></div>
+              <div class="card-contact-back" id="cardContactBack"></div>
+            </div>
+            <button class="btn-ghost card-back-flip" id="flipCardBackBtn">翻回正面</button>
+          </div>
         </div>
       </div>
-      <div class="banner-info">
-        <h2 id="bannerName">点击编辑名片</h2>
-        <p id="bannerTitle">语文教师</p>
-        <div class="banner-meta">
-          <span id="bannerOrg"></span>
-          <span id="bannerGrade"></span>
-        </div>
-        <p class="banner-motto" id="bannerMotto"></p>
-      </div>
-      <div class="banner-actions">
-        <button class="btn-ghost" id="editCardBtn">编辑名片</button>
-        <button class="btn-ghost" id="copyCard">复制分享</button>
-      </div>
-      <input type="file" id="avatarInput" accept="image/*" hidden>
     </div>
 
     <div class="grid-cards">
@@ -122,41 +151,6 @@
         <h2>近期提醒</h2>
       </div>
       <ul class="reminder-list" id="reminderList"></ul>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>备课助手 · 六年级下册</h2>
-      </div>
-      <div class="prep-section">
-        <h3 class="prep-section-title">预置资料包</h3>
-        <div class="prep-pack-grid" id="prepPackGrid"></div>
-      </div>
-      <div class="prep-section">
-        <h3 class="prep-section-title">在线搜索资料</h3>
-        <div class="prep-search-row">
-          <input type="text" id="prepSearchInput" placeholder="搜索六年级语文复习资料…">
-          <select id="prepSearchPlatform">
-            <option value="baidu">百度</option>
-            <option value="docin">豆丁网</option>
-            <option value="doc88">道客巴巴</option>
-            <option value="cnki">知网基础</option>
-          </select>
-          <button class="btn-primary" id="prepSearchBtn">搜索</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>使用说明</h2>
-      </div>
-      <div class="info-block">
-        <p>· 所有数据保存在浏览器本地数据库（IndexedDB），清除缓存不会丢失。</p>
-        <p>· 每周使用「数据备份」导出 JSON 文件，或同步至夸克网盘长期保存。</p>
-        <p>· 右上角「导出WPS」可一键导出全部学员、成绩、沟通记录到Excel表格。</p>
-        <p>· 底部导航栏在所有页面均显示，悬浮球常驻右下角。</p>
-      </div>
     </div>
   </section>
 
@@ -390,6 +384,58 @@
             <svg id="mindmapSvg"></svg>
           </div>
           <ul class="mm-history" id="mmHistory"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-prep" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>备课助手</h2>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-ptab="primary">小学段（6年级）</button>
+        <button class="tab" data-ptab="junior">初中段（7-9年级）</button>
+      </div>
+      <!-- 小学段 -->
+      <div class="tab-content" id="ptab-primary">
+        <div class="prep-section">
+          <h3 class="prep-section-title">预置资料包 · 六年级</h3>
+          <div class="prep-pack-grid" id="prepPackGridPrimary"></div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">在线搜索资料</h3>
+          <div class="prep-search-row">
+            <input type="text" id="prepSearchInputPrimary" placeholder="搜索六年级语文复习资料…">
+            <select id="prepSearchPlatformPrimary">
+              <option value="baidu">百度</option>
+              <option value="docin">豆丁网</option>
+              <option value="doc88">道客巴巴</option>
+              <option value="cnki">知网基础</option>
+            </select>
+            <button class="btn-primary" id="prepSearchBtnPrimary">搜索</button>
+          </div>
+        </div>
+      </div>
+      <!-- 初中段 -->
+      <div class="tab-content" id="ptab-junior" hidden>
+        <div class="prep-section">
+          <h3 class="prep-section-title">预置资料包 · 初中</h3>
+          <div class="prep-pack-grid" id="prepPackGridJunior"></div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">在线搜索资料</h3>
+          <div class="prep-search-row">
+            <input type="text" id="prepSearchInputJunior" placeholder="搜索初中语文复习资料…">
+            <select id="prepSearchPlatformJunior">
+              <option value="baidu">百度</option>
+              <option value="docin">豆丁网</option>
+              <option value="doc88">道客巴巴</option>
+              <option value="cnki">知网基础</option>
+            </select>
+            <button class="btn-primary" id="prepSearchBtnJunior">搜索</button>
+          </div>
         </div>
       </div>
     </div>
@@ -818,6 +864,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=35"></script>
+<script src="./app.js?v=36"></script>
 </body>
 </html>

@@ -418,7 +418,8 @@
       communicate: '家长沟通', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
       settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
-      accounting: '个人记账本', ledger: '学情台账'
+      accounting: '个人记账本', ledger: '学情台账',
+      prep: '备课助手'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -441,6 +442,14 @@
     if (page === 'feedback') renderFeedback();
     if (page === 'accounting') renderAccounting();
     if (page === 'ledger') renderLedger();
+    if (page === 'prep') {
+      const savedSection = getSetting('prepSection', 'primary');
+      $$('.tab[data-ptab]').forEach(t => t.classList.toggle('active', t.dataset.ptab === savedSection));
+      $('#ptab-primary').hidden = savedSection !== 'primary';
+      $('#ptab-junior').hidden = savedSection !== 'junior';
+      renderPrepPacks('primary');
+      renderPrepPacks('junior');
+    }
 
     // 移动端收起侧边栏
     const sidebar = $('#sidebar');
@@ -506,6 +515,57 @@
     };
     const copyCardBtn = $('#copyCard');
     if (copyCardBtn) copyCardBtn.onclick = copyCard;
+
+    // v3.1: 名片样式切换
+    $$('.card-style-btn').forEach(btn => {
+      btn.onclick = () => {
+        const style = btn.dataset.style;
+        updateSetting('cardStyle', style);
+        $('#cardBanner').setAttribute('data-card-style', style);
+        $$('.card-style-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const extraImg = $('#bannerExtraImg');
+        if (extraImg) extraImg.hidden = (style !== 'dualimg');
+        toast('名片样式已切换');
+      };
+    });
+
+    // v3.1: 翻转动画
+    const flipCardBtn = $('#flipCardBtn');
+    const flipCardBackBtn = $('#flipCardBackBtn');
+    const cardFlipInner = $('#cardFlipInner');
+    function toggleCardFlip() {
+      if (cardFlipInner) cardFlipInner.classList.toggle('flipped');
+    }
+    if (flipCardBtn) flipCardBtn.onclick = toggleCardFlip;
+    if (flipCardBackBtn) flipCardBackBtn.onclick = toggleCardFlip;
+
+    // v3.1: 滑动切换样式
+    const cardBannerEl = $('#cardBanner');
+    if (cardBannerEl) {
+      let touchStartX = 0;
+      const CARD_STYLES = ['minimal', 'dark', 'gradient', 'dualimg', 'capsule', 'idcard', 'social'];
+      cardBannerEl.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+      cardBannerEl.addEventListener('touchend', e => {
+        const delta = e.changedTouches[0].screenX - touchStartX;
+        if (Math.abs(delta) < 50) return;
+        const current = getSetting('cardStyle', 'minimal');
+        let idx = CARD_STYLES.indexOf(current);
+        idx = delta < 0 ? (idx + 1) % CARD_STYLES.length : (idx - 1 + CARD_STYLES.length) % CARD_STYLES.length;
+        updateSetting('cardStyle', CARD_STYLES[idx]);
+        toast('名片样式：' + CARD_STYLES[idx]);
+      }, { passive: true });
+      // 标签高亮（事件委托）
+      cardBannerEl.addEventListener('click', e => {
+        const tag = e.target.closest('.banner-tag');
+        if (tag) {
+          $$('.banner-tag').forEach(t => t.classList.remove('highlight'));
+          tag.classList.add('highlight');
+          toast('标签：' + tag.textContent);
+        }
+      });
+    }
 
     // 课表
     const addClassBtn = $('#addClassBtn');
@@ -820,11 +880,26 @@
     const ledgerSummaryAllBtn = $('#ledgerSummaryAllBtn');
     if (ledgerSummaryAllBtn) ledgerSummaryAllBtn.onclick = () => generateLedgerImage('all');
 
-    // 备课助手
-    const prepSearchBtn = $('#prepSearchBtn');
-    if (prepSearchBtn) prepSearchBtn.onclick = doPrepSearch;
-    const prepSearchInput = $('#prepSearchInput');
-    if (prepSearchInput) prepSearchInput.onkeydown = e => { if (e.key === 'Enter') doPrepSearch(); };
+    // v3.1: 备课助手 - 小学段
+    const prepSearchBtnPrimary = $('#prepSearchBtnPrimary');
+    if (prepSearchBtnPrimary) prepSearchBtnPrimary.onclick = () => doPrepSearch('primary');
+    const prepSearchInputPrimary = $('#prepSearchInputPrimary');
+    if (prepSearchInputPrimary) prepSearchInputPrimary.onkeydown = e => { if (e.key === 'Enter') doPrepSearch('primary'); };
+    // v3.1: 备课助手 - 初中段
+    const prepSearchBtnJunior = $('#prepSearchBtnJunior');
+    if (prepSearchBtnJunior) prepSearchBtnJunior.onclick = () => doPrepSearch('junior');
+    const prepSearchInputJunior = $('#prepSearchInputJunior');
+    if (prepSearchInputJunior) prepSearchInputJunior.onkeydown = e => { if (e.key === 'Enter') doPrepSearch('junior'); };
+    // v3.1: 备课助手学段 Tab 切换
+    $$('.tab[data-ptab]').forEach(tab => {
+      tab.onclick = () => {
+        $$('.tab[data-ptab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $('#ptab-primary').hidden = tab.dataset.ptab !== 'primary';
+        $('#ptab-junior').hidden = tab.dataset.ptab !== 'junior';
+        updateSetting('prepSection', tab.dataset.ptab);
+      };
+    });
   }
 
   // ================= 个性化设置 =================
@@ -1033,7 +1108,6 @@
     $('#stat-classes').textContent = state.classes.length;
     $('#stat-comm').textContent = state.communications.length;
     $('#stat-todo').textContent = state.todos.filter(t => t.status !== 'done').length;
-    renderPrepPacks();
 
     // 待回访
     const callbacks = state.callbacks.filter(c => !c.done);
@@ -1082,6 +1156,46 @@
         bannerAvatar.style.backgroundImage = '';
         bannerAvatar.textContent = '👤';
       }
+    }
+
+    // v3.1: 应用名片样式
+    const cardStyle = getSetting('cardStyle', 'minimal');
+    const container = $('#cardBanner');
+    if (container) {
+      container.setAttribute('data-card-style', cardStyle);
+      // 双图样式显示第二张图占位
+      const extraImg = $('#bannerExtraImg');
+      if (extraImg) extraImg.hidden = (cardStyle !== 'dualimg');
+    }
+    $$('.card-style-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.style === cardStyle);
+    });
+
+    // v3.1: 渲染标签
+    const tagsEl = $('#bannerTags');
+    if (tagsEl) {
+      const tags = [];
+      if (card.feature) tags.push(card.feature);
+      if (card.grade) tags.push(card.grade);
+      if (card.title) tags.push(card.title);
+      tagsEl.innerHTML = tags.map(t => `<span class="banner-tag">${escapeHtml(t)}</span>`).join('');
+    }
+
+    // v3.1: 渲染背面内容
+    const mottoBack = $('#cardMottoBack');
+    if (mottoBack) mottoBack.textContent = card.motto || '教育无他，唯爱与榜样';
+    const contactBack = $('#cardContactBack');
+    if (contactBack) {
+      contactBack.innerHTML = [
+        card.phone ? `<p>📞 ${escapeHtml(card.phone)}</p>` : '',
+        card.wechat ? `<p>💬 ${escapeHtml(card.wechat)}</p>` : '',
+        card.org ? `<p>🏫 ${escapeHtml(card.org)}</p>` : ''
+      ].join('');
+    }
+    const qrArea = $('#cardQrArea');
+    if (qrArea) {
+      const hasContact = card.phone || card.wechat || card.name;
+      qrArea.innerHTML = hasContact ? '<div class="qr-placeholder">QR</div>' : '';
     }
   }
 
@@ -3657,19 +3771,31 @@
   }
 
   // ================= 备课助手 =================
-  const PREP_PACKS = [
-    { id: 'gushi', title: '古诗文专项复习', desc: '六年级下册全部古诗文汇总、注释、译文、默写练习', icon: '📜', files: ['古诗文汇总表.pdf', '古诗默写练习.docx', '古诗鉴赏要点.txt'] },
-    { id: 'reading', title: '阅读理解专项', desc: '期末阅读常见题型、答题模板、练习篇目', icon: '📖', files: ['阅读答题模板.pdf', '课内阅读重点篇目.txt', '课外阅读练习.docx'] },
-    { id: 'writing', title: '作文专项复习', desc: '六年级下册单元作文范文、写作技巧、好词好句', icon: '✏️', files: ['单元作文范文集.pdf', '作文开头结尾模板.txt', '好词好句积累.docx'] },
-    { id: 'basic', title: '基础知识过关', desc: '生字词、多音字、近反义词、病句修改等基础题', icon: '📝', files: ['生字词听写表.pdf', '多音字近反词汇总.txt', '病句修改练习.docx'] },
-    { id: 'mock', title: '模拟试卷 3 套', desc: '六年级语文期末模拟试卷（含答案）', icon: '📋', files: ['模拟试卷一（含答案）.pdf', '模拟试卷二（含答案）.pdf', '模拟试卷三（含答案）.pdf'] },
-    { id: 'map', title: '知识点思维导图', desc: '全册知识点框架图（可打印张贴）', icon: '🗺️', files: ['六下语文知识框架图.pdf', '单元知识点梳理.txt'] }
-  ];
+  const PREP_PACKS = {
+    primary: [
+      { id: 'gushi', title: '古诗文专项复习', desc: '六年级全部古诗文汇总、注释、译文、默写练习', icon: '📜', files: ['古诗文汇总表.pdf', '古诗默写练习.docx', '古诗鉴赏要点.txt'] },
+      { id: 'reading', title: '阅读理解专项', desc: '期末阅读常见题型、答题模板、练习篇目', icon: '📖', files: ['阅读答题模板.pdf', '课内阅读重点篇目.txt', '课外阅读练习.docx'] },
+      { id: 'writing', title: '作文专项复习', desc: '六年级单元作文范文、写作技巧、好词好句', icon: '✏️', files: ['单元作文范文集.pdf', '作文开头结尾模板.txt', '好词好句积累.docx'] },
+      { id: 'basic', title: '基础知识过关', desc: '生字词、多音字、近反义词、病句修改等基础题', icon: '📝', files: ['生字词听写表.pdf', '多音字近反词汇总.txt', '病句修改练习.docx'] },
+      { id: 'mock', title: '模拟试卷 3 套', desc: '六年级语文期末模拟试卷（含答案）', icon: '📋', files: ['模拟试卷一（含答案）.pdf', '模拟试卷二（含答案）.pdf', '模拟试卷三（含答案）.pdf'] },
+      { id: 'map', title: '知识点思维导图', desc: '全册知识点框架图（可打印张贴）', icon: '🗺️', files: ['六下语文知识框架图.pdf', '单元知识点梳理.txt'] }
+    ],
+    junior: [
+      { id: 'j_gushi', title: '古诗文专项复习', desc: '初中课内古诗文汇总、注释、译文、默写练习', icon: '📜', files: ['初中文言文汇总.pdf', '古诗默写练习.docx', '古诗鉴赏要点.txt'] },
+      { id: 'j_reading', title: '现代文阅读专项', desc: '记叙文/说明文/议论文阅读答题模板与练习', icon: '📖', files: ['现代文阅读答题模板.pdf', '记叙文阅读练习.docx', '说明文议论文练习.txt'] },
+      { id: 'j_writing', title: '作文专项复习', desc: '初中命题/半命题/材料作文范文与技巧', icon: '✏️', files: ['初中作文范文集.pdf', '作文素材积累.docx', '高分作文技巧.txt'] },
+      { id: 'j_basic', title: '基础知识过关', desc: '字词、病句、标点、文学常识等基础题', icon: '📝', files: ['字词过关表.pdf', '病句标点练习.docx', '文学常识汇总.txt'] },
+      { id: 'j_mock', title: '模拟试卷 3 套', desc: '初中语文期末模拟试卷（含答案）', icon: '📋', files: ['模拟试卷一（含答案）.pdf', '模拟试卷二（含答案）.pdf', '模拟试卷三（含答案）.pdf'] },
+      { id: 'j_classic', title: '名著导读专项', desc: '《朝花夕拾》《西游记》等必读名著导读', icon: '📚', files: ['名著导读要点.pdf', '名著练习题.docx', '名著知识点梳理.txt'] }
+    ]
+  };
 
-  function renderPrepPacks() {
-    const grid = $('#prepPackGrid');
+  function renderPrepPacks(section) {
+    const gridId = section === 'junior' ? '#prepPackGridJunior' : '#prepPackGridPrimary';
+    const grid = $(gridId);
     if (!grid) return;
-    grid.innerHTML = PREP_PACKS.map(pack => `
+    const packs = PREP_PACKS[section] || [];
+    grid.innerHTML = packs.map(pack => `
       <div class="prep-pack-card">
         <div class="prep-pack-icon">${pack.icon}</div>
         <div class="prep-pack-info">
@@ -3677,15 +3803,16 @@
           <p>${pack.desc}</p>
           <div class="prep-pack-files">${pack.files.map(f => `<span class="prep-file-tag">${f}</span>`).join('')}</div>
         </div>
-        <button class="btn-ghost prep-download-btn" data-pack="${pack.id}">下载清单</button>
+        <button class="btn-ghost prep-download-btn" data-pack="${pack.id}" data-section="${section}">下载清单</button>
       </div>`).join('');
-    $$('.prep-download-btn').forEach(btn => {
-      btn.onclick = () => downloadPrepPack(btn.dataset.pack);
+    $$(gridId + ' .prep-download-btn').forEach(btn => {
+      btn.onclick = () => downloadPrepPack(btn.dataset.pack, btn.dataset.section);
     });
   }
 
-  function downloadPrepPack(packId) {
-    const pack = PREP_PACKS.find(p => p.id === packId);
+  function downloadPrepPack(packId, section) {
+    const packs = PREP_PACKS[section || 'primary'] || [];
+    const pack = packs.find(p => p.id === packId);
     if (!pack) return;
     const content = [
       `=== ${pack.title} ===`,
@@ -3706,17 +3833,20 @@
     toast(`「${pack.title}」清单已下载`);
   }
 
-  function doPrepSearch() {
-    const input = $('#prepSearchInput');
+  function doPrepSearch(section) {
+    const inputId = section === 'junior' ? '#prepSearchInputJunior' : '#prepSearchInputPrimary';
+    const platformId = section === 'junior' ? '#prepSearchPlatformJunior' : '#prepSearchPlatformPrimary';
+    const input = $(inputId);
     if (!input || !input.value.trim()) { toast('请输入搜索关键词'); return; }
     const query = input.value.trim();
-    const platform = $('#prepSearchPlatform') ? $('#prepSearchPlatform').value : 'baidu';
-    const prefix = '六年级下册语文 ';
+    const platform = $(platformId) ? $(platformId).value : 'baidu';
+    const prefix = section === 'junior' ? '初中语文 ' : '六年级语文 ';
+    const cnkiPrefix = section === 'junior' ? '初中语文 ' : '小学六年级语文 ';
     const urls = {
       baidu: `https://www.baidu.com/s?wd=${encodeURIComponent(prefix + query)}`,
       docin: `https://www.docin.com/search.do?nkey=${encodeURIComponent(prefix + query)}`,
       doc88: `https://www.doc88.com/s?k=${encodeURIComponent(prefix + query)}`,
-      cnki: `https://kns.cnki.net/kns8/defaultresult/index?kwd=${encodeURIComponent('小学六年级语文 ' + query)}`
+      cnki: `https://kns.cnki.net/kns8/defaultresult/index?kwd=${encodeURIComponent(cnkiPrefix + query)}`
     };
     window.open(urls[platform], '_blank', 'noopener');
   }

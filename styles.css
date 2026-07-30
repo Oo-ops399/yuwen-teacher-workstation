@@ -865,6 +865,22 @@ label input, label select, label textarea { margin-top: 4px; }
 }
 .theme-palette button.active { box-shadow: 0 0 0 2px var(--primary); transform: scale(1.1); }
 
+/* ================= 课后反馈 ================= */
+.feedback-gen-area {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+.feedback-gen-left label,
+.feedback-gen-right label {
+  margin-bottom: 12px;
+}
+.feedback-materials {
+  border-top: 1px solid var(--border);
+  padding: 0 16px 16px;
+}
+
 /* ================= 生活助手 ================= */
 .life-tabs {
   display: flex;
@@ -1151,6 +1167,7 @@ label input, label select, label textarea { margin-top: 4px; }
   .mindmap-wrap { grid-template-columns: 1fr; }
   .card-editor { grid-template-columns: 1fr; }
   .kanban-board { grid-template-columns: 1fr; }
+  .feedback-gen-area { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
   .sidebar {

@@ -54,8 +54,8 @@
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 2;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns'];
+  const DB_VER = 3;
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'hours', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials'];
 
   let dbInstance = null;
   function openDB() {
@@ -161,7 +161,9 @@
     sticky: [],
     express: [],
     memos: [],
-    countdowns: []
+    countdowns: [],
+    feedbacks: [],
+    feedbackMaterials: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -379,7 +381,7 @@
       students: '学员档案', 'student-detail': '学员档案详情',
       communicate: '家长沟通', hours: '课时管理', library: '教学素材库',
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
-      settings: '个性化设置', data: '数据备份', life: '生活助手'
+      settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -400,6 +402,7 @@
     if (page === 'settings') renderSettings();
     if (page === 'data') renderData();
     if (page === 'life') renderLife();
+    if (page === 'feedback') renderFeedback();
 
     // 移动端收起侧边栏
     const sidebar = $('#sidebar');
@@ -610,6 +613,44 @@
 
     // 生活助手
     bindLifeEvents();
+
+    // 课后反馈
+    const addFeedbackBtn = $('#addFeedbackBtn');
+    if (addFeedbackBtn) addFeedbackBtn.onclick = () => editFeedbackModal();
+    const importFeedbackBtn = $('#importFeedbackBtn');
+    if (importFeedbackBtn) importFeedbackBtn.onclick = () => $('#importFeedbackInput').click();
+    const importFeedbackInput = $('#importFeedbackInput');
+    if (importFeedbackInput) importFeedbackInput.onchange = e => handleImportFeedback(e.target.files[0]);
+    const exportFeedbackBtn = $('#exportFeedbackBtn');
+    if (exportFeedbackBtn) exportFeedbackBtn.onclick = exportFeedbackToWPS;
+    const feedbackStudentFilter = $('#feedbackStudentFilter');
+    if (feedbackStudentFilter) feedbackStudentFilter.onchange = renderFeedbackList;
+    const feedbackTypeFilter = $('#feedbackTypeFilter');
+    if (feedbackTypeFilter) feedbackTypeFilter.onchange = renderFeedbackList;
+    const generateFeedbackBtn = $('#generateFeedbackBtn');
+    if (generateFeedbackBtn) generateFeedbackBtn.onclick = generateFeedback;
+    const saveFeedbackBtn = $('#saveFeedbackBtn');
+    if (saveFeedbackBtn) saveFeedbackBtn.onclick = saveGeneratedFeedback;
+    const copyFeedbackBtn = $('#copyFeedbackBtn');
+    if (copyFeedbackBtn) copyFeedbackBtn.onclick = () => {
+      const r = $('#genFeedbackResult');
+      if (r && r.value) { copyText(r.value); }
+      else { toast('生成结果为空'); }
+    };
+    const addFeedbackMaterialBtn = $('#addFeedbackMaterialBtn');
+    if (addFeedbackMaterialBtn) addFeedbackMaterialBtn.onclick = addFeedbackMaterial;
+
+    // 导入学员
+    const importStudentsBtn = $('#importStudentsBtn');
+    if (importStudentsBtn) importStudentsBtn.onclick = () => $('#importStudentsInput').click();
+    const importStudentsInput = $('#importStudentsInput');
+    if (importStudentsInput) importStudentsInput.onchange = e => handleImportStudents(e.target.files[0]);
+
+    // 导入话术
+    const importTemplateBtn = $('#importTemplateBtn');
+    if (importTemplateBtn) importTemplateBtn.onclick = () => $('#importTemplateInput').click();
+    const importTemplateInput = $('#importTemplateInput');
+    if (importTemplateInput) importTemplateInput.onchange = e => handleImportTemplates(e.target.files[0]);
 
     // 悬浮球
     $('#floatBall').onclick = () => $('#floatMenu').hidden = !$('#floatMenu').hidden;
@@ -2492,6 +2533,19 @@
     toast('看板任务已导出');
   }
 
+  function exportFeedbackToWPS() {
+    if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [['学员', '类型', '反馈内容', '日期']];
+    state.feedbacks.forEach(f => {
+      const s = state.students.find(x => x.id === f.studentId);
+      rows.push([s ? s.name : '未关联', f.type || '', f.content || '', fmtDate(f.ts)]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '课后反馈');
+    XLSX.writeFile(wb, `课后反馈_${todayStr()}.xlsx`);
+    toast('反馈已导出');
+  }
+
   // ================= 全局搜索 =================
   function doSearch(q) {
     if (!q) { $('#searchResult').classList.remove('active'); return; }
@@ -2572,6 +2626,395 @@
     }, 100);
   }
 
+  // ================= 课后反馈 =================
+  function renderFeedback() {
+    renderFeedbackList();
+    renderFeedbackMaterials();
+    // 填充学员下拉
+    const sel1 = $('#feedbackStudentFilter');
+    const sel2 = $('#genFeedbackStudent');
+    const opts = '<option value="">全部学员</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name||'')}</option>`).join('');
+    if (sel1) sel1.innerHTML = opts;
+    if (sel2) sel2.innerHTML = '<option value="">选择学员…</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name||'')}</option>`).join('');
+  }
+
+  function renderFeedbackList() {
+    const el = $('#feedbackList');
+    if (!el) return;
+    const sf = $('#feedbackStudentFilter');
+    const tf = $('#feedbackTypeFilter');
+    const sid = sf ? sf.value : '';
+    const type = tf ? tf.value : '';
+    let list = state.feedbacks.slice().reverse();
+    if (sid) list = list.filter(f => f.studentId === sid);
+    if (type) list = list.filter(f => f.type === type);
+    el.innerHTML = list.map(f => {
+      const s = state.students.find(x => x.id === f.studentId);
+      const sname = s ? s.name : '未关联';
+      return `
+        <div class="student-card" style="position:relative">
+          <h4>${escapeHtml(sname)} <span class="student-tag">${escapeHtml(f.type||'')}</span></h4>
+          <p style="white-space:pre-wrap;margin:6px 0">${escapeHtml(f.content||'')}</p>
+          <p style="font-size:11px;color:var(--text-muted)">${fmtDate(f.ts)}</p>
+          <div style="position:absolute;top:12px;right:12px;display:flex;gap:4px">
+            <button class="btn-ghost" style="font-size:10px;padding:2px 6px" onclick="window.__app.copyText(\`${escapeAttr(f.content||'')}\`)">复制</button>
+            <button class="btn-ghost" style="font-size:10px;padding:2px 6px" onclick="window.__app.delFeedback('${f.id}')">删</button>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p style="padding:16px;color:var(--text-muted);font-size:13px;text-align:center">暂无课后反馈，点击右上角「录入反馈」添加</p>';
+  }
+
+  function renderFeedbackMaterials() {
+    const el = $('#feedbackMaterialList');
+    if (!el) return;
+    el.innerHTML = state.feedbackMaterials.slice().reverse().map(m => `
+      <li class="record-item">
+        <span>${escapeHtml(m.text)}</span>
+        <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.delFeedbackMaterial('${m.id}')">删</button>
+      </li>
+    `).join('') || '<li style="padding:8px;color:var(--text-muted);font-size:12px">暂无素材片段</li>';
+  }
+
+  function editFeedbackModal(id) {
+    const existing = id ? state.feedbacks.find(f => f.id === id) : null;
+    const studentOpts = state.students.map(s => `<option value="${s.id}" ${existing && existing.studentId === s.id ? 'selected' : ''}>${escapeHtml(s.name||'')}</option>`).join('');
+    openModal(existing ? '编辑反馈' : '录入课后反馈', `
+      <label>选择学员<select id="fbStudent" style="font-size:16px"><option value="">请选择…</option>${studentOpts}</select></label>
+      <label>反馈类型<select id="fbType" style="font-size:16px">
+        <option value="课堂表现" ${existing&&existing.type==='课堂表现'?'selected':''}>课堂表现</option>
+        <option value="作业反馈" ${existing&&existing.type==='作业反馈'?'selected':''}>作业反馈</option>
+        <option value="阶段总结" ${existing&&existing.type==='阶段总结'?'selected':''}>阶段总结</option>
+        <option value="考试分析" ${existing&&existing.type==='考试分析'?'selected':''}>考试分析</option>
+      </select></label>
+      <label>反馈内容<textarea id="fbContent" rows="6" style="font-size:16px" placeholder="输入课后反馈内容…">${escapeHtml(existing?existing.content:'')}</textarea></label>
+    `, `<button class="btn-ghost" onclick="closeModal()">取消</button><button class="btn-primary" id="fbSave">保存</button>`);
+    $('#fbSave').onclick = async () => {
+      const sid = $('#fbStudent').value;
+      const type = $('#fbType').value;
+      const content = $('#fbContent').value.trim();
+      if (!sid) { toast('请选择学员'); return; }
+      if (!content) { toast('请输入反馈内容'); return; }
+      if (existing) {
+        existing.studentId = sid; existing.type = type; existing.content = content; existing.ts = Date.now();
+        await dbPut('feedbacks', existing);
+      } else {
+        const item = { id: uid(), studentId: sid, type, content, ts: Date.now() };
+        state.feedbacks.push(item);
+        await dbPut('feedbacks', item);
+      }
+      saveLocalCache();
+      closeModal();
+      renderFeedbackList();
+      toast('反馈已保存');
+    };
+  }
+
+  async function delFeedback(id) {
+    await dbDel('feedbacks', id);
+    state.feedbacks = state.feedbacks.filter(f => f.id !== id);
+    saveLocalCache();
+    renderFeedbackList();
+  }
+
+  async function addFeedbackMaterial() {
+    const text = $('#feedbackMaterialInput').value.trim();
+    if (!text) return;
+    const item = { id: uid(), text, ts: Date.now() };
+    await dbPut('feedbackMaterials', item);
+    state.feedbackMaterials.push(item);
+    saveLocalCache();
+    $('#feedbackMaterialInput').value = '';
+    renderFeedbackMaterials();
+  }
+
+  async function delFeedbackMaterial(id) {
+    await dbDel('feedbackMaterials', id);
+    state.feedbackMaterials = state.feedbackMaterials.filter(m => m.id !== id);
+    saveLocalCache();
+    renderFeedbackMaterials();
+  }
+
+  // 智能生成反馈：根据学员历史反馈+素材库拼接生成
+  function generateFeedback() {
+    const sid = $('#genFeedbackStudent').value;
+    const type = $('#genFeedbackType').value;
+    const note = $('#genFeedbackNote').value.trim();
+    if (!sid) { toast('请先选择学员'); return; }
+    const student = state.students.find(s => s.id === sid);
+    if (!student) { toast('学员不存在'); return; }
+    const sname = student.name || '该生';
+
+    // 收集该学员的历史反馈
+    const history = state.feedbacks.filter(f => f.studentId === sid);
+    // 收集素材库中匹配类型的片段
+    const materials = state.feedbackMaterials.map(m => m.text);
+
+    // 生成反馈文案
+    let parts = [];
+
+    // 开头
+    const openers = [
+      `${sname}同学本周${type === '课堂表现' ? '课堂表现' : type === '作业反馈' ? '作业完成情况' : '阶段性表现'}如下：`,
+      `关于${sname}同学近期的${type}：`,
+      `${sname}同学近期${type}反馈：`
+    ];
+    parts.push(openers[Math.floor(Math.random() * openers.length)]);
+
+    // 主体：从素材库随机选2-3条
+    if (materials.length > 0) {
+      const shuffled = materials.slice().sort(() => Math.random() - 0.5);
+      const pick = shuffled.slice(0, Math.min(3, shuffled.length));
+      pick.forEach((m, i) => {
+        // 替换"该生"为学员名
+        let text = m.replace(/该生/g, sname + '同学');
+        parts.push(text + '。');
+      });
+    }
+
+    // 结合历史反馈趋势
+    if (history.length > 0) {
+      const last = history[history.length - 1];
+      if (last.content) {
+        parts.push(`相比上次反馈（${last.type}），${sname}同学${Math.random() > 0.5 ? '继续保持稳定进步' : '有明显改善'}。`);
+      }
+    }
+
+    // 补充说明
+    if (note) {
+      parts.push(`特别说明：${note}。`);
+    }
+
+    // 结尾建议
+    const closers = [
+      `建议继续保持，家长可在家配合督促${type === '作业反馈' ? '作业完成' : '阅读练习'}。`,
+      `整体表现良好，期待${sname}同学下周的进步。`,
+      `望家长继续配合，共同帮助孩子提升。`,
+      `后续将重点关注薄弱环节，有针对性辅导。`
+    ];
+    parts.push(closers[Math.floor(Math.random() * closers.length)]);
+
+    const result = parts.join('\n\n');
+    $('#genFeedbackResult').value = result;
+    toast('反馈已生成，可编辑后保存');
+  }
+
+  async function saveGeneratedFeedback() {
+    const sid = $('#genFeedbackStudent').value;
+    const type = $('#genFeedbackType').value;
+    const content = $('#genFeedbackResult').value.trim();
+    if (!sid) { toast('请先选择学员'); return; }
+    if (!content) { toast('生成结果为空'); return; }
+    const item = { id: uid(), studentId: sid, type, content, ts: Date.now() };
+    state.feedbacks.push(item);
+    await dbPut('feedbacks', item);
+    saveLocalCache();
+    renderFeedbackList();
+    $('#genFeedbackResult').value = '';
+    toast('反馈已保存到该学员档案');
+  }
+
+  // 导入学员（Excel/CSV）
+  function handleImportStudents(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        let rows = [];
+        if (file.name.match(/\.(xlsx|xls)$/i)) {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json(ws);
+        } else {
+          // CSV
+          const text = e.target.result;
+          const lines = text.split('\n').filter(l => l.trim());
+          if (lines.length < 2) { toast('文件内容为空'); return; }
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          rows = lines.slice(1).map(line => {
+            const vals = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i]);
+            return obj;
+          });
+        }
+        let count = 0;
+        for (const r of rows) {
+          // 兼容各种列名
+          const name = r['姓名'] || r['name'] || r['学生姓名'] || '';
+          if (!name) continue;
+          const item = {
+            id: uid(),
+            name,
+            grade: r['年级'] || r['grade'] || '',
+            classTime: r['班次'] || r['上课时间'] || r['classTime'] || '',
+            weakness: r['薄弱项'] || r['weakness'] || '',
+            parentPhone: r['家长电话'] || r['phone'] || r['联系电话'] || '',
+            school: r['学校'] || r['school'] || '',
+            tags: (r['标签'] || '').split(/[,，、]/).filter(Boolean),
+            scores: [],
+            reports: [],
+            ts: Date.now()
+          };
+          state.students.push(item);
+          await dbPut('students', item);
+          count++;
+        }
+        saveLocalCache();
+        renderStudentList();
+        toast(`成功导入 ${count} 名学员`);
+      } catch (err) {
+        toast('导入失败：' + err.message);
+      }
+    };
+    if (file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }
+
+  // 导入话术模板（Excel/CSV/TXT）
+  function handleImportTemplates(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        let rows = [];
+        if (file.name.match(/\.(xlsx|xls)$/i)) {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json(ws);
+        } else if (file.name.match(/\.csv$/i)) {
+          const text = e.target.result;
+          const lines = text.split('\n').filter(l => l.trim());
+          if (lines.length < 2) { toast('文件内容为空'); return; }
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          rows = lines.slice(1).map(line => {
+            const vals = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i]);
+            return obj;
+          });
+        } else {
+          // TXT：每行一条话术
+          const lines = e.target.result.split('\n').filter(l => l.trim());
+          rows = lines.map(l => ({ title: l.trim().slice(0, 20), content: l.trim() }));
+        }
+        let count = 0;
+        for (const r of rows) {
+          const title = r['标题'] || r['title'] || r['场景'] || r['name'] || '导入话术';
+          const content = r['内容'] || r['content'] || r['话术'] || r['text'] || '';
+          if (!content) continue;
+          const item = { id: uid(), title, content, category: r['分类'] || r['category'] || '通用', ts: Date.now() };
+          state.templates.push(item);
+          await dbPut('templates', item);
+          count++;
+        }
+        saveLocalCache();
+        renderTemplates();
+        toast(`成功导入 ${count} 条话术`);
+      } catch (err) {
+        toast('导入失败：' + err.message);
+      }
+    };
+    if (file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }
+
+  // 导入课后反馈（Excel/CSV/TXT）——自动按学员名归档
+  function handleImportFeedback(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        let rows = [];
+        if (file.name.match(/\.(xlsx|xls)$/i)) {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json(ws);
+        } else if (file.name.match(/\.csv$/i)) {
+          const text = e.target.result;
+          const lines = text.split('\n').filter(l => l.trim());
+          if (lines.length < 2) { toast('文件内容为空'); return; }
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          rows = lines.slice(1).map(line => {
+            const vals = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i]);
+            return obj;
+          });
+        } else {
+          // TXT
+          const lines = e.target.result.split('\n').filter(l => l.trim());
+          rows = lines.map(l => ({ content: l.trim() }));
+        }
+        let count = 0;
+        let unmatched = 0;
+        for (const r of rows) {
+          const sname = r['学员'] || r['姓名'] || r['学生'] || r['name'] || '';
+          const content = r['反馈'] || r['内容'] || r['content'] || r['反馈内容'] || '';
+          if (!content) continue;
+          // 匹配学员
+          let student = null;
+          if (sname) {
+            student = state.students.find(s => s.name === sname);
+          }
+          const item = {
+            id: uid(),
+            studentId: student ? student.id : '',
+            type: r['类型'] || r['type'] || '课堂表现',
+            content,
+            ts: Date.now()
+          };
+          state.feedbacks.push(item);
+          await dbPut('feedbacks', item);
+          count++;
+          if (!student && sname) unmatched++;
+        }
+        saveLocalCache();
+        renderFeedbackList();
+        let msg = `成功导入 ${count} 条反馈`;
+        if (unmatched > 0) msg += `（其中 ${unmatched} 条未匹配到学员，已归为"未关联"）`;
+        toast(msg);
+      } catch (err) {
+        toast('导入失败：' + err.message);
+      }
+    };
+    if (file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }
+
+  // 手机号查询快递（在本系统记录中搜索+跳转外部查询）
+  function queryExpressByPhone() {
+    const phone = $('#expressPhoneQuery').value.trim();
+    if (!phone) { toast('请输入手机号'); return; }
+    const el = $('#phoneExpressResult');
+    // 1) 搜索本地记录
+    const matched = state.express.filter(e => e.phone === phone);
+    let html = '';
+    if (matched.length > 0) {
+      html += '<p style="font-size:12px;color:var(--text-soft);margin-bottom:8px">本地记录：</p>';
+      html += matched.map(e => `
+        <div class="record-item">
+          <div><strong>${escapeHtml(e.company)}</strong> <span style="color:var(--text-muted);font-size:12px">${escapeHtml(e.no)}</span></div>
+          <a class="btn-link" href="https://www.kuaidi100.com/chaxun?nu=${encodeURIComponent(e.no)}" target="_blank" rel="noopener" style="font-size:12px">查询物流</a>
+        </div>
+      `).join('');
+    } else {
+      html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">本地无该手机号的快递记录</p>';
+    }
+    // 2) 外部查询链接
+    html += `
+      <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px">
+        <p style="font-size:12px;color:var(--text-soft);margin-bottom:8px">前往外部平台用手机号查件：</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn-ghost" href="https://www.kuaidi100.com/" target="_blank" rel="noopener" style="font-size:12px">快递100</a>
+          <a class="btn-ghost" href="https://m.sf-express.com/" target="_blank" rel="noopener" style="font-size:12px">顺丰速运</a>
+          <a class="btn-ghost" href="https://www.cainiao.com/" target="_blank" rel="noopener" style="font-size:12px">菜鸟裹裹</a>
+        </div>
+      </div>
+    `;
+    el.innerHTML = html;
+  }
+
   // ================= 生活助手 =================
   function renderLife() {
     renderExpress();
@@ -2636,13 +3079,15 @@
   async function addExpress() {
     const company = $('#expressCompany').value.trim();
     const no = $('#expressNo').value.trim();
+    const phone = ($('#expressPhone') ? $('#expressPhone').value.trim() : '');
     if (!company || !no) { toast('请填写快递公司和单号'); return; }
-    const item = { id: uid(), company, no, ts: Date.now() };
+    const item = { id: uid(), company, no, phone, ts: Date.now() };
     await dbPut('express', item);
     state.express.push(item);
     saveLocalCache();
     $('#expressCompany').value = '';
     $('#expressNo').value = '';
+    if ($('#expressPhone')) $('#expressPhone').value = '';
     renderExpress();
     toast('快递已记录');
   }
@@ -2725,6 +3170,8 @@
     if (addCdBtn) addCdBtn.onclick = addCountdown;
     const weatherBtn = $('#weatherBtn');
     if (weatherBtn) weatherBtn.onclick = queryWeather;
+    const queryExpressByPhoneBtn = $('#queryExpressByPhoneBtn');
+    if (queryExpressByPhoneBtn) queryExpressByPhoneBtn.onclick = queryExpressByPhone;
   }
 
   window.confirmDelete = async function (store, id, name) {
@@ -2744,7 +3191,8 @@
     editCardModal, downloadLibFile,
     openStudent, addScore, delScore, saveScores, addReport, saveReport,
     delReport, delComm, loadMindmapById, delMindmap, copyText, delClip,
-    confirmDelete, closeModal, delLife: delLifeItem
+    confirmDelete, closeModal, delLife: delLifeItem,
+    delFeedback, delFeedbackMaterial, editFeedbackModal
   };
 
   // 启动

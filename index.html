@@ -30,6 +30,7 @@
     <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
     <a class="nav-item" data-page="hours"><span class="nav-icon">⏱</span><span class="nav-label">课时管理</span></a>
     <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
+    <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
     <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
     <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
@@ -160,6 +161,8 @@
       <div class="panel-header">
         <h2>学员综合档案</h2>
         <div class="header-actions">
+          <button class="btn-ghost" id="importStudentsBtn">导入学员</button>
+          <input type="file" id="importStudentsInput" accept=".xlsx,.xls,.csv" hidden>
           <button class="btn-ghost" id="exportAllStudentsBtn">导出WPS</button>
           <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
         </div>
@@ -196,6 +199,8 @@
       <div class="panel-header">
         <h2>家长沟通中心</h2>
         <div class="header-actions">
+          <button class="btn-ghost" id="importTemplateBtn">导入话术</button>
+          <input type="file" id="importTemplateInput" accept=".xlsx,.xls,.csv,.txt" hidden>
           <button class="btn-ghost" id="exportCommBtn">导出WPS</button>
           <button class="btn-primary" id="addCommBtn">＋ 记录沟通</button>
         </div>
@@ -257,6 +262,77 @@
         </select>
       </div>
       <div id="libList" class="card-list"></div>
+    </div>
+  </section>
+
+  <section class="page" id="page-feedback" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>课后反馈管理</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="importFeedbackBtn">导入反馈</button>
+          <input type="file" id="importFeedbackInput" accept=".xlsx,.xls,.csv,.txt" hidden>
+          <button class="btn-ghost" id="exportFeedbackBtn">导出WPS</button>
+          <button class="btn-primary" id="addFeedbackBtn">＋ 录入反馈</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="feedbackStudentFilter">
+          <option value="">全部学员</option>
+        </select>
+        <select id="feedbackTypeFilter">
+          <option value="">全部类型</option>
+          <option value="课堂表现">课堂表现</option>
+          <option value="作业反馈">作业反馈</option>
+          <option value="阶段总结">阶段总结</option>
+          <option value="考试分析">考试分析</option>
+        </select>
+      </div>
+      <div id="feedbackList" class="card-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>反馈素材库 · 智能生成</h2>
+      </div>
+      <div class="feedback-gen-area">
+        <div class="feedback-gen-left">
+          <label>选择学员
+            <select id="genFeedbackStudent">
+              <option value="">选择学员…</option>
+            </select>
+          </label>
+          <label>反馈类型
+            <select id="genFeedbackType">
+              <option value="课堂表现">课堂表现</option>
+              <option value="作业反馈">作业反馈</option>
+              <option value="阶段总结">阶段总结</option>
+              <option value="考试分析">考试分析</option>
+            </select>
+          </label>
+          <label>补充说明（可选）
+            <textarea id="genFeedbackNote" rows="3" placeholder="如：本周表现积极，作文有进步…"></textarea>
+          </label>
+          <button class="btn-primary" id="generateFeedbackBtn" style="width:100%">智能生成反馈</button>
+        </div>
+        <div class="feedback-gen-right">
+          <label>生成结果
+            <textarea id="genFeedbackResult" rows="8" placeholder="点击「智能生成反馈」，系统将根据该学员的历史反馈和素材库自动生成一段反馈文案，可编辑后保存…"></textarea>
+          </label>
+          <div style="display:flex;gap:8px">
+            <button class="btn-ghost" id="copyFeedbackBtn">复制</button>
+            <button class="btn-primary" id="saveFeedbackBtn">保存为该学员反馈</button>
+          </div>
+        </div>
+      </div>
+      <div class="feedback-materials">
+        <h3 style="font-size:13px;margin:16px 0 8px;padding-left:10px;border-left:3px solid var(--primary)">反馈素材片段库（智能生成时引用）</h3>
+        <div class="clip-input">
+          <input type="text" id="feedbackMaterialInput" placeholder="录入一句话素材，如：该生课堂专注力有明显提升…">
+          <button class="btn-primary" id="addFeedbackMaterialBtn">添加素材</button>
+        </div>
+        <ul class="record-list" id="feedbackMaterialList"></ul>
+      </div>
     </div>
   </section>
 
@@ -417,12 +493,25 @@
           <div class="clip-input">
             <input type="text" id="expressCompany" placeholder="快递公司（顺丰/中通/圆通…）">
             <input type="text" id="expressNo" placeholder="快递单号">
+            <input type="tel" id="expressPhone" placeholder="收/寄手机号（可选）">
             <button class="btn-primary" id="addExpressBtn">记录</button>
           </div>
           <ul class="record-list" id="expressList"></ul>
           <div class="life-links">
             <a class="btn-link" href="https://www.sf-express.com/" target="_blank" rel="noopener">→ 顺丰官网</a>
             <a class="btn-link" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">→ 快递100查询</a>
+          </div>
+        </div>
+        <div class="life-section" style="margin-top:20px">
+          <h3>手机号查快递</h3>
+          <div class="clip-input">
+            <input type="tel" id="expressPhoneQuery" placeholder="输入手机号查询快递">
+            <button class="btn-primary" id="queryExpressByPhoneBtn">查询</button>
+          </div>
+          <div id="phoneExpressResult" style="margin-top:12px"></div>
+          <div class="life-links">
+            <a class="btn-link" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">→ 快递100（支持手机号查件）</a>
+            <a class="btn-link" href="https://m.sf-express.com/" target="_blank" rel="noopener">→ 顺丰手机查件</a>
           </div>
         </div>
       </div>

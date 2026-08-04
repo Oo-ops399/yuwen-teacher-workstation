@@ -5079,9 +5079,11 @@ ${source}`;
       delete s.entryTest;
     }
     if (!Array.isArray(s.homeworks)) {
-      s.homeworks = s.homework ? [{ date: '', content: String(s.homework), status: '已完成', comment: '', img: '' }] : [];
+      s.homeworks = s.homework ? [{ date: '', content: String(s.homework), status: '已完成', comment: '', score: 0, img: '' }] : [];
       delete s.homework;
     }
+    // v3.4.2: 作业支持打分
+    (s.homeworks || []).forEach(h => { if (h.score == null) h.score = 0; });
     if (!Array.isArray(s.scores)) {
       s.scores = (s.score != null && s.score !== '') ? [{ date: '', score: Number(s.score) || 0, note: '', img: '' }] : [];
       delete s.score;
@@ -5137,6 +5139,7 @@ ${source}`;
           <option ${r.status === '未完成' ? 'selected' : ''}>未完成</option>
           <option ${r.status === '部分完成' ? 'selected' : ''}>部分完成</option>
         </select>
+        <input type="number" class="ls-f lf-hwscore" value="${r.score != null ? r.score : ''}" placeholder="得分">
         <input type="text" class="ls-f lf-comment" value="${escapeHtml(r.comment || '')}" placeholder="评价">
         ${lsImgCell(r.img)}
         <button type="button" class="btn-ghost ls-del">✕</button>`;
@@ -5157,7 +5160,7 @@ ${source}`;
     return Array.from(list.querySelectorAll('.ls-row')).map(row => {
       const img = row.querySelector('.ls-img').value;
       if (type === 'entry') return { date: row.querySelector('.ld').value, subject: row.querySelector('.lf-subject').value, score: parseFloat(row.querySelector('.lf-score').value) || 0, note: row.querySelector('.lf-note').value, img };
-      if (type === 'hw') return { date: row.querySelector('.ld').value, content: row.querySelector('.lf-content').value, status: row.querySelector('.lf-status').value, comment: row.querySelector('.lf-comment').value, img };
+      if (type === 'hw') return { date: row.querySelector('.ld').value, content: row.querySelector('.lf-content').value, status: row.querySelector('.lf-status').value, score: parseFloat(row.querySelector('.lf-hwscore').value) || 0, comment: row.querySelector('.lf-comment').value, img };
       return { date: row.querySelector('.ld').value, score: parseFloat(row.querySelector('.lf-score').value) || 0, note: row.querySelector('.lf-note').value, img };
     });
   }
@@ -5195,7 +5198,7 @@ ${source}`;
     $$('.ls-add').forEach(btn => btn.onclick = () => {
       const t = btn.dataset.type;
       if (t === 'entry') appendLsRow('entry', { date: todayStr(), subject: '', score: 0, note: '', img: '' });
-      if (t === 'hw') appendLsRow('hw', { date: todayStr(), content: '', status: '已完成', comment: '', img: '' });
+      if (t === 'hw') appendLsRow('hw', { date: todayStr(), content: '', status: '已完成', comment: '', score: 0, img: '' });
       if (t === 'score') appendLsRow('score', { date: todayStr(), score: 0, note: '', img: '' });
     });
 
@@ -5263,7 +5266,7 @@ ${source}`;
                   const hw = s.homeworks || [];
                   const sc = s.scores || [];
                   const etText = et.length ? `${escapeHtml(et[et.length-1].subject || '')} ${et[et.length-1].score || ''}分 (${et.length}次)` : '-';
-                  const hwText = hw.length ? `${escapeHtml(hw[hw.length-1].status || '')} (${hw.length}次)` : '-';
+                  const hwText = hw.length ? `${escapeHtml(hw[hw.length-1].status || '')}${hw[hw.length-1].score != null && hw[hw.length-1].score !== '' ? ' ' + hw[hw.length-1].score + '分' : ''} (${hw.length}次)` : '-';
                   const scText = sc.length ? (sc.reduce((a, b) => a + (Number(b.score) || 0), 0)) + ' (累计)' : '-';
                   return `
                   <tr>
@@ -5372,12 +5375,14 @@ ${source}`;
     if (state.ledgerStudents.length === 0) { toast('暂无学情数据'); return; }
     if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
     const joinArr = (arr, key) => (arr || []).map(x => key === 'score' ? (x.score != null ? x.score : '') : (x[key] || '')).join(' / ');
+    // v3.4.2: 作业导出含得分
+    const mapHw = arr => (arr || []).map(x => `${x.content || ''}${(x.score != null && x.score !== '') ? ' ' + x.score + '分' : ''}${x.status ? ' · ' + x.status : ''}`.trim()).join(' / ');
     const wb = XLSX.utils.book_new();
     state.classes.forEach(c => {
       const students = state.ledgerStudents.filter(s => s.classId === c.id);
       if (students.length === 0) return;
       const rows = [['姓名', '入门测情况', '作业完成情况', '课堂积分']];
-      students.forEach(s => rows.push([s.name||'', joinArr(s.entryTests,'subject'), joinArr(s.homeworks,'status'), joinArr(s.scores,'score')]));
+      students.forEach(s => rows.push([s.name||'', joinArr(s.entryTests,'subject'), mapHw(s.homeworks), joinArr(s.scores,'score')]));
       const sheetName = (c.name || '班级').slice(0, 28).replace(/[\[\]:*?/\\]/g, '_');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
     });
@@ -5385,7 +5390,7 @@ ${source}`;
       const rows = [['班级', '姓名', '入门测情况', '作业完成情况', '课堂积分']];
       state.ledgerStudents.forEach(s => {
         const c = state.classes.find(x => x.id === s.classId);
-        rows.push([c?c.name:'', s.name||'', joinArr(s.entryTests,'subject'), joinArr(s.homeworks,'status'), joinArr(s.scores,'score')]);
+        rows.push([c?c.name:'', s.name||'', joinArr(s.entryTests,'subject'), mapHw(s.homeworks), joinArr(s.scores,'score')]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '全量学情');
     }
@@ -5393,7 +5398,7 @@ ${source}`;
     toast('学情台账已导出');
   }
 
-  window.generateLedgerImage = function (scope, classId) {
+  window.generateLedgerImage = async function (scope, classId) {
     let title, students;
     if (scope === 'class' && classId) {
       const c = state.classes.find(x => x.id === classId);
@@ -5413,18 +5418,61 @@ ${source}`;
     }
     if (students.length === 0) { toast('暂无学员数据'); return; }
 
-    const padding = 40;
-    const rowHeight = 44;
-    const headerHeight = 80;
-    const colWidths = [120, 180, 200, 100];
+    const showClass = !classId;
+
+    // 预加载所有图片（dataURL）
+    const loadImg = (src) => new Promise(res => {
+      if (!src) return res(null);
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => res(null);
+      im.src = src;
+    });
+    const dataUrlKB = (d) => {
+      if (!d || !/^data:/.test(d)) return 0;
+      const m = d.match(/^data:.*?;base64,/);
+      const b64 = d.slice(m ? m[0].length : 0);
+      return Math.max(1, Math.round((b64.length * 3 / 4) / 1024));
+    };
+
+    const padding = 48;
+    const rowHeight = 56;
+    const headerHeight = 90;
+    const colWidths = [150, 230, 280, 120]; // 姓名 / 入门测 / 作业 / 积分
     const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    const slotW = 210, slotH = 150, slotPad = 18;
+    const galleryLineH = slotH + 30 + slotPad;
+    const perLine = Math.max(1, Math.floor((tableWidth + slotPad) / (slotW + slotPad)));
+
+    // 构造每个学员的数据块（含图片）
+    const blocks = [];
+    for (const s of students) {
+      normalizeLedger(s);
+      const et = s.entryTests || [], hw = s.homeworks || [], sc = s.scores || [];
+      const imgs = [];
+      et.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `入门测${i + 1}` }); });
+      hw.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `作业${i + 1}` }); });
+      sc.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `积分${i + 1}` }); });
+      const loaded = [];
+      for (const m of imgs) {
+        const img = await loadImg(m.src);
+        if (img) loaded.push({ src: m.src, label: m.label, img: img, w: img.naturalWidth, h: img.naturalHeight });
+      }
+      const galleryLines = loaded.length ? Math.ceil(loaded.length / perLine) : 0;
+      blocks.push({ s, et, hw, sc, loaded, galleryLines });
+    }
+    const blockHeights = blocks.map(b => rowHeight + (b.galleryLines ? b.galleryLines * galleryLineH + 12 : 0));
+    const totalContentH = blockHeights.reduce((a, b) => a + b, 0);
+
+    const tableY = padding + headerHeight - 20;
+    const contentBottom = tableY + rowHeight + totalContentH;
     const canvasWidth = tableWidth + padding * 2;
-    const canvasHeight = padding + headerHeight + students.length * rowHeight + padding + 20;
+    const canvasHeight = contentBottom + 70;
+    const scale = 2.5;
 
     const canvas = document.createElement('canvas');
-    const scale = 2;
-    canvas.width = canvasWidth * scale;
-    canvas.height = canvasHeight * scale;
+    canvas.width = Math.round(canvasWidth * scale);
+    canvas.height = Math.round(canvasHeight * scale);
     canvas.style.width = canvasWidth + 'px';
     canvas.style.height = canvasHeight + 'px';
     const ctx = canvas.getContext('2d');
@@ -5436,71 +5484,110 @@ ${source}`;
 
     // 标题
     ctx.fillStyle = '#1a1a1a';
-    ctx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 22px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
     ctx.fillText(title, padding, padding);
 
     // 日期
     ctx.fillStyle = '#999999';
-    ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
-    ctx.fillText('生成日期：' + todayStr(), padding, padding + 28);
+    ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.fillText('生成日期：' + todayStr(), padding, padding + 30);
 
     // 表头
-    const tableY = padding + headerHeight - 20;
     ctx.fillStyle = '#f5f5f5';
     ctx.fillRect(padding, tableY, tableWidth, rowHeight);
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(padding, tableY, tableWidth, rowHeight);
-
     ctx.fillStyle = '#333333';
-    ctx.font = 'bold 13px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif';
     const headers = ['姓名', '入门测情况', '作业完成情况', '课堂积分'];
     let xPos = padding;
     headers.forEach((h, i) => {
       ctx.textAlign = i === 3 ? 'center' : 'left';
-      const tx = i === 3 ? xPos + colWidths[i] / 2 : xPos + 10;
-      ctx.fillText(h, tx, tableY + 13);
+      const tx = i === 3 ? xPos + colWidths[i] / 2 : xPos + 12;
+      ctx.fillText(h, tx, tableY + 18);
       xPos += colWidths[i];
     });
 
-    // 数据行
-    students.forEach((s, idx) => {
-      const y = tableY + (idx + 1) * rowHeight;
-      if (idx % 2 === 1) {
-        ctx.fillStyle = '#fafafa';
-        ctx.fillRect(padding, y, tableWidth, rowHeight);
-      }
-      ctx.strokeStyle = '#f0f0f0';
-      ctx.strokeRect(padding, y, tableWidth, rowHeight);
+    // 内容区外边框（左右贯穿）
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padding, tableY); ctx.lineTo(padding, contentBottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padding + tableWidth, tableY); ctx.lineTo(padding + tableWidth, contentBottom); ctx.stroke();
+    // 表头底边
+    ctx.beginPath(); ctx.moveTo(padding, tableY + rowHeight); ctx.lineTo(padding + tableWidth, tableY + rowHeight); ctx.stroke();
+
+    const colXs = [];
+    let cx = padding;
+    colWidths.forEach(w => { cx += w; colXs.push(cx); });
+
+    // 数据块
+    let y = tableY + rowHeight;
+    blocks.forEach((b, idx) => {
+      const yTop = y;
+      const bh = blockHeights[idx];
+      if (idx % 2 === 1) { ctx.fillStyle = '#fafafa'; ctx.fillRect(padding, yTop, tableWidth, rowHeight); }
       ctx.fillStyle = '#333333';
-      const cls = state.classes.find(c => c.id === s.classId);
-      const nameDisplay = scope === 'all' && cls ? `[${cls.name}] ${s.name}` : s.name;
-      normalizeLedger(s);
-      const et = (s.entryTests || []);
-      const hw = (s.homeworks || []);
-      const sc = (s.scores || []);
-      const etText = et.length ? `${et[et.length-1].subject||''} ${et[et.length-1].score||''}分(${et.length})` : '-';
-      const hwText = hw.length ? `${hw[hw.length-1].status||''}(${hw.length})` : '-';
-      const scText = sc.length ? (sc.reduce((a,b)=>a+(Number(b.score)||0),0)) + `(${sc.length})` : '-';
+      const cls = state.classes.find(c => c.id === b.s.classId);
+      const nameDisplay = showClass && cls ? `[${cls.name}] ${b.s.name}` : b.s.name;
+      const etText = b.et.length ? `${b.et[b.et.length-1].subject||''} ${b.et[b.et.length-1].score||''}分(${b.et.length}次)` : '-';
+      const hwText = b.hw.length ? `${b.hw[b.hw.length-1].status||''}${b.hw[b.hw.length-1].score!=null&&b.hw[b.hw.length-1].score!==''?' '+b.hw[b.hw.length-1].score+'分':''}(${b.hw.length}次)` : '-';
+      const scText = b.sc.length ? (b.sc.reduce((a,c)=>a+(Number(c.score)||0),0))+`(${b.sc.length}次)` : '-';
       let xPos2 = padding;
       const cells = [nameDisplay, etText, hwText, scText];
       cells.forEach((cell, i) => {
         ctx.textAlign = i === 3 ? 'center' : 'left';
-        const tx = i === 3 ? xPos2 + colWidths[i] / 2 : xPos2 + 10;
-        ctx.font = i === 3 ? 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif' : '13px "PingFang SC", "Microsoft YaHei", sans-serif';
-        ctx.fillText(cell, tx, y + 13);
+        const tx = i === 3 ? xPos2 + colWidths[i] / 2 : xPos2 + 12;
+        ctx.font = i === 3 ? 'bold 15px "PingFang SC", "Microsoft YaHei", sans-serif' : '14px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(cell, tx, yTop + 19);
         xPos2 += colWidths[i];
       });
+      // 行内竖向分隔线
+      ctx.strokeStyle = '#f0f0f0';
+      colXs.slice(0, -1).forEach(x => {
+        ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x, yTop + rowHeight); ctx.stroke();
+      });
+
+      const rowBottom = yTop + rowHeight;
+      if (b.loaded.length) {
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.beginPath(); ctx.moveTo(padding, rowBottom); ctx.lineTo(padding + tableWidth, rowBottom); ctx.stroke();
+        const galleryTop = rowBottom + 10;
+        b.loaded.forEach((m, i) => {
+          const col = i % perLine;
+          const line = Math.floor(i / perLine);
+          const ix = padding + col * (slotW + slotPad);
+          const iy = galleryTop + line * galleryLineH;
+          const ratio = Math.min(slotW / m.w, slotH / m.h);
+          const dw = m.w * ratio, dh = m.h * ratio;
+          const dx = ix + (slotW - dw) / 2;
+          const dy = iy + (slotH - dh) / 2;
+          ctx.fillStyle = '#f2f2f2';
+          ctx.fillRect(ix, iy, slotW, slotH);
+          try { ctx.drawImage(m.img, dx, dy, dw, dh); } catch (e) {}
+          ctx.strokeStyle = '#cccccc';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(ix, iy, slotW, slotH);
+          // 尺寸 / 大小标签
+          ctx.fillStyle = '#444444';
+          ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'left';
+          const kb = dataUrlKB(m.src);
+          const dimText = `${m.label}  ${m.w}×${m.h}${kb ? ' · ' + kb + 'KB' : ''}`;
+          ctx.fillText(dimText, ix, iy + slotH + 8);
+        });
+      }
+      // 块底分隔线
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.beginPath(); ctx.moveTo(padding, yTop + bh); ctx.lineTo(padding + tableWidth, yTop + bh); ctx.stroke();
+      y = yTop + bh;
     });
 
     // 底部统计
-    const summaryY = tableY + (students.length + 1) * rowHeight + 10;
+    const summaryY = contentBottom + 16;
     const totalScore = students.reduce((sum, s) => sum + ((s.scores || []).reduce((a, b) => a + (Number(b.score) || 0), 0)), 0);
     const avgScore = students.length > 0 ? (totalScore / students.length).toFixed(1) : 0;
     ctx.fillStyle = '#666666';
-    ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`共 ${students.length} 人 · 总积分 ${totalScore} · 平均积分 ${avgScore}`, padding, summaryY);
 
@@ -5569,7 +5656,7 @@ ${source}`;
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '42';
+  const CURRENT_JS_VER = '43';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

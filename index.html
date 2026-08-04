@@ -45,7 +45,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.3 · 语文教师版</span>
+    <span class="version">v3.4 · 语文教师版</span>
   </div>
 </aside>
 
@@ -402,6 +402,7 @@
             <span class="mm-tip">双击节点编辑 · 拖拽调整 · 选中节点后点「＋ 添加子节点」 · 已配置 AI 模型时自动调用 AI 生成多级结构</span>
             <button class="btn-ghost" id="addRootNode">＋ 新增主节点</button>
             <button class="btn-ghost" id="addChildNodeBtn">＋ 添加子节点</button>
+            <button class="btn-ghost" id="editNodeBtn">✎ 编辑节点</button>
             <button class="btn-ghost" id="saveMindmapBtn">保存到本地</button>
           </div>
           <div class="mm-canvas-wrap">
@@ -497,14 +498,21 @@
         </div>
       </div>
       <div class="ex-input-area">
-        <label>粘贴今天的学习内容（课文段落、词语表、古诗等）</label>
+        <label>粘贴今天的学习内容（课文段落、词语表、古诗、知识点等）</label>
         <textarea id="exSource" rows="6" placeholder="例：春晓 孟浩然&#10;春眠不觉晓，处处闻啼鸟。&#10;夜来风雨声，花落知多少。"></textarea>
+        <label style="margin-top:10px">网页链接（可选，自动提取正文作为素材；跨域受限时请直接粘贴文字）</label>
+        <input type="text" id="exUrl" placeholder="https://example.com/lesson-article">
         <div class="ex-controls">
           <div class="ex-type-group">
             <span>题型：</span>
-            <label><input type="radio" name="exType" value="fill" checked> 填空练习</label>
-            <label><input type="radio" name="exType" value="dictation"> 听写训练</label>
-            <label><input type="radio" name="exType" value="dot"> 加点字训练</label>
+            <label><input type="radio" name="exType" value="fill" checked> 填空</label>
+            <label><input type="radio" name="exType" value="choice"> 选择题</label>
+            <label><input type="radio" name="exType" value="judge"> 判断题</label>
+            <label><input type="radio" name="exType" value="saq"> 简答题</label>
+            <label><input type="radio" name="exType" value="reading"> 阅读理解</label>
+            <label><input type="radio" name="exType" value="dictation"> 听写</label>
+            <label><input type="radio" name="exType" value="dot"> 加点字</label>
+            <label><input type="radio" name="exType" value="paper"> 综合试卷</label>
           </div>
           <div class="ex-diff-group">
             <span>难度：</span>
@@ -514,8 +522,9 @@
               <option value="hard">困难</option>
             </select>
           </div>
-          <button class="btn-primary" id="exGenBtn">生成练习题</button>
+          <button class="btn-primary" id="exGenBtn">智能生成</button>
         </div>
+        <p class="ex-tip" id="exAiTip">配置了 AI 模型时，将调用你的模型按内容智能出题；未配置则用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。</p>
       </div>
       <div class="ex-preview" id="exPreview"></div>
     </div>
@@ -959,6 +968,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=40"></script>
+<script src="./app.js?v=41"></script>
 </body>
 </html>

@@ -442,6 +442,12 @@
     if (page === 'feedback') renderFeedback();
     if (page === 'accounting') renderAccounting();
     if (page === 'ledger') renderLedger();
+    if (page === 'exercise') {
+      const tip = $('#exAiTip');
+      if (tip) tip.textContent = getSetting('aiApiUrl', '').trim()
+        ? '已检测到 AI 模型配置：将调用你的模型按内容智能出题（类型不限）。未配置时也能用本地智能生成。'
+        : '未配置 AI 模型：当前使用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。在「个性化设置 → AI 模型配置」可接入你的模型获得更强出题。';
+    }
     if (page === 'prep') {
       const savedSection = getSetting('prepSection', 'primary');
       $$('.tab[data-ptab]').forEach(t => t.classList.toggle('active', t.dataset.ptab === savedSection));
@@ -625,6 +631,12 @@
     if (addRootNodeBtn) addRootNodeBtn.onclick = addRootNode;
     const addChildNodeBtn = $('#addChildNodeBtn');
     if (addChildNodeBtn) addChildNodeBtn.onclick = addChildNode;
+    const editNodeBtn = $('#editNodeBtn');
+    if (editNodeBtn) editNodeBtn.onclick = () => {
+      if (!mmData) { toast('请先生成导图'); return; }
+      if (!mmSelected) { toast('请先单击选中一个节点，再点「编辑节点」'); return; }
+      startEditMMNode(mmSelected);
+    };
     const saveMindmapBtn = $('#saveMindmapBtn');
     if (saveMindmapBtn) saveMindmapBtn.onclick = saveCurrentMindmap;
     const loadHistoryBtn = $('#loadHistoryBtn');
@@ -1688,6 +1700,47 @@
     renderStudentDetail();
   };
 
+  // v3.4: 学员详情行内图片单元格
+  function rowImgCell(img, kind, idx) {
+    return `<span class="row-imgcell">
+      <input type="hidden" class="row-img" value="${escapeHtml(img || '')}">
+      <button type="button" class="btn-ghost row-imgbtn" title="添加图片">📷</button>
+      <input type="file" class="row-file" accept="image/*" hidden>
+      <img class="row-thumb" src="${img || ''}" ${img ? '' : 'style="display:none"'}>
+    </span>`;
+  }
+  function bindRowImages() {
+    $$('.row-imgbtn').forEach(btn => {
+      const cell = btn.closest('.row-imgcell');
+      const file = cell && cell.querySelector('.row-file');
+      if (file) btn.onclick = () => file.click();
+    });
+    $$('.row-file').forEach(file => {
+      file.onchange = e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const cell = file.closest('.row-imgcell');
+        const hidden = cell.querySelector('.row-img');
+        const thumb = cell.querySelector('.row-thumb');
+        const reader = new FileReader();
+        reader.onload = () => {
+          hidden.value = reader.result;
+          thumb.src = reader.result;
+          thumb.style.display = '';
+          const s = state.students.find(x => x.id === currentStudentId);
+          if (!s) return;
+          const tr = file.closest('tr');
+          let arr, i;
+          if (tr.dataset.etIdx != null) { arr = s.entryTests; i = +tr.dataset.etIdx; }
+          else if (tr.dataset.hwIdx != null) { arr = s.homework; i = +tr.dataset.hwIdx; }
+          else if (tr.dataset.idx != null) { arr = s.scores; i = +tr.dataset.idx; }
+          if (arr && arr[i]) { arr[i].img = reader.result; saveStudentSilent(s); }
+        };
+        reader.readAsDataURL(f);
+      };
+    });
+  }
+
   function renderStudentDetail() {
     const s = state.students.find(x => x.id === currentStudentId);
     if (!s) { showPage('students'); return; }
@@ -1722,9 +1775,9 @@
       <div class="sd-section">
         <h3>固定成绩栏目</h3>
         <div style="overflow-x:auto;max-width:100%">
-          <table class="score-table">
+            <table class="score-table">
             <thead>
-              <tr><th>类型</th><th>日期</th><th>分数</th><th>操作</th></tr>
+              <tr><th>类型</th><th>日期</th><th>分数</th><th>图片</th><th>操作</th></tr>
             </thead>
             <tbody id="scoreBody">
               ${(s.scores||[]).map((sc, i) => `
@@ -1739,6 +1792,7 @@
                   </td>
                   <td><input type="date" data-score-field="date" value="${sc.date||''}"></td>
                   <td><input type="number" data-score-field="score" value="${sc.score||0}"></td>
+                  <td>${rowImgCell(sc.img, 'sc', i)}</td>
                   <td><button class="btn-ghost" onclick="window.__app.delScore(${i})">删除</button></td>
                 </tr>
               `).join('')}
@@ -1764,6 +1818,7 @@
                   <td><input type="text" data-et-field="subject" value="${escapeHtml(et.subject||'')}" placeholder="例：字词基础"></td>
                   <td><input type="number" data-et-field="score" value="${et.score||0}"></td>
                   <td><input type="text" data-et-field="note" value="${escapeHtml(et.note||'')}" placeholder="备注"></td>
+                  <td>${rowImgCell(et.img, 'et', i)}</td>
                   <td><button class="btn-ghost" onclick="window.__app.delEntryTest(${i})">删除</button></td>
                 </tr>
               `).join('')}
@@ -1795,6 +1850,7 @@
                     </select>
                   </td>
                   <td><input type="text" data-hw-field="comment" value="${escapeHtml(hw.comment||'')}" placeholder="评价"></td>
+                  <td>${rowImgCell(hw.img, 'hw', i)}</td>
                   <td><button class="btn-ghost" onclick="window.__app.delHomework(${i})">删除</button></td>
                 </tr>
               `).join('')}
@@ -1842,6 +1898,7 @@
       s.tags = tags;
       saveStudentSilent(s);
     });
+    bindRowImages();
     $('#sdSave').onclick = () => { dbPut('students', s); saveLocalCache(); toast('已保存'); renderStudentList(); };
 
     // 渲染沟通/请假/报告
@@ -1861,7 +1918,7 @@
   window.addScore = function () {
     const s = state.students.find(x => x.id === currentStudentId);
     s.scores = s.scores || [];
-    s.scores.push({ type: '月考', date: todayStr(), score: 0 });
+    s.scores.push({ type: '月考', date: todayStr(), score: 0, img: '' });
     renderStudentDetail();
   };
   window.delScore = function (idx) {
@@ -1876,7 +1933,8 @@
     s.scores = rows.map(tr => ({
       type: tr.querySelector('[data-score-field="type"]').value,
       date: tr.querySelector('[data-score-field="date"]').value,
-      score: parseFloat(tr.querySelector('[data-score-field="score"]').value) || 0
+      score: parseFloat(tr.querySelector('[data-score-field="score"]').value) || 0,
+      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
     }));
     saveStudentSilent(s);
     renderScoreChart(s);
@@ -1887,7 +1945,7 @@
   function addEntryTest() {
     const s = state.students.find(x => x.id === currentStudentId);
     s.entryTests = s.entryTests || [];
-    s.entryTests.push({ date: todayStr(), subject: '', score: 0, note: '' });
+    s.entryTests.push({ date: todayStr(), subject: '', score: 0, note: '', img: '' });
     saveStudentSilent(s);
     renderStudentDetail();
   }
@@ -1904,7 +1962,8 @@
       date: tr.querySelector('[data-et-field="date"]').value,
       subject: tr.querySelector('[data-et-field="subject"]').value,
       score: parseFloat(tr.querySelector('[data-et-field="score"]').value) || 0,
-      note: tr.querySelector('[data-et-field="note"]').value
+      note: tr.querySelector('[data-et-field="note"]').value,
+      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
     }));
     saveStudentSilent(s);
     toast('入门测已保存');
@@ -1914,7 +1973,7 @@
   function addHomework() {
     const s = state.students.find(x => x.id === currentStudentId);
     s.homework = s.homework || [];
-    s.homework.push({ date: todayStr(), content: '', status: '已完成', comment: '' });
+    s.homework.push({ date: todayStr(), content: '', status: '已完成', comment: '', img: '' });
     saveStudentSilent(s);
     renderStudentDetail();
   }
@@ -1931,7 +1990,8 @@
       date: tr.querySelector('[data-hw-field="date"]').value,
       content: tr.querySelector('[data-hw-field="content"]').value,
       status: tr.querySelector('[data-hw-field="status"]').value,
-      comment: tr.querySelector('[data-hw-field="comment"]').value
+      comment: tr.querySelector('[data-hw-field="comment"]').value,
+      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
     }));
     saveStudentSilent(s);
     toast('作业记录已保存');
@@ -2901,30 +2961,34 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     const node = findMMNode(mmData.root, id);
     if (!node) return;
     const svg = $('#mindmapSvg');
-    const wrap = svg.parentElement;
-    const wrapRect = wrap.getBoundingClientRect();
+    const g = svg.querySelector(`[data-id="${id}"]`);
+    if (!g) return;
+    const rect = g.getBoundingClientRect();
     const input = document.createElement('input');
     input.type = 'text';
     input.value = node.text;
     input.className = 'mm-edit-input';
-    input.style.left = (wrapRect.left + node._x - node._w/2) + 'px';
-    input.style.top = (wrapRect.top + node._y - 12) + 'px';
-    input.style.width = node._w + 'px';
+    input.style.position = 'fixed';
+    input.style.left = rect.left + 'px';
+    input.style.top = (rect.top + rect.height / 2 - 12) + 'px';
+    input.style.width = Math.max(rect.width, 90) + 'px';
     document.body.appendChild(input);
     input.focus();
     input.select();
     mmEditing = { id, input, node };
+    let done = false;
     const finish = () => {
+      if (done) return; done = true;
       const v = input.value.trim() || node.text;
       node.text = v;
-      input.remove();
+      if (input.parentNode) input.remove();
       mmEditing = null;
       layoutAndRenderMindmap();
     };
     input.onblur = finish;
     input.onkeydown = e => {
-      if (e.key === 'Enter') finish();
-      if (e.key === 'Escape') { input.remove(); mmEditing = null; layoutAndRenderMindmap(); }
+      if (e.key === 'Enter') { e.preventDefault(); finish(); }
+      if (e.key === 'Escape') { if (input.parentNode) input.remove(); mmEditing = null; layoutAndRenderMindmap(); }
     };
   }
 
@@ -3079,22 +3143,231 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     return words;
   }
 
-  function generateExercises() {
-    const source = $('#exSource').value.trim();
+  // v3.4: 拆分句子（用于本地智能出题）
+  function splitSentences(text) {
+    return text.split(/[。！？\n.!?；;]/).map(s => s.trim()).filter(s => s.length > 6 && /[一-龥]/.test(s));
+  }
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
+  async function generateExercises() {
     const type = (document.querySelector('input[name="exType"]:checked') || {}).value || 'fill';
     const difficulty = $('#exDifficulty').value || 'medium';
-    if (!source) { toast('请先粘贴学习内容'); return; }
-
-    const words = extractChineseWords(source);
+    let source = $('#exSource').value.trim();
+    const url = $('#exUrl').value.trim();
     const preview = $('#exPreview');
-    if (type === 'fill') {
-      preview.innerHTML = renderFillExercise(source, words, difficulty);
-    } else if (type === 'dictation') {
-      preview.innerHTML = renderDictationExercise(words, difficulty);
-    } else if (type === 'dot') {
-      preview.innerHTML = renderDotExercise(source, words, difficulty);
+    if (!source && !url) { toast('请粘贴学习内容，或填写网页链接'); return; }
+    if (!source && url) {
+      toast('正在抓取网页正文…');
+      try { source = await fetchWebText(url); } catch (e) { toast('抓取失败（多为跨域限制）：' + e.message); return; }
+      if (!source) { toast('未能提取网页文字，请直接粘贴内容'); return; }
+      const ta = $('#exSource'); if (ta) ta.value = source.slice(0, 4000);
     }
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (aiUrl) {
+      const btn = $('#exGenBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'AI 生成中…'; }
+      try {
+        const json = await generateExercisesByAI(source, type, difficulty);
+        if (json && json.questions && json.questions.length) {
+          preview.innerHTML = renderAIExercise(json);
+          preview.classList.add('ex-preview-active');
+          toast('AI 已生成练习题');
+          return;
+        }
+      } catch (e) {
+        console.warn('AI 出题失败，回落本地：', e);
+        toast('AI 生成失败，改用本地智能生成');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '智能生成'; }
+      }
+    }
+    // 本地智能生成
+    const words = extractChineseWords(source);
+    let html = '';
+    if (type === 'fill') html = renderFillExercise(source, words, difficulty);
+    else if (type === 'dictation') html = renderDictationExercise(words, difficulty);
+    else if (type === 'dot') html = renderDotExercise(source, words, difficulty);
+    else if (type === 'choice') html = renderChoiceExercise(source, words, difficulty);
+    else if (type === 'judge') html = renderJudgeExercise(source, words, difficulty);
+    else if (type === 'saq') html = renderSaqExercise(source, words, difficulty);
+    else if (type === 'reading') html = renderReadingExercise(source, words, difficulty);
+    else if (type === 'paper') html = renderPaperExercise(source, words, difficulty);
+    preview.innerHTML = html;
     preview.classList.add('ex-preview-active');
+  }
+
+  // v3.4: 抓取网页正文（best-effort，跨域会失败）
+  async function fetchWebText(url) {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const htmlText = await res.text();
+    const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+    doc.querySelectorAll('script,style,noscript').forEach(n => n.remove());
+    const txt = (doc.body ? doc.body.innerText : htmlText).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    return txt;
+  }
+
+  // v3.4: 调用 AI 模型按内容出题
+  async function generateExercisesByAI(source, type, difficulty) {
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    const aiKey = getSetting('aiApiKey', '').trim();
+    const aiModel = getSetting('aiModel', '').trim();
+    const typeName = { fill: '填空题', choice: '选择题', judge: '判断题', saq: '简答题', reading: '阅读理解题', dictation: '听写训练', dot: '加点字训练', paper: '综合试卷' }[type] || '练习题';
+    const prompt = `你是一位经验丰富的语文老师。请根据下面的学习内容，生成一套「${typeName}」（难度：${difficulty}）。
+要求：
+1. 只输出严格 JSON，不要任何解释，不要用 markdown 代码块包裹。
+2. 整体结构：{"title":"练习标题","questions":[ ... ]}
+3. 各题型对象格式：
+   - 填空：{"type":"fill","stem":"题干，用（　　）表示要填的空","answer":"答案"}
+   - 选择：{"type":"choice","stem":"题干","options":["A.x","B.x","C.x","D.x"],"answer":"B"}
+   - 判断：{"type":"judge","stem":"题干","answer":"对"}（答案只能是"对"或"错"）
+   - 简答：{"type":"saq","stem":"问题","answer":"要点"}
+   - 阅读理解：{"type":"reading","passage":"短文原文","questions":[{"stem":"问题","answer":"要点"}]}
+4. 题量：填空/选择/判断 6-10 道，简答 3-5 道，阅读理解 1 篇配 3-4 问；综合试卷混合 8-12 道。
+5. 题目必须紧扣所给内容，不编造无关知识；答案准确简洁。
+
+【学习内容】
+${source}`;
+    const headers = { 'Content-Type': 'application/json' };
+    if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
+    const res = await fetch(aiUrl, {
+      method: 'POST', headers,
+      body: JSON.stringify({ model: aiModel || 'gpt-4o', temperature: 0.7, messages: [{ role: 'system', content: '你是语文出题助手，只输出 JSON。' }, { role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(60000) : undefined
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+    let clean = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    let parsed = null;
+    try { parsed = JSON.parse(clean); } catch (e) {}
+    if (!parsed) { const m = text.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) {} } }
+    if (!parsed) throw new Error('AI 返回无法解析为 JSON');
+    return parsed;
+  }
+
+  // v3.4: 渲染 AI 返回的练习题
+  function renderAIExercise(json) {
+    const title = json.title || '智能练习题';
+    const qs = json.questions || [];
+    let html = `<h3 class="ex-h">${escapeHtml(title)}</h3>`;
+    let n = 1; const answers = [];
+    qs.forEach(q => {
+      if (q.type === 'reading') {
+        html += `<div class="ex-reading"><p class="ex-passage">${escapeHtml(q.passage || '')}</p>`;
+        (q.questions || []).forEach(sub => {
+          html += `<p class="ex-q">${n}. ${escapeHtml(sub.stem)}</p>`;
+          answers.push(`${n}. ${escapeHtml(sub.answer || '')}`);
+          n++;
+        });
+        html += `</div>`;
+      } else if (q.type === 'choice') {
+        html += `<p class="ex-q">${n}. ${escapeHtml(q.stem)}</p>`;
+        (q.options || []).forEach(o => { html += `<p class="ex-opt">${escapeHtml(o)}</p>`; });
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`);
+        n++;
+      } else {
+        html += `<p class="ex-q">${n}. ${escapeHtml(q.stem)}</p>`;
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`);
+        n++;
+      }
+    });
+    if (answers.length) {
+      html += '<details class="ex-answer"><summary>参考答案</summary><ol>';
+      answers.forEach(a => html += `<li>${a}</li>`);
+      html += '</ol></details>';
+    }
+    return html;
+  }
+
+  // v3.4: 本地智能出题（无 AI 时使用）
+  function renderChoiceExercise(text, words, difficulty) {
+    const sentences = splitSentences(text);
+    const pick = words.slice().sort((a, b) => b.length - a.length);
+    const ratio = difficulty === 'easy' ? 0.5 : difficulty === 'hard' ? 0.85 : 0.65;
+    let html = '<h3 class="ex-h">一、选择题（选出最恰当的一项）</h3>';
+    let n = 1; const answers = [];
+    for (const sent of sentences) {
+      let key = '';
+      for (const w of pick) { if (w.length >= 2 && sent.includes(w)) { key = w; break; } }
+      if (!key) continue;
+      const distractors = pick.filter(w => w !== key && !sent.includes(w)).slice(0, 3);
+      if (distractors.length < 3) continue;
+      const arr = shuffle([key, ...distractors]);
+      const ansIdx = arr.indexOf(key);
+      html += `<p class="ex-q">${n}. 下面句子的括号中，填入哪个词语最恰当？<br>原句：${escapeHtml(sent.replace(key, '（　　）'))}</p>`;
+      arr.forEach((o, i) => { html += `<p class="ex-opt">${String.fromCharCode(65 + i)}. ${escapeHtml(o)}</p>`; });
+      answers.push(`${n}. ${String.fromCharCode(65 + ansIdx)}. ${key}`);
+      n++;
+      if (n > (difficulty === 'hard' ? 10 : 8)) break;
+    }
+    if (n === 1) return '<p class="ex-tip">内容较短，暂无法生成选择题，试试填空或听写。</p>';
+    html += '<details class="ex-answer"><summary>参考答案</summary><ol>';
+    answers.forEach(a => html += `<li>${a}</li>`);
+    html += '</ol></details>';
+    return html;
+  }
+
+  function renderJudgeExercise(text, words, difficulty) {
+    const sentences = splitSentences(text);
+    const count = difficulty === 'hard' ? 8 : 6;
+    let html = '<h3 class="ex-h">二、判断题（对的打√，错的打×）</h3>';
+    let n = 1; const answers = [];
+    sentences.slice(0, count + 2).forEach((sent, i) => {
+      let stmt = sent, ans = '√';
+      if (i % 3 === 1 && words.length >= 2) {
+        const w = words.find(x => x.length >= 2 && sent.includes(x));
+        const alt = w && words.find(x => x !== w && !sent.includes(x));
+        if (alt) { stmt = sent.replace(w, alt); ans = '×'; }
+      }
+      html += `<p class="ex-q">${n}. ${escapeHtml(stmt)}（　　）</p>`;
+      answers.push(`${n}. ${ans}`);
+      n++;
+    });
+    html += '<details class="ex-answer"><summary>参考答案</summary><ol>';
+    answers.forEach(a => html += `<li>${a}</li>`);
+    html += '</ol></details>';
+    return html;
+  }
+
+  function renderSaqExercise(text, words, difficulty) {
+    const sentences = splitSentences(text);
+    const count = difficulty === 'hard' ? 5 : 3;
+    let html = '<h3 class="ex-h">三、简答题</h3><ol class="ex-saq">';
+    let n = 1;
+    html += `<li>请用自己的话概括下面这段话（或这首诗歌）的主要意思：<br><span class="ex-passage">${escapeHtml((sentences[0] || text).slice(0, 200))}</span></li>`;
+    n++;
+    sentences.slice(1, 1 + count).forEach(sent => {
+      html += `<li>结合内容，谈谈你对下面这句话的理解：<br>“${escapeHtml(sent.slice(0, 120))}”</li>`;
+      n++;
+    });
+    html += `<li>作者通过本课内容，想表达怎样的思想感情？请结合具体语句说明。</li>`;
+    html += '</ol>';
+    return html;
+  }
+
+  function renderReadingExercise(text, words, difficulty) {
+    const sentences = splitSentences(text);
+    const passage = sentences.slice(0, Math.min(sentences.length, 6)).join('。') + '。';
+    let html = '<h3 class="ex-h">四、阅读理解</h3><div class="ex-reading"><p class="ex-passage">' + escapeHtml(passage) + '</p>';
+    html += `<p class="ex-q">1. 请用一句话概括上面短文的主要内容。</p>`;
+    html += `<p class="ex-q">2. 短文中哪些语句写出了作者的情感？摘抄一处并说说你的体会。</p>`;
+    if (words.length) html += `<p class="ex-q">3. 解释下面词语在文中的意思：${escapeHtml(words.slice(0, 3).join('、'))}。</p>`;
+    html += `<p class="ex-q">4. 读完这篇短文，你有什么启发或收获？</p>`;
+    html += '</div>';
+    return html;
+  }
+
+  function renderPaperExercise(text, words, difficulty) {
+    const f = renderFillExercise(text, words, difficulty);
+    const c = renderChoiceExercise(text, words, difficulty);
+    const j = renderJudgeExercise(text, words, difficulty);
+    const s = renderSaqExercise(text, words, difficulty);
+    return f + '<hr class="ex-sep">' + c + '<hr class="ex-sep">' + j + '<hr class="ex-sep">' + s;
   }
 
   function renderFillExercise(text, words, difficulty) {
@@ -4704,6 +4977,156 @@ ${plan ? '教学环节安排：' + plan : ''}`;
   }
 
   // ================= 班级学员学情台账 =================
+  // v3.4: 学情台账数据兼容——将旧版单字段迁移为可追加数组
+  function normalizeLedger(s) {
+    if (!s) return s;
+    if (!Array.isArray(s.entryTests)) {
+      s.entryTests = s.entryTest ? [{ date: '', subject: String(s.entryTest), score: 0, note: '', img: '' }] : [];
+      delete s.entryTest;
+    }
+    if (!Array.isArray(s.homeworks)) {
+      s.homeworks = s.homework ? [{ date: '', content: String(s.homework), status: '已完成', comment: '', img: '' }] : [];
+      delete s.homework;
+    }
+    if (!Array.isArray(s.scores)) {
+      s.scores = (s.score != null && s.score !== '') ? [{ date: '', score: Number(s.score) || 0, note: '', img: '' }] : [];
+      delete s.score;
+    }
+    return s;
+  }
+
+  // v3.4: 学情台账图片单元格
+  function lsImgCell(img) {
+    return `<span class="ls-imgcell">
+      <input type="hidden" class="ls-img" value="${escapeHtml(img || '')}">
+      <button type="button" class="btn-ghost ls-imgbtn" title="添加图片">📷</button>
+      <input type="file" class="ls-file" accept="image/*" hidden>
+      <img class="ls-thumb" src="${img || ''}" ${img ? '' : 'style="display:none"'}>
+    </span>`;
+  }
+  function bindLsRowImg(row) {
+    const btn = row.querySelector('.ls-imgbtn');
+    const file = row.querySelector('.ls-file');
+    const hidden = row.querySelector('.ls-img');
+    const thumb = row.querySelector('.ls-thumb');
+    if (btn && file) btn.onclick = () => file.click();
+    if (file) file.onchange = e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => { hidden.value = reader.result; thumb.src = reader.result; thumb.style.display = ''; };
+      reader.readAsDataURL(f);
+    };
+    const del = row.querySelector('.ls-del');
+    if (del) del.onclick = () => row.remove();
+  }
+  function appendLsRow(type, r) {
+    const list = type === 'entry' ? $('#lsEntryList') : type === 'hw' ? $('#lsHwList') : $('#lsScoreList');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'ls-row';
+    row.dataset.type = type;
+    if (type === 'entry') {
+      row.innerHTML = `
+        <input type="date" class="ls-f ld" value="${r.date || ''}">
+        <input type="text" class="ls-f lf-subject" value="${escapeHtml(r.subject || '')}" placeholder="科目/内容">
+        <input type="number" class="ls-f lf-score" value="${r.score || 0}" placeholder="得分">
+        <input type="text" class="ls-f lf-note" value="${escapeHtml(r.note || '')}" placeholder="备注">
+        ${lsImgCell(r.img)}
+        <button type="button" class="btn-ghost ls-del">✕</button>`;
+    } else if (type === 'hw') {
+      row.innerHTML = `
+        <input type="date" class="ls-f ld" value="${r.date || ''}">
+        <input type="text" class="ls-f lf-content" value="${escapeHtml(r.content || '')}" placeholder="作业内容">
+        <select class="ls-f lf-status">
+          <option ${r.status === '已完成' ? 'selected' : ''}>已完成</option>
+          <option ${r.status === '未完成' ? 'selected' : ''}>未完成</option>
+          <option ${r.status === '部分完成' ? 'selected' : ''}>部分完成</option>
+        </select>
+        <input type="text" class="ls-f lf-comment" value="${escapeHtml(r.comment || '')}" placeholder="评价">
+        ${lsImgCell(r.img)}
+        <button type="button" class="btn-ghost ls-del">✕</button>`;
+    } else {
+      row.innerHTML = `
+        <input type="date" class="ls-f ld" value="${r.date || ''}">
+        <input type="number" class="ls-f lf-score" value="${r.score || 0}" placeholder="积分">
+        <input type="text" class="ls-f lf-note" value="${escapeHtml(r.note || '')}" placeholder="备注">
+        ${lsImgCell(r.img)}
+        <button type="button" class="btn-ghost ls-del">✕</button>`;
+    }
+    bindLsRowImg(row);
+    list.appendChild(row);
+  }
+  function readLsRows(type) {
+    const list = type === 'entry' ? $('#lsEntryList') : type === 'hw' ? $('#lsHwList') : $('#lsScoreList');
+    if (!list) return [];
+    return Array.from(list.querySelectorAll('.ls-row')).map(row => {
+      const img = row.querySelector('.ls-img').value;
+      if (type === 'entry') return { date: row.querySelector('.ld').value, subject: row.querySelector('.lf-subject').value, score: parseFloat(row.querySelector('.lf-score').value) || 0, note: row.querySelector('.lf-note').value, img };
+      if (type === 'hw') return { date: row.querySelector('.ld').value, content: row.querySelector('.lf-content').value, status: row.querySelector('.lf-status').value, comment: row.querySelector('.lf-comment').value, img };
+      return { date: row.querySelector('.ld').value, score: parseFloat(row.querySelector('.lf-score').value) || 0, note: row.querySelector('.lf-note').value, img };
+    });
+  }
+
+  // v3.4: 新增/编辑学员（支持多次入门测/作业/积分，每条可附图）
+  window.openLedgerStudentModal = function (isNew, id) {
+    const clsId = ($('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '') || (state.classes[0] && state.classes[0].id) || '';
+    let s;
+    if (isNew) {
+      s = { id: uid(), classId: clsId, name: '', entryTests: [], homeworks: [], scores: [], ts: Date.now() };
+    } else {
+      s = JSON.parse(JSON.stringify(state.ledgerStudents.find(x => x.id === id) || {}));
+      normalizeLedger(s);
+    }
+    const body = `
+      <label>姓名 <input type="text" id="ls_name" value="${escapeHtml(s.name || '')}" placeholder="学员姓名"></label>
+      <div class="ls-section">
+        <div class="ls-section-head"><b>入门测记录（可多次追加）</b><button type="button" class="btn-ghost ls-add" data-type="entry">＋ 添加</button></div>
+        <div class="ls-list" id="lsEntryList"></div>
+      </div>
+      <div class="ls-section">
+        <div class="ls-section-head"><b>作业完成情况（可多次追加）</b><button type="button" class="btn-ghost ls-add" data-type="hw">＋ 添加</button></div>
+        <div class="ls-list" id="lsHwList"></div>
+      </div>
+      <div class="ls-section">
+        <div class="ls-section-head"><b>课堂积分记录（可多次追加）</b><button type="button" class="btn-ghost ls-add" data-type="score">＋ 添加</button></div>
+        <div class="ls-list" id="lsScoreList"></div>
+      </div>`;
+    openModal(isNew ? '添加学员' : '编辑学情', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ls_save">保存</button>`);
+
+    (s.entryTests || []).forEach(r => appendLsRow('entry', r));
+    (s.homeworks || []).forEach(r => appendLsRow('hw', r));
+    (s.scores || []).forEach(r => appendLsRow('score', r));
+
+    $$('.ls-add').forEach(btn => btn.onclick = () => {
+      const t = btn.dataset.type;
+      if (t === 'entry') appendLsRow('entry', { date: todayStr(), subject: '', score: 0, note: '', img: '' });
+      if (t === 'hw') appendLsRow('hw', { date: todayStr(), content: '', status: '已完成', comment: '', img: '' });
+      if (t === 'score') appendLsRow('score', { date: todayStr(), score: 0, note: '', img: '' });
+    });
+
+    $('#ls_save').onclick = async () => {
+      const name = $('#ls_name').value.trim();
+      if (!name) { toast('请输入学员姓名'); return; }
+      const data = {
+        id: s.id,
+        classId: s.classId || clsId,
+        name,
+        entryTests: readLsRows('entry'),
+        homeworks: readLsRows('hw'),
+        scores: readLsRows('score'),
+        ts: Date.now()
+      };
+      await dbPut('ledgerStudents', data);
+      state.ledgerStudents = state.ledgerStudents.filter(x => x.id !== data.id);
+      state.ledgerStudents.push(data);
+      saveLocalCache();
+      closeModal();
+      renderLedger();
+      toast('已保存');
+    };
+  };
+
   function renderLedger() {
     const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
     const sfilter = ($('#ledgerStudentFilter') ? $('#ledgerStudentFilter').value : '').toLowerCase();
@@ -4731,7 +5154,7 @@ ${plan ? '教学环节安排：' + plan : ''}`;
             </h4>
             <div class="actions">
               <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.editLedgerClassModal('${c.id}')">编辑班级</button>
-              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.addLedgerStudentModal('${c.id}')">＋ 学员</button>
+              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.openLedgerStudentModal(true,'${c.id}')">＋ 学员</button>
               <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.generateLedgerImage('class','${c.id}')">生成图片</button>
             </div>
           </div>
@@ -4740,17 +5163,26 @@ ${plan ? '教学环节安排：' + plan : ''}`;
             <table class="score-table ledger-table">
               <thead><tr><th>姓名</th><th>入门测情况</th><th>作业完成情况</th><th>课堂积分</th><th>操作</th></tr></thead>
               <tbody>
-                ${students.map(s => `
+                ${students.map(s => {
+                  normalizeLedger(s);
+                  const et = s.entryTests || [];
+                  const hw = s.homeworks || [];
+                  const sc = s.scores || [];
+                  const etText = et.length ? `${escapeHtml(et[et.length-1].subject || '')} ${et[et.length-1].score || ''}分 (${et.length}次)` : '-';
+                  const hwText = hw.length ? `${escapeHtml(hw[hw.length-1].status || '')} (${hw.length}次)` : '-';
+                  const scText = sc.length ? (sc.reduce((a, b) => a + (Number(b.score) || 0), 0)) + ' (累计)' : '-';
+                  return `
                   <tr>
                     <td style="font-weight:600">${escapeHtml(s.name||'')}</td>
-                    <td>${escapeHtml(s.entryTest||'-')}</td>
-                    <td>${escapeHtml(s.homework||'-')}</td>
-                    <td style="font-weight:600">${escapeHtml(String(s.score!=null?s.score:'-'))}</td>
+                    <td>${etText}</td>
+                    <td>${hwText}</td>
+                    <td style="font-weight:600">${scText}</td>
                     <td>
-                      <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.editLedgerStudentModal('${s.id}')">编辑</button>
+                      <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.openLedgerStudentModal(false,'${s.id}')">编辑</button>
                       <button class="btn-ghost" style="font-size:11px;padding:2px 8px" onclick="window.__app.confirmDelete('ledgerStudents','${s.id}','${escapeAttr(s.name||'')}')">删除</button>
                     </td>
-                  </tr>`).join('')}
+                  </tr>`;
+                }).join('')}
               </tbody>
             </table>
           </div>`}
@@ -4787,63 +5219,6 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     };
   };
 
-  window.addLedgerStudentModal = function (classId) {
-    openModal('添加学员', `
-      <label>姓名 <input type="text" id="ls_name" placeholder="学员姓名"></label>
-      <label>入门测情况 <input type="text" id="ls_entry" placeholder="如：85分 / 未测"></label>
-      <label>作业完成情况 <input type="text" id="ls_hw" placeholder="如：全部完成 / 缺交1次"></label>
-      <label>课堂积分 <input type="number" id="ls_score" value="0" placeholder="0"></label>
-    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ls_save">保存</button>`);
-    $('#ls_save').onclick = async () => {
-      const name = $('#ls_name').value.trim();
-      if (!name) { toast('请输入学员姓名'); return; }
-      const data = {
-        id: uid(),
-        classId: classId,
-        name: name,
-        entryTest: $('#ls_entry').value.trim(),
-        homework: $('#ls_hw').value.trim(),
-        score: parseInt($('#ls_score').value) || 0,
-        ts: Date.now()
-      };
-      await dbPut('ledgerStudents', data);
-      state.ledgerStudents.push(data);
-      saveLocalCache();
-      closeModal();
-      renderLedger();
-      toast('已添加');
-    };
-  };
-
-  window.editLedgerStudentModal = function (id) {
-    const s = state.ledgerStudents.find(x => x.id === id);
-    if (!s) return;
-    openModal('编辑学情', `
-      <label>姓名 <input type="text" id="es_name" value="${escapeHtml(s.name||'')}"></label>
-      <label>入门测情况 <input type="text" id="es_entry" value="${escapeHtml(s.entryTest||'')}" placeholder="如：85分 / 未测"></label>
-      <label>作业完成情况 <input type="text" id="es_hw" value="${escapeHtml(s.homework||'')}" placeholder="如：全部完成 / 缺交1次"></label>
-      <label>课堂积分 <input type="number" id="es_score" value="${s.score!=null?s.score:0}"></label>
-    `, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="es_save">保存</button>`);
-    $('#es_save').onclick = async () => {
-      const name = $('#es_name').value.trim();
-      if (!name) { toast('请输入学员姓名'); return; }
-      const data = Object.assign({}, s, {
-        name: name,
-        entryTest: $('#es_entry').value.trim(),
-        homework: $('#es_hw').value.trim(),
-        score: parseInt($('#es_score').value) || 0,
-        ts: Date.now()
-      });
-      await dbPut('ledgerStudents', data);
-      state.ledgerStudents = state.ledgerStudents.filter(x => x.id !== data.id);
-      state.ledgerStudents.push(data);
-      saveLocalCache();
-      closeModal();
-      renderLedger();
-      toast('已保存');
-    };
-  };
-
   function handleImportLedgerStudents(file) {
     if (!file) return;
     const cid = $('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '';
@@ -4872,13 +5247,16 @@ ${plan ? '教学环节安排：' + plan : ''}`;
         for (const r of rows) {
           const name = r['姓名'] || r['name'] || r['学生姓名'] || '';
           if (!name) continue;
+          const etRaw = r['入门测'] || r['入门测情况'] || r['entryTest'] || '';
+          const hwRaw = r['作业'] || r['作业完成情况'] || r['homework'] || '';
+          const scRaw = r['课堂积分'] || r['积分'] || r['score'] || '';
           const item = {
             id: uid(),
             classId: cid,
             name: name,
-            entryTest: r['入门测'] || r['入门测情况'] || r['entryTest'] || '',
-            homework: r['作业'] || r['作业完成情况'] || r['homework'] || '',
-            score: parseInt(r['课堂积分'] || r['积分'] || r['score'] || '0') || 0,
+            entryTests: etRaw ? [{ date: '', subject: String(etRaw), score: 0, note: '', img: '' }] : [],
+            homeworks: hwRaw ? [{ date: '', content: String(hwRaw), status: '已完成', comment: '', img: '' }] : [],
+            scores: scRaw !== '' ? [{ date: '', score: parseInt(scRaw) || 0, note: '', img: '' }] : [],
             ts: Date.now()
           };
           state.ledgerStudents.push(item);
@@ -4899,12 +5277,13 @@ ${plan ? '教学环节安排：' + plan : ''}`;
   function exportLedgerToWPS() {
     if (state.ledgerStudents.length === 0) { toast('暂无学情数据'); return; }
     if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
+    const joinArr = (arr, key) => (arr || []).map(x => key === 'score' ? (x.score != null ? x.score : '') : (x[key] || '')).join(' / ');
     const wb = XLSX.utils.book_new();
     state.classes.forEach(c => {
       const students = state.ledgerStudents.filter(s => s.classId === c.id);
       if (students.length === 0) return;
       const rows = [['姓名', '入门测情况', '作业完成情况', '课堂积分']];
-      students.forEach(s => rows.push([s.name||'', s.entryTest||'', s.homework||'', s.score!=null?s.score:'']));
+      students.forEach(s => rows.push([s.name||'', joinArr(s.entryTests,'subject'), joinArr(s.homeworks,'status'), joinArr(s.scores,'score')]));
       const sheetName = (c.name || '班级').slice(0, 28).replace(/[\[\]:*?/\\]/g, '_');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
     });
@@ -4912,7 +5291,7 @@ ${plan ? '教学环节安排：' + plan : ''}`;
       const rows = [['班级', '姓名', '入门测情况', '作业完成情况', '课堂积分']];
       state.ledgerStudents.forEach(s => {
         const c = state.classes.find(x => x.id === s.classId);
-        rows.push([c?c.name:'', s.name||'', s.entryTest||'', s.homework||'', s.score!=null?s.score:'']);
+        rows.push([c?c.name:'', s.name||'', joinArr(s.entryTests,'subject'), joinArr(s.homeworks,'status'), joinArr(s.scores,'score')]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '全量学情');
     }
@@ -5004,8 +5383,15 @@ ${plan ? '教学环节安排：' + plan : ''}`;
       ctx.fillStyle = '#333333';
       const cls = state.classes.find(c => c.id === s.classId);
       const nameDisplay = scope === 'all' && cls ? `[${cls.name}] ${s.name}` : s.name;
+      normalizeLedger(s);
+      const et = (s.entryTests || []);
+      const hw = (s.homeworks || []);
+      const sc = (s.scores || []);
+      const etText = et.length ? `${et[et.length-1].subject||''} ${et[et.length-1].score||''}分(${et.length})` : '-';
+      const hwText = hw.length ? `${hw[hw.length-1].status||''}(${hw.length})` : '-';
+      const scText = sc.length ? (sc.reduce((a,b)=>a+(Number(b.score)||0),0)) + `(${sc.length})` : '-';
       let xPos2 = padding;
-      const cells = [nameDisplay, s.entryTest || '-', s.homework || '-', String(s.score != null ? s.score : '-')];
+      const cells = [nameDisplay, etText, hwText, scText];
       cells.forEach((cell, i) => {
         ctx.textAlign = i === 3 ? 'center' : 'left';
         const tx = i === 3 ? xPos2 + colWidths[i] / 2 : xPos2 + 10;
@@ -5017,7 +5403,7 @@ ${plan ? '教学环节安排：' + plan : ''}`;
 
     // 底部统计
     const summaryY = tableY + (students.length + 1) * rowHeight + 10;
-    const totalScore = students.reduce((sum, s) => sum + (parseInt(s.score) || 0), 0);
+    const totalScore = students.reduce((sum, s) => sum + ((s.scores || []).reduce((a, b) => a + (Number(b.score) || 0), 0)), 0);
     const avgScore = students.length > 0 ? (totalScore / students.length).toFixed(1) : 0;
     ctx.fillStyle = '#666666';
     ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -5078,8 +5464,7 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     editClassFeedback: editClassFeedbackModal, delClassFeedback,
     editAccountingModal: window.editAccountingModal,
     editLedgerClassModal: window.editLedgerClassModal,
-    addLedgerStudentModal: window.addLedgerStudentModal,
-    editLedgerStudentModal: window.editLedgerStudentModal,
+    openLedgerStudentModal: window.openLedgerStudentModal,
     generateLedgerImage: window.generateLedgerImage,
     openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt,
     downloadPrepFile, deletePrepFile,
@@ -5090,7 +5475,7 @@ ${plan ? '教学环节安排：' + plan : ''}`;
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '40';
+  const CURRENT_JS_VER = '41';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

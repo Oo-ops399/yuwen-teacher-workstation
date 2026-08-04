@@ -1707,6 +1707,21 @@ label input, label select, label textarea { margin-top: 4px; }
   border-radius: 8px;
 }
 
+/* v3.4: 学情台账多条记录编辑 */
+.ls-section { margin-top: 12px; border-top: 1px dashed var(--border-light); padding-top: 10px; }
+.ls-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ls-section-head b { font-size: 13px; color: var(--text); }
+.ls-list { display: flex; flex-direction: column; gap: 8px; }
+.ls-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: var(--bg-soft); padding: 8px; border-radius: 8px; }
+.ls-row .ls-f { flex: 1 1 90px; min-width: 80px; }
+.ls-row .lf-note, .ls-row .lf-content { flex: 2 1 140px; }
+.ls-imgcell { display: inline-flex; align-items: center; gap: 4px; }
+.ls-imgbtn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
+.ls-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.row-imgcell { display: inline-flex; align-items: center; gap: 4px; }
+.row-imgbtn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
+.row-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+
 @media (max-width: 768px) {
   .ledger-class-header { flex-direction: column; align-items: flex-start; }
   .ledger-class-header .actions { width: 100%; }
@@ -1926,3 +1941,11 @@ label input, label select, label textarea { margin-top: 4px; }
 .ex-dot-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
 .ex-answer { margin-top: 16px; font-size: 13px; }
 .ex-answer summary { cursor: pointer; color: var(--primary); }
+.ex-tip { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; line-height: 1.6; }
+.ex-q { font-size: 14px; line-height: 1.9; margin: 10px 0 4px; }
+.ex-opt { font-size: 13px; color: #374151; margin: 2px 0 2px 8px; }
+.ex-reading { border: 1px solid var(--border-light); border-radius: 8px; padding: 12px 14px; margin: 10px 0; background: #fff; }
+.ex-saq { font-size: 14px; line-height: 1.9; }
+.ex-saq li { margin-bottom: 10px; }
+.ex-sep { border: none; border-top: 1px dashed var(--border); margin: 18px 0; }
+#exUrl { width: 100%; margin-top: 4px; }

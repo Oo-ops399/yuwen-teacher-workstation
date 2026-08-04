@@ -45,7 +45,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.4.2 · 语文教师版</span>
+    <span class="version">v3.5 · 语文教师版</span>
   </div>
 </aside>
 
@@ -215,9 +215,16 @@
         <select id="tagFilter">
           <option value="">全部标签</option>
           <option value="基础薄弱">基础薄弱</option>
-          <option value="阅读短板">阅读短板</option>
-          <option value="作文待提升">作文待提升</option>
+          <option value="阅读理解薄弱">阅读理解薄弱</option>
+          <option value="作文薄弱">作文薄弱</option>
+          <option value="古诗文薄弱">古诗文薄弱</option>
           <option value="意向续报">意向续报</option>
+        </select>
+        <select id="weakFilter">
+          <option value="">学情筛选：全部</option>
+          <option value="作文薄弱">作文薄弱学员</option>
+          <option value="古诗文薄弱">古诗文丢分严重</option>
+          <option value="下滑">成绩下滑学员</option>
         </select>
       </div>
       <div id="studentList" class="card-list"></div>
@@ -386,25 +393,28 @@
       </div>
       <div class="mindmap-wrap">
         <div class="mindmap-input">
-          <label>本节课内容
-            <textarea id="mmContent" rows="3" placeholder="例：六年级上册第三单元——古诗三首"></textarea>
+          <label>课文 / 诗词内容
+            <textarea id="mmContent" rows="3" placeholder="例：《行路难》《岳阳楼记》等文言文 / 现代文 / 古诗词"></textarea>
           </label>
-          <label>教学重难点
-            <textarea id="mmFocus" rows="3" placeholder="例：1. 理解诗意 2. 体会诗人情感 3. 背诵默写"></textarea>
+          <label>课时目标与教学重难点
+            <textarea id="mmFocus" rows="3" placeholder="例：1. 理解诗意 2. 体会诗人情感 3. 背诵默写 4. 赏析写作手法"></textarea>
           </label>
-          <label>课时安排
+          <label>教学环节安排（教学流程）
             <textarea id="mmPlan" rows="3" placeholder="例：第 1 课时：导入+朗读；第 2 课时：讲解+练习"></textarea>
           </label>
           <button class="btn-ghost" id="loadHistoryBtn">载入历史备课</button>
         </div>
         <div class="mindmap-output">
           <div class="mm-toolbar">
-            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 选中节点后点「＋ 添加子节点」 · 已配置 AI 模型时自动调用 AI 生成多级结构</span>
+            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 选中节点后点「＋ 添加子节点」 · 已配置 AI 模型时自动调用 AI 生成多级结构（教学流程 / 考点 / 习题 / 答题模板）</span>
             <button class="btn-ghost" id="addRootNode">＋ 新增主节点</button>
             <button class="btn-ghost" id="addChildNodeBtn">＋ 添加子节点</button>
             <button class="btn-ghost" id="editNodeBtn">✎ 编辑节点</button>
+            <button class="btn-ghost" id="checkMindmapBtn">🔍 导图自检</button>
+            <button class="btn-ghost" id="saveMindmapLibBtn">📥 存素材库</button>
             <button class="btn-ghost" id="saveMindmapBtn">保存到本地</button>
           </div>
+          <div id="mmCheckResult" class="mm-check-result" hidden></div>
           <div class="mm-canvas-wrap">
             <svg id="mindmapSvg"></svg>
           </div>
@@ -538,6 +548,13 @@
           <button class="btn-ghost" id="exportKanbanBtn">导出WPS</button>
           <button class="btn-primary" id="addTodoBtn">＋ 新增任务</button>
         </div>
+      </div>
+      <div class="quick-chips">
+        <span>快速添加：</span>
+        <button class="chip" onclick="window.__app.quickAddTodo('打印试卷')">🖨 打印试卷</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('整理打卡资料')">📁 整理打卡资料</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('和教务对接')">💬 和教务对接</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('采购教辅')">🛒 采购教辅</button>
       </div>
       <div class="kanban-board">
         <div class="kanban-col" data-status="todo">
@@ -978,6 +995,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=43"></script>
+<script src="./app.js?v=44"></script>
 </body>
 </html>

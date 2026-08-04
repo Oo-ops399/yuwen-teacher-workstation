@@ -704,6 +704,39 @@ label input, label select, label textarea { margin-top: 4px; }
   color: #d48806;
   border: 1px solid #ffe7ba;
 }
+.reminder-list .badge-callback {
+  background: #ffe5e5;
+  color: #d11;
+  border: 1px solid #ffc9c9;
+  font-weight: 600;
+}
+.tpl-cat {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--bg-soft);
+  color: var(--primary);
+  margin-right: 6px;
+  font-weight: 600;
+}
+.reminder-list .badge-overdue {
+  background: #ff4d4f;
+  color: #fff;
+  border: 1px solid #ff4d4f;
+  font-weight: 700;
+  animation: blink 1.2s infinite;
+}
+.reminder-list .badge-soon {
+  background: #fff1e6;
+  color: #d4380d;
+  border: 1px solid #ffbb96;
+  font-weight: 600;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.quick-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 18px; font-size: 12px; color: var(--text-soft); }
+.quick-chips .chip { border: 1px solid var(--border-light); background: var(--bg); color: var(--text); border-radius: 14px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+.quick-chips .chip:hover { border-color: var(--primary); color: var(--primary); }
 
 .info-block {
   padding: 16px 18px;
@@ -789,6 +822,34 @@ label input, label select, label textarea { margin-top: 4px; }
   margin-left: 6px;
 }
 .tag-type.summer { background: var(--bg); color: var(--text-muted); }
+
+/* v3.5 周课表 */
+.sched-class { background: var(--bg); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.sched-class-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.sched-class-head h4 { font-size: 15px; margin: 0; color: var(--text); }
+.sched-class-head p { font-size: 12px; color: var(--text-soft); margin: 0; flex: 1; }
+.sched-class-head .actions { display: flex; gap: 6px; }
+.week-board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; overflow-x: auto; }
+.week-col { background: var(--bg-soft); border-radius: 8px; padding: 6px; min-width: 120px; display: flex; flex-direction: column; gap: 6px; }
+.week-col-head { font-size: 12px; font-weight: 600; color: var(--text-muted); text-align: center; padding: 2px 0; border-bottom: 1px dashed var(--border-light); }
+.week-empty { color: var(--text-muted); text-align: center; font-size: 12px; padding: 8px 0; }
+.lesson-card { background: #fff; border: 1px solid var(--border-light); border-left: 3px solid var(--primary); border-radius: 6px; padding: 6px 8px; }
+.lc-time { font-size: 11px; color: var(--text-muted); }
+.lc-title { font-size: 13px; font-weight: 600; color: var(--text); margin: 2px 0; }
+.lc-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.lb { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--bg-soft); color: var(--text-soft); }
+.lb-prep { background: #e8f0ff; color: #2b5fd9; }
+.lb-ex { background: #fff3e0; color: #c77700; }
+.lb-note { background: #fde8ef; color: #c0397a; }
+.lc-ov { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.ov-tag { font-size: 10px; padding: 1px 5px; border-radius: 4px; }
+.ov-tag.ov-停课 { background: #ffe5e5; color: #d11; }
+.ov-tag.ov-调课 { background: #fff3e0; color: #c77700; }
+.lc-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lc-actions .btn-ghost { font-size: 11px; padding: 2px 6px; }
+.ov-row { font-size: 12px; color: var(--text-soft); display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.courseware-view h3 { margin: 0 0 8px; color: var(--text); }
+.cw-content { white-space: pre-wrap; font-size: 13px; color: var(--text); background: var(--bg-soft); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
 
 /* ================= 学员档案 ================= */
 .card-list {
@@ -1420,6 +1481,14 @@ label input, label select, label textarea { margin-top: 4px; }
   cursor: move;
 }
 .mm-node-rect.root { fill: var(--primary); }
+.mm-node.mm-error .mm-node-rect { stroke: #ef4444; stroke-width: 2.5; fill: #fff5f5; }
+.mm-node.mm-error .mm-node-text { fill: #c0392b; font-weight: 600; }
+.mm-check-result { margin: 10px 0; padding: 10px 12px; background: var(--bg-soft); border-radius: 8px; border: 1px solid var(--border-light); }
+.mm-check-result h4 { font-size: 13px; margin: 0 0 6px; color: var(--text); }
+.mm-check-ok { color: #16a34a; font-size: 13px; font-weight: 600; }
+.mm-check-item { font-size: 12px; color: var(--text-soft); margin: 4px 0; line-height: 1.5; }
+.mm-check-item b { color: var(--text); }
+.mm-sug { color: #16a34a; }
 .mm-node-text {
   font-size: 13px;
   fill: var(--text);

@@ -344,10 +344,14 @@
   function ensureDefaultData() {
     if (state.templates.length === 0) {
       state.templates = [
-        { id: uid(), title: '日常学习反馈', content: '您好，我是 X 老师。宝贝今天上课表现积极，作业完成良好，【具体表现】。希望家长继续配合，我们一起努力！', ts: Date.now() },
-        { id: uid(), title: '进步表扬', content: '您好！宝贝最近进步很大，【具体进步点】，希望继续坚持！有任何学习问题欢迎随时沟通。', ts: Date.now() },
-        { id: uid(), title: '学习建议', content: '您好！根据近期表现，建议孩子在家【具体建议】，坚持一段时间会有明显效果。如有疑问可随时联系。', ts: Date.now() },
-        { id: uid(), title: '续费提醒', content: '您好！宝贝本阶段课程即将结束，为保证学习连贯性，建议尽快续费。我们为孩子定制了下一阶段学习计划。', ts: Date.now() }
+        { id: uid(), category: '学情反馈', title: '日常学习反馈', content: '您好，我是 X 老师。宝贝今天上课表现积极，作业完成良好，【具体表现】。本次薄弱点在【阅读理解/作文】，已当面讲解。希望家长继续配合，我们一起努力！', ts: Date.now() },
+        { id: uid(), category: '学情反馈', title: '进步表扬', content: '您好！宝贝最近进步很大，【具体进步点，如默写全对/阅读多拿5分】，希望继续坚持！有任何学习问题欢迎随时沟通。', ts: Date.now() },
+        { id: uid(), category: '续报引导', title: '续费提醒', content: '您好！宝贝本阶段课程即将结束，为保证学习连贯性，建议尽快续费。我们为孩子定制了下一阶段【提分/冲刺】计划，效果会更好。', ts: Date.now() },
+        { id: uid(), category: '续报引导', title: '阶段成果续报', content: '家长好！经过本阶段学习，宝贝【月考从78提升到85】，学习状态稳定。下一阶段将主攻【古诗文/作文】，建议连报优惠名额有限，可优先锁定。', ts: Date.now() },
+        { id: uid(), category: '批评鼓励', title: '作业未交提醒', content: '家长好，宝贝近期【作业连续未完成/上课走神】，已和孩子沟通。希望家中督促【每天固定半小时阅读】，老师会多关注，一起帮孩子找回状态。', ts: Date.now() },
+        { id: uid(), category: '批评鼓励', title: '鼓励加油', content: '别气馁！这次【成绩波动】是正常的，孩子基础不错，只要把【薄弱点】补上很快能上来。老师相信你，加油！', ts: Date.now() },
+        { id: uid(), category: '请假通知', title: '调课/停课通知', content: '家长好，因【节假日/老师出差/考试】，原定【X月X日】的课调整到【X月X日同时间】，带来不便请谅解，谢谢配合！', ts: Date.now() },
+        { id: uid(), category: '请假通知', title: '请假跟进', content: '收到宝贝请假，已记录。落下的【文言文单元】我们会安排补课或发资料，回校后找老师领取即可。', ts: Date.now() }
       ];
       state.templates.forEach(t => dbPut('templates', t));
     }
@@ -592,6 +596,8 @@
     if (studentFilter) studentFilter.oninput = renderStudentList;
     const tagFilter = $('#tagFilter');
     if (tagFilter) tagFilter.onchange = renderStudentList;
+    const weakFilter = $('#weakFilter');
+    if (weakFilter) weakFilter.onchange = renderStudentList;
     const backStudentList = $('#backStudentList');
     if (backStudentList) backStudentList.onclick = () => showPage('students');
     const exportStudentBtn = $('#exportStudentBtn');
@@ -647,6 +653,10 @@
     if (mindmapFileInput) mindmapFileInput.onchange = e => handleMindmapImport(e.target.files[0]);
     const exportMindmapJsonBtn = $('#exportMindmapJsonBtn');
     if (exportMindmapJsonBtn) exportMindmapJsonBtn.onclick = exportMindmapJSON;
+    const checkMindmapBtn = $('#checkMindmapBtn');
+    if (checkMindmapBtn) checkMindmapBtn.onclick = window.checkMindmap;
+    const saveMindmapLibBtn = $('#saveMindmapLibBtn');
+    if (saveMindmapLibBtn) saveMindmapLibBtn.onclick = window.saveMindmapToLibrary;
 
     // 练习生成器
     const exGenBtn = $('#exGenBtn');
@@ -1298,7 +1308,16 @@
     const memos = (state.memos || []).slice().sort((a, b) => b.ts - a.ts).slice(0, 8);
     const sticky = state.sticky.filter(s => s.id === 'main' && s.text).map(s => ({ text: s.text, ts: s.ts || Date.now() }));
     const items = [];
-    callbacks.slice(0, 5).forEach(c => items.push({ type: 'callback', html: `<span class="badge">待回访</span> ${escapeHtml(c.student)} · ${escapeHtml(c.reason)} · ${fmtDate(c.ts)}` }));
+    // v3.5: 逾期 / 临期待办 红色提醒
+    const today = todayStr();
+    const soon = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const dueTodos = state.todos.filter(t => t.status !== 'done' && t.dueDate && t.dueDate <= soon)
+      .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+    dueTodos.slice(0, 5).forEach(t => {
+      const overdue = t.dueDate < today;
+      items.unshift({ type: 'todo', html: `<span class="badge ${overdue ? 'badge-overdue' : 'badge-soon'}">${overdue ? '⏰逾期' : '📌临近'}</span> ${escapeHtml(t.title)} · 截止 ${t.dueDate}` });
+    });
+    callbacks.slice(0, 5).forEach(c => items.push({ type: 'callback', html: `<span class="badge badge-callback">待回访</span> ${escapeHtml(c.student)} · ${escapeHtml(c.reason)} · ${fmtDate(c.ts)}` }));
     memos.forEach(m => items.push({ type: 'memo', html: `<span class="badge badge-memo">备忘</span> ${escapeHtml(m.text)} · ${fmtDate(m.ts)}` }));
     sticky.forEach(s => items.push({ type: 'sticky', html: `<span class="badge badge-memo">便签</span> ${escapeHtml(s.text)}` }));
     const list = $('#reminderList');
@@ -1597,35 +1616,83 @@
   }
 
   // ================= 班级课表 =================
+  // ================= 班级课表（周循环课次） =================
+  const WEEK_DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  function nextWeekdayDate(dayNum) {
+    const t = new Date();
+    const target = ((dayNum % 7) + 7) % 7; // 0=周日..6=周六
+    let diff = (target - t.getDay() + 7) % 7;
+    if (diff === 0) diff = 7;
+    const d = new Date(t); d.setDate(t.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+  function migrateClassSchedule(c) {
+    if (!Array.isArray(c.lessons)) c.lessons = [];
+    if (!c.overrides) c.overrides = {};
+    c.lessons.forEach(l => { if (!l.id) l.id = uid(); if (!l.notes) l.notes = {}; });
+  }
+  function upcomingOverrides(c, l) {
+    const ovs = Object.entries(c.overrides || {}).filter(([d, o]) => o.lessonId === l.id && d >= todayStr()).slice(0, 2);
+    return ovs.map(([d, o]) => `<span class="ov-tag ov-${o.type}">${o.type === '停课' ? '⛔停课' : '🔄调课'} ${d.slice(5)}</span>`).join('');
+  }
+  function lessonCard(c, l) {
+    const badges = [];
+    if (l.prepId) badges.push('<span class="lb lb-prep" title="备课资料">📚课件</span>');
+    if (l.exercise) badges.push('<span class="lb lb-ex" title="当堂练习">✍练习</span>');
+    if (l.notes && (l.notes.attendance || l.notes.focus || l.notes.private)) badges.push('<span class="lb lb-note" title="备注">📌备注</span>');
+    const ov = upcomingOverrides(c, l);
+    return `<div class="lesson-card" data-lesson="${l.id}">
+      <div class="lc-time">${escapeHtml(l.start || '')}-${escapeHtml(l.end || '')}</div>
+      <div class="lc-title">${escapeHtml(l.title || '未命名课次')}</div>
+      <div class="lc-badges">${badges.join('')}</div>
+      ${ov ? `<div class="lc-ov">${ov}</div>` : ''}
+      <div class="lc-actions">
+        ${l.prepId ? `<button class="btn-ghost" onclick="window.__app.openCourseware('${l.prepId}')">课件</button>` : ''}
+        <button class="btn-ghost" onclick="window.__app.editLessonModal('${c.id}','${l.id}')">详情</button>
+        <button class="btn-ghost" onclick="window.__app.suspendLesson('${c.id}','${l.id}')">停课</button>
+        <button class="btn-ghost" onclick="window.__app.adjustLesson('${c.id}','${l.id}')">调课</button>
+      </div>
+    </div>`;
+  }
+  function renderWeekBoard(c) {
+    return `<div class="week-board">` + WEEK_DAYS.map((dn, i) => {
+      const di = i + 1;
+      const ls = (c.lessons || []).filter(l => l.day === di).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+      return `<div class="week-col">
+        <div class="week-col-head">${dn}</div>
+        ${ls.length ? ls.map(l => lessonCard(c, l)).join('') : '<div class="week-empty">—</div>'}
+      </div>`;
+    }).join('') + `</div>`;
+  }
   function renderSchedule() {
     const type = $('#scheduleType').value;
     const filter = $('#classFilter').value;
-    // 更新班级下拉
     const cls = state.classes.filter(c => !type || c.type === type);
     $('#classFilter').innerHTML = '<option value="">全部班级</option>' +
-      cls.map(c => `<option value="${c.id}" ${filter===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
-
-    const list = $('#scheduleList');
-    let classes = state.classes;
-    if (type) classes = classes.filter(c => c.type === type);
+      cls.map(c => `<option value="${c.id}" ${filter === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+    let classes = cls;
     if (filter) classes = classes.filter(c => c.id === filter);
 
+    const list = $('#scheduleList');
     if (classes.length === 0) {
       list.innerHTML = '<div class="info-block">暂无班级，点击右上「＋ 新建班级」开始</div>';
       return;
     }
-    list.innerHTML = classes.map(c => `
-      <div class="schedule-item">
-        <div class="info">
-          <h4>${escapeHtml(c.name)} <span class="tag-type ${c.type==='summer'?'summer':''}">${c.type==='summer'?'暑假班':'常规班'}</span></h4>
+    list.innerHTML = classes.map(c => {
+      migrateClassSchedule(c);
+      return `
+      <div class="sched-class">
+        <div class="sched-class-head">
+          <h4>${escapeHtml(c.name)} <span class="tag-type ${c.type === 'summer' ? 'summer' : ''}">${c.type === 'summer' ? '暑假班' : '常规班'}</span></h4>
           <p>${escapeHtml(c.time || '')} · ${escapeHtml(c.room || '')} · ${c.studentCount || 0} 人</p>
+          <div class="actions">
+            <button class="btn-ghost" onclick="window.__app.editClassModal('${c.id}')">班级信息</button>
+            <button class="btn-primary" onclick="window.__app.addLessonModal('${c.id}')">＋ 课次</button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="btn-ghost" onclick="window.__app.editClassModal('${c.id}')">编辑</button>
-          <button class="btn-ghost" onclick="window.__app.confirmDelete('classes','${c.id}','${escapeHtml(c.name)}')">删除</button>
-        </div>
-      </div>
-    `).join('');
+        ${renderWeekBoard(c)}
+      </div>`;
+    }).join('');
   }
 
   window.editClassModal = function (id) {
@@ -1657,6 +1724,8 @@
         room: $('#cm_room').value,
         studentCount: parseInt($('#cm_count').value) || 0,
         note: $('#cm_note').value,
+        lessons: c.lessons || [],
+        overrides: c.overrides || {},
         ts: Date.now()
       };
       await dbPut('classes', data);
@@ -1667,6 +1736,101 @@
       renderSchedule();
       toast('保存成功');
     };
+  };
+
+  // v3.5: 课次管理（周循环 + 调课/停课 + 绑定课件/练习 + 弹窗备注）
+  window.addLessonModal = function (cid) { editLessonModal(cid, null); };
+  window.editLessonModal = function (cid, lid) {
+    const c = state.classes.find(x => x.id === cid);
+    if (!c) return;
+    migrateClassSchedule(c);
+    const l = lid ? (c.lessons || []).find(x => x.id === lid) : null;
+    const libOpts = (state.library || []).map(x => `<option value="${x.id}" ${l && l.prepId === x.id ? 'selected' : ''}>${escapeHtml(x.name || '未命名')}</option>`).join('');
+    const body = `
+      <label>课次名称 <input type="text" id="lm_title" value="${escapeHtml(l ? l.title : '')}" placeholder="例：文言文阅读专题"></label>
+      <label>星期
+        <select id="lm_day">${WEEK_DAYS.map((dn, i) => `<option value="${i + 1}" ${l && l.day === i + 1 ? 'selected' : ''}>${dn}</option>`).join('')}</select>
+      </label>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1">开始 <input type="time" id="lm_start" value="${l ? l.start : '09:00'}"></label>
+        <label style="flex:1">结束 <input type="time" id="lm_end" value="${l ? l.end : '11:00'}"></label>
+      </div>
+      <label>绑定备课资料（课件）
+        <select id="lm_prep"><option value="">未绑定</option>${libOpts}</select>
+      </label>
+      <label>当堂练习题 <textarea id="lm_ex" rows="2" placeholder="例：完成《行路难》理解性默写 3 题">${escapeHtml(l ? l.exercise : '')}</textarea></label>
+      <label>出勤提醒 <textarea id="lm_att" rows="2" placeholder="例：张三本周请假，需安排补课">${escapeHtml(l && l.notes ? l.notes.attendance : '')}</textarea></label>
+      <label>本次上课重点 <textarea id="lm_focus" rows="2" placeholder="例：重点讲解答题模板与易错字">${escapeHtml(l && l.notes ? l.notes.focus : '')}</textarea></label>
+      <label>需单独沟通学员 <textarea id="lm_priv" rows="2" placeholder="例：李四家长想了解近期进度">${escapeHtml(l && l.notes ? l.notes.private : '')}</textarea></label>
+      ${l ? '<div id="lm_overrides" style="margin-top:6px"></div>' : ''}
+    `;
+    const footer = `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>${l ? '<button class="btn-danger" id="lm_del">删除</button>' : ''}<button class="btn-primary" id="lm_save">保存</button>`;
+    openModal(l ? '编辑课次' : '添加课次', body, footer);
+    if (l) renderLessonOverrides(c, l);
+    if (l) $('#lm_del').onclick = async () => {
+      c.lessons = c.lessons.filter(x => x.id !== l.id);
+      await dbPut('classes', c); saveLocalCache(); closeModal(); renderSchedule(); toast('已删除课次');
+    };
+    $('#lm_save').onclick = async () => {
+      const data = {
+        id: l ? l.id : uid(),
+        day: parseInt($('#lm_day').value),
+        start: $('#lm_start').value, end: $('#lm_end').value,
+        title: $('#lm_title').value || '未命名课次',
+        prepId: $('#lm_prep').value || '',
+        exercise: $('#lm_ex').value,
+        notes: { attendance: $('#lm_att').value, focus: $('#lm_focus').value, private: $('#lm_priv').value }
+      };
+      if (l) Object.assign(l, data);
+      else { c.lessons = c.lessons || []; c.lessons.push(data); }
+      await dbPut('classes', c); saveLocalCache(); closeModal(); renderSchedule(); toast('已保存');
+    };
+  };
+  function renderLessonOverrides(c, l) {
+    const el = $('#lm_overrides'); if (!el) return;
+    const ovs = Object.entries(c.overrides || {}).filter(([d, o]) => o.lessonId === l.id).sort((a, b) => a[0].localeCompare(b[0]));
+    el.innerHTML = ovs.length
+      ? '<h4 style="margin:6px 0 4px">调课 / 停课记录</h4>' + ovs.map(([d, o]) =>
+          `<div class="ov-row">${o.type === '停课' ? '⛔停课' : '🔄调课'} ${d}${o.reason ? ' · ' + escapeHtml(o.reason) : ''}${o.toTime ? ' → ' + escapeHtml(o.toTime) : ''} <button class="btn-ghost" onclick="window.__app.removeOverride('${c.id}','${d}')">撤销</button></div>`).join('')
+      : '<p style="color:#9ca3af;font-size:12px">暂无调课 / 停课</p>';
+  }
+  window.removeOverride = async function (cid, date) {
+    const c = state.classes.find(x => x.id === cid); if (!c) return;
+    if (c.overrides) delete c.overrides[date];
+    await dbPut('classes', c); saveLocalCache(); closeModal(); renderSchedule(); toast('已撤销');
+  };
+  window.suspendLesson = async function (cid, lid) {
+    const c = state.classes.find(x => x.id === cid); if (!c) return; migrateClassSchedule(c);
+    const l = (c.lessons || []).find(x => x.id === lid); if (!l) return;
+    const def = nextWeekdayDate(l.day);
+    const date = prompt('停课日期（默认下次课 ' + def + '，格式 YYYY-MM-DD）', def);
+    if (!date) return;
+    c.overrides = c.overrides || {};
+    c.overrides[date] = { lessonId: lid, type: '停课', reason: '', toTime: '' };
+    await dbPut('classes', c); saveLocalCache(); renderSchedule(); toast('已标记停课：' + date);
+  };
+  window.adjustLesson = async function (cid, lid) {
+    const c = state.classes.find(x => x.id === cid); if (!c) return; migrateClassSchedule(c);
+    const l = (c.lessons || []).find(x => x.id === lid); if (!l) return;
+    const def = nextWeekdayDate(l.day);
+    const date = prompt('调课到日期（默认下次课 ' + def + '，格式 YYYY-MM-DD）', def);
+    if (!date) return;
+    const toTime = prompt('调课后的时间（如 14:00-16:00，留空保持原时间）', (l.start || '') + '-' + (l.end || ''));
+    c.overrides = c.overrides || {};
+    c.overrides[date] = { lessonId: lid, type: '调课', reason: '', toTime: toTime || '' };
+    await dbPut('classes', c); saveLocalCache(); renderSchedule(); toast('已调课：' + date);
+  };
+  window.openCourseware = function (prepId) {
+    const item = (state.library || []).find(x => x.id === prepId);
+    if (!item) { toast('未找到对应备课资料'); return; }
+    const body = `
+      <div class="courseware-view">
+        <h3>${escapeHtml(item.name || '未命名')}</h3>
+        ${item.content ? `<div class="cw-content">${escapeHtml(item.content)}</div>` : ''}
+        ${item.file ? `<button class="btn-primary" onclick="window.__app.downloadLibFile('${item.id}')">下载 / 打开课件文件</button>` : ''}
+        ${!item.content && !item.file ? '<p style="color:#9ca3af">该资料暂无内容</p>' : ''}
+      </div>`;
+    openModal('课件 · ' + escapeHtml(item.name || ''), body, `<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>`);
   };
 
   function exportClassToWPS() {
@@ -1684,9 +1848,16 @@
   }
 
   // ================= 学员档案 =================
+  // v3.5: 成绩是否下滑（对比最近两次有日期的成绩）
+  function isScoreDeclining(s) {
+    const sc = (s.scores || []).filter(x => x.date).slice().sort((a, b) => a.date.localeCompare(b.date));
+    if (sc.length < 2) return false;
+    return (Number(sc[sc.length - 1].score) || 0) < (Number(sc[sc.length - 2].score) || 0);
+  }
   function renderStudentList() {
     const filter = ($('#studentFilter').value || '').toLowerCase();
     const tag = $('#tagFilter').value;
+    const weak = $('#weakFilter').value;
     const list = $('#studentList');
     let students = state.students;
     if (filter) {
@@ -1697,6 +1868,9 @@
       );
     }
     if (tag) students = students.filter(s => (s.tags || []).includes(tag));
+    if (weak === '作文薄弱') students = students.filter(s => (s.tags || []).includes('作文薄弱') || (s.weakness || '').includes('作文'));
+    if (weak === '古诗文薄弱') students = students.filter(s => (s.tags || []).includes('古诗文薄弱') || (s.weakness || '').includes('古诗文'));
+    if (weak === '下滑') students = students.filter(s => isScoreDeclining(s));
     if (students.length === 0) {
       list.innerHTML = '<div class="info-block">暂无学员，点击右上「＋ 新建学员」开始</div>';
       return;
@@ -1778,7 +1952,7 @@
         <label>薄弱项 <textarea data-sd="weakness" rows="2">${escapeHtml(s.weakness||'')}</textarea></label>
         <div style="margin-top:10px">
           <span style="font-size:12px;color:#6b7280">标签：</span>
-          ${['基础薄弱','阅读短板','作文待提升','意向续报'].map(t => `
+          ${['基础薄弱','阅读理解薄弱','作文薄弱','古诗文薄弱','意向续报'].map(t => `
             <label style="display:inline-flex;align-items:center;margin-right:10px">
               <input type="checkbox" data-sd-tag="${t}" ${(s.tags||[]).includes(t)?'checked':''}> ${t}
             </label>
@@ -2269,13 +2443,22 @@
       `;
     }).join('');
   }
+  const TEMPLATE_CATS = ['学情反馈', '续报引导', '批评鼓励', '请假通知'];
   function renderTemplates() {
     const el = $('#tab-template');
+    const cur = ($('#tplCatFilter') && $('#tplCatFilter').value) || '';
+    const list = cur ? state.templates.filter(t => (t.category || '学情反馈') === cur) : state.templates;
     el.innerHTML = `
-      <button class="btn-primary" style="margin-bottom:12px" onclick="window.__app.editTemplateModal()">＋ 新增话术</button>
-      ${state.templates.map(t => `
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <button class="btn-primary" onclick="window.__app.editTemplateModal()">＋ 新增话术</button>
+        <select id="tplCatFilter">
+          <option value="">全部分类</option>
+          ${TEMPLATE_CATS.map(c => `<option value="${c}" ${cur === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      ${list.length === 0 ? '<div class="info-block">该分类暂无话术</div>' : list.map(t => `
         <div class="template-item">
-          <h4>${escapeHtml(t.title)}<span>
+          <h4>${escapeHtml(t.title)}<span class="tpl-cat">${escapeHtml(t.category || '学情反馈')}</span><span>
             <button class="btn-ghost" onclick="window.__app.copyText(\`${escapeAttr(t.content)}\`)">复制</button>
             <button class="btn-ghost" onclick="window.__app.editTemplateModal('${t.id}')">编辑</button>
             <button class="btn-ghost" onclick="window.__app.confirmDelete('templates','${t.id}','${escapeHtml(t.title)}')">删除</button>
@@ -2284,6 +2467,8 @@
         </div>
       `).join('')}
     `;
+    const tf = $('#tplCatFilter');
+    if (tf) tf.onchange = renderTemplates;
   }
   function renderCallbacks() {
     const el = $('#tab-callback');
@@ -2347,6 +2532,9 @@
   window.editTemplateModal = function (id) {
     const t = id ? state.templates.find(x => x.id === id) : {};
     const body = `
+      <label>分类
+        <select id="tm_cat">${TEMPLATE_CATS.map(c => `<option value="${c}" ${(t.category || '学情反馈') === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      </label>
       <label>标题 <input type="text" id="tm_title" value="${escapeHtml(t.title||'')}"></label>
       <label>内容 <textarea id="tm_content" rows="6">${escapeHtml(t.content||'')}</textarea></label>
     `;
@@ -2355,7 +2543,7 @@
       <button class="btn-primary" id="tm_save">保存</button>
     `);
     $('#tm_save').onclick = async () => {
-      const data = { id: id || uid(), title: $('#tm_title').value || '未命名', content: $('#tm_content').value, ts: Date.now() };
+      const data = { id: id || uid(), title: $('#tm_title').value || '未命名', category: $('#tm_cat').value, content: $('#tm_content').value, ts: Date.now() };
       await dbPut('templates', data);
       state.templates = state.templates.filter(x => x.id !== data.id);
       state.templates.push(data);
@@ -2675,16 +2863,17 @@
   async function generateMindmapByAI(content, focus, plan, aiUrl) {
     const aiKey = getSetting('aiApiKey', '').trim();
     const aiModel = getSetting('aiModel', '').trim();
-    const prompt = `你是一位资深的语文备课助手。请根据下面的备课内容，生成一份结构化的思维导图。
+    const prompt = `你是一位资深的语文备课助手。请根据下面的备课内容，生成一份结构化的备课思维导图。
 要求：
 1. 输出严格的 JSON，不要包含任何解释性文字，也不要用代码块标记包裹。
 2. JSON 结构为：{"root":"中心主题","children":[{"text":"一级分支","children":[{"text":"二级要点"}]}]}
-3. 至少给出 4 个一级分支，每个分支尽量再展开 2-3 个二级要点，体现多层级延伸。
-4. 用简洁的短语，不要长句。
+3. 一级分支必须包含以下 4 个（可微调名称，但含义一致）：教学流程、考点、习题、答题模板。每个分支尽量再展开 2-4 个二级要点，体现多层级延伸。
+4. 考点分支要覆盖：文学常识、字词音形义、句子翻译、阅读理解、写作手法等；习题分支给出具体题型（默写/选择/简答/对比阅读）；答题模板给出可套用的步骤。
+5. 用简洁的短语，不要长句；注意语文专业术语准确，避免错别字。
 
-本节课内容：${content}
-${focus ? '重点/知识点：' + focus : ''}
-${plan ? '教学环节安排：' + plan : ''}`;
+本节课内容（课文/诗词）：${content}
+${focus ? '课时目标与教学重难点：' + focus : ''}
+${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
 
     const body = {
       model: aiModel || 'gpt-4o',
@@ -2713,6 +2902,126 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     if (!parsed) throw new Error('AI 返回内容无法解析为 JSON');
     return buildMindmapFromJSON(parsed);
   }
+
+  // v3.5: 收集导图全部节点（含路径）
+  function collectMMNodes(root, parentPath) {
+    const path = (parentPath ? parentPath + ' / ' : '') + root.text;
+    const arr = [{ id: root.id, text: root.text, path, depth: parentPath ? parentPath.split(' / ').length : 0 }];
+    (root.children || []).forEach(c => arr.push(...collectMMNodes(c, path)));
+    return arr;
+  }
+  // v3.5: 本地自检（错别字 / 考点遗漏 / 重复 / 过短）
+  const MM_TYPO = [
+    ['默写得', '默写'], ['背颂', '背诵'], ['答题模版', '答题模板'], ['古诗问', '古诗文'],
+    ['重难', '重难点'], ['赏欣', '赏析'], ['即兴', '即景'], ['默写得', '默写'],
+    ['通假字', '通假字'], ['名子', '名篇'], ['做答', '作答'], ['题纲', '提纲']
+  ];
+  const MM_EXPECT = ['教学流程', '考点', '习题', '答题模板'];
+  function localMindmapCheck(root) {
+    const issues = [];
+    const nodes = collectMMNodes(root);
+    const byText = {};
+    nodes.forEach(n => {
+      // 错别字
+      MM_TYPO.forEach(([bad, good]) => {
+        if (n.text.indexOf(bad) > -1) issues.push({ nodeId: n.id, node: n.text, issue: `疑似错别字：「${bad}」应为「${good}」`, suggestion: n.text.replace(bad, good) });
+      });
+      // 过短
+      if (n.text.replace(/[⏱✦⚠]/g, '').trim().length < 2) issues.push({ nodeId: n.id, node: n.text, issue: '节点内容过短，建议补充', suggestion: '' });
+      // 重复（同路径下相同文本）
+      byText[n.text] = (byText[n.text] || 0) + 1;
+    });
+    Object.keys(byText).forEach(t => {
+      if (byText[t] > 1) {
+        nodes.filter(n => n.text === t).forEach(n => issues.push({ nodeId: n.id, node: n.text, issue: `存在 ${byText[t]} 个重复节点「${t}」`, suggestion: '' }));
+      }
+    });
+    // 考点遗漏：一级分支应含 教学流程/考点/习题/答题模板
+    const top = (root.children || []).map(c => c.text);
+    MM_EXPECT.forEach(exp => {
+      if (!top.some(t => t.indexOf(exp) > -1)) issues.push({ nodeId: root.id, node: root.text, issue: `缺少一级分支：「${exp}」`, suggestion: `建议补充「${exp}」分支` });
+    });
+    return issues;
+  }
+  // v3.5: AI 自检（比对知识点遗漏）
+  async function aiMindmapCheck(root, content) {
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (!aiUrl) return [];
+    const aiKey = getSetting('aiApiKey', '').trim();
+    const aiModel = getSetting('aiModel', '').trim();
+    const tree = JSON.stringify(root);
+    const prompt = `你是语文教研审核专家。下面是一份语文备课思维导图（JSON）和原文内容。
+请核对导图是否存在：1) 知识点/考点遗漏；2) 错别字或专业术语错误；3) 与原文不符的内容。
+只输出 JSON 数组，每项格式：{"node":"需修正的节点文本","issue":"问题说明","suggestion":"修改建议"}。不要解释，不要代码块标记。
+原文：${content}
+导图：${tree}`;
+    try {
+      const res = await fetch(aiUrl, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, aiKey ? { 'Authorization': 'Bearer ' + aiKey } : {}),
+        body: JSON.stringify({ model: aiModel || 'gpt-4o', messages: [{ role: 'system', content: '你是语文导图审核员，只输出 JSON 数组。' }, { role: 'user', content: prompt }], temperature: 0.3 }),
+        signal: AbortSignal.timeout ? AbortSignal.timeout(60000) : undefined
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+      let clean = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+      let arr = null;
+      try { arr = JSON.parse(clean); } catch (e) {}
+      if (!arr) { const m = text.match(/\[[\s\S]*\]/); if (m) { try { arr = JSON.parse(m[0]); } catch (e2) {} } }
+      if (!Array.isArray(arr)) return [];
+      // 按 node 文本匹配节点 id
+      const nodes = collectMMNodes(root);
+      return arr.map(it => {
+        const hit = nodes.find(n => n.text === it.node) || nodes.find(n => n.text.indexOf(it.node) > -1 || (it.node && it.node.indexOf(n.text) > -1));
+        return { nodeId: hit ? hit.id : root.id, node: it.node || '', issue: it.issue || '', suggestion: it.suggestion || '' };
+      });
+    } catch (e) { return []; }
+  }
+  window.checkMindmap = async function () {
+    if (!mmData || !mmData.root) { toast('请先生成导图'); return; }
+    const btn = $('#checkMindmapBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '自检中…'; }
+    // 清除旧标记
+    collectMMNodes(mmData.root).forEach(n => { const nd = findMMNode(mmData.root, n.id); if (nd) nd.mmError = false; });
+    const localIssues = localMindmapCheck(mmData.root);
+    let aiIssues = [];
+    try { aiIssues = await aiMindmapCheck(mmData.root, $('#mmContent').value.trim()); } catch (e) {}
+    const all = localIssues.concat(aiIssues);
+    // 标记节点
+    const ids = new Set();
+    all.forEach(it => { if (it.nodeId) ids.add(it.nodeId); const nd = findMMNode(mmData.root, it.nodeId); if (nd) nd.mmError = true; });
+    layoutAndRenderMindmap();
+    const box = $('#mmCheckResult');
+    if (box) {
+      if (all.length === 0) {
+        box.hidden = false;
+        box.innerHTML = '<div class="mm-check-ok">✅ 自检通过：未发现明显错别字、考点遗漏或重复节点</div>';
+      } else {
+        box.hidden = false;
+        box.innerHTML = '<h4>自检结果（' + all.length + ' 项，已用 ⚠ 标注位置）</h4>' + all.map(it =>
+          `<div class="mm-check-item"><b>${escapeHtml(it.node || '')}</b>：${escapeHtml(it.issue || '')}${it.suggestion ? ' <span class="mm-sug">建议：' + escapeHtml(it.suggestion) + '</span>' : ''}</div>`
+        ).join('');
+      }
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 导图自检'; }
+    toast(all.length ? `自检发现 ${all.length} 处问题` : '自检通过');
+  };
+  // v3.5: 保存导图到教学素材库
+  window.saveMindmapToLibrary = function () {
+    if (!mmData || !mmData.root) { toast('请先生成导图'); return; }
+    const item = {
+      id: uid(),
+      name: mmData.title || '未命名备课导图',
+      type: 'mindmap',
+      content: JSON.stringify(mmData),
+      ts: Date.now()
+    };
+    state.library.push(item);
+    dbPut('library', item);
+    saveLocalCache();
+    toast('已保存到教学素材库');
+  };
 
   // v3.3: 测试 AI 配置连通性
   async function testAiConfig() {
@@ -2869,9 +3178,10 @@ ${plan ? '教学环节安排：' + plan : ''}`;
       let s = '';
       const fill = depth === 0 ? colors[0] : (depth === 1 ? colors[1] : '#fff');
       const stroke = depth <= 1 ? 'none' : colors[depth % colors.length];
-      s += `<g class="mm-node" data-id="${n.id}" data-depth="${depth}">`;
+      const errCls = n.mmError ? ' mm-error' : '';
+      s += `<g class="mm-node${errCls}" data-id="${n.id}" data-depth="${depth}">`;
       s += `<rect class="mm-node-rect ${depth===0?'root':''}" x="${n._x - n._w/2}" y="${n._y - n._h/2}" width="${n._w}" height="${n._h}" style="${depth>1?`fill:${fill};stroke:${stroke}`:''}" />`;
-      s += `<text class="mm-node-text ${depth===0?'root':''}" x="${n._x}" y="${n._y}">${escapeHtml(n.text)}</text>`;
+      s += `<text class="mm-node-text ${depth===0?'root':''}" x="${n._x}" y="${n._y}">${escapeHtml(n.text)}${n.mmError ? ' ⚠' : ''}</text>`;
       s += `</g>`;
       (n.children || []).forEach(c => s += renderNodes(c, depth + 1));
       return s;
@@ -3595,8 +3905,14 @@ ${source}`;
     });
   }
 
-  window.editTodoModal = function (id) {
-    const t = id ? state.todos.find(x => x.id === id) : { status: 'todo' };
+  // v3.5: 快捷新增待办（预设常见事务类型）
+  window.quickAddTodo = function (preset) {
+    const t = { status: 'todo', title: preset, note: '' };
+    editTodoModal(null, t);
+  };
+  // 允许 editTodoModal 接收预填对象
+  window.editTodoModal = function (id, prefill) {
+    const t = id ? state.todos.find(x => x.id === id) : (prefill || { status: 'todo' });
     const body = `
       <label>标题 <input type="text" id="td_title" value="${escapeHtml(t.title||'')}"></label>
       <label>状态
@@ -3852,17 +4168,23 @@ ${source}`;
     toast('WPS 全量导出已完成');
   }
 
+  function latestScore(s, type) {
+    const arr = (s.scores || []).filter(x => x.type === type && x.date).slice().sort((a, b) => a.date.localeCompare(b.date));
+    return arr.length ? arr[arr.length - 1].score : '-';
+  }
   function exportStudentsToWPS() {
     if (typeof XLSX === 'undefined') { toast('表格组件未就绪'); return; }
     const wb = XLSX.utils.book_new();
-    const rows = [['姓名', '年级', '班级', '学校', '家长电话', '课时', '薄弱项', '标签']];
+    const rows = [['姓名', '年级', '班级', '学校', '家长电话', '课时', '月考', '期中', '期末', '单元测', '薄弱项', '标签']];
     state.students.forEach(s => rows.push([
       s.name || '', s.grade || '', s.className || '', s.school || '',
-      s.phone || '', s.hours || 0, s.weakness || '', (s.tags || []).join('、')
+      s.phone || '', s.hours || 0,
+      latestScore(s, '月考'), latestScore(s, '期中'), latestScore(s, '期末'), latestScore(s, '单元测'),
+      s.weakness || '', (s.tags || []).join('、')
     ]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '学员列表');
-    XLSX.writeFile(wb, `学员列表_${todayStr()}.xlsx`);
-    toast('学员列表已导出');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '学员成绩档案');
+    XLSX.writeFile(wb, `学员成绩档案_${todayStr()}.xlsx`);
+    toast('学员成绩档案已导出');
   }
 
   function exportCommunicationsToWPS() {
@@ -5651,12 +5973,17 @@ ${source}`;
     downloadPrepFile, deletePrepFile,
     addEntryTest, delEntryTest, saveEntryTests,
     addHomework, delHomework, saveHomework,
-    generateExercises, exportStudentXLSX
+    generateExercises, exportStudentXLSX,
+    addLessonModal: window.addLessonModal, editLessonModal: window.editLessonModal,
+    suspendLesson: window.suspendLesson, adjustLesson: window.adjustLesson,
+    removeOverride: window.removeOverride, openCourseware: window.openCourseware,
+    checkMindmap: window.checkMindmap, saveMindmapToLibrary: window.saveMindmapToLibrary,
+    quickAddTodo: window.quickAddTodo
   };
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '43';
+  const CURRENT_JS_VER = '44';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

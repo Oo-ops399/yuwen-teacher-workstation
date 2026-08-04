@@ -51,7 +51,7 @@
   function clearCharts() { chartInsts.forEach(c => { try { c.dispose(); } catch (e) {} }); chartInsts = []; }
   function mountChart(el, opt) { const c = echarts.init(el); c.setOption(opt); chartInsts.push(c); setTimeout(() => c.resize(), 30); }
 
-  // ===================== 种子数据：晨光教育 =====================
+  // ===================== 种子数据：小圈教育 =====================
   function mkStu(name, avatar, grade, subject, status, parent, parentPhone, remaining, totalFee, weak, scores) {
     return { id: uid(), name, avatar, grade, subject, status, parent, parentPhone, remaining, totalFee, weak: weak || [], scores: scores || [] };
   }
@@ -176,7 +176,7 @@
       { id: uid(), student: '刘思琪', title: '数学基础夯实', date: '2026-07-28', items: [{ text: '函数概念专项视频', done: false }, { text: '一对一每周2次', done: false }] }
     ];
     return {
-      org: { name: '晨光教育', owner: '李老师', phone: '13800000001', logo: '🌅', address: '阳光路 18 号 3 楼' },
+      org: { name: '小圈教育', owner: '李老师', phone: '13800000001', logo: '🔵', address: '阳光路 18 号 3 楼' },
       settings: { aiKey: '', aiBase: 'https://api.deepseek.com/v1', aiModel: 'deepseek-chat' },
       students, classes, packages, payments, feedback, attendance, salaryRules, comms, followups, todos, templates, plans, studies: []
     };
@@ -264,7 +264,7 @@
     const blob = JSON.stringify(S, null, 2);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([blob], { type: 'application/json' }));
-    a.download = `晨光教育数据备份_${todayStr()}.json`;
+    a.download = `小圈教育数据备份_${todayStr()}.json`;
     a.click(); toast('已导出全部数据');
   }
   function importAll(file) {
@@ -639,7 +639,7 @@
     const r = localAssess(stu);
     const html = `
       <div class="card" style="border:2px solid var(--purple);background:var(--grad-soft)">
-        <div class="center" style="font-weight:800;font-size:16px">🌅 晨光教育 · 专属学情报告</div>
+        <div class="center" style="font-weight:800;font-size:16px">🔵 小圈教育 · 专属学情报告</div>
         <div class="center muted">${esc(stu.name)}（${esc(stu.grade)} · ${esc(subj)}）</div>
       </div>
       <div class="card"><div class="stat-row">
@@ -650,7 +650,7 @@
       </div></div>
       <div class="ai-card"><span class="ai-badge">✨ 老师寄语</span><div class="ai-p">${esc(r.bright)}</div>
         <div class="ai-sec"><span class="ico">🎯</span>提升建议</div><ul class="ai-list">${r.advice.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>
-      <div class="card center muted">—— 晨光教育，让每一次进步都被看见 ——<br>续费锁定优惠，私信老师立省 ¥${stu.remaining<=4?(S.packages.find(p=>p.subject===subj)||S.packages[0]).price:0}</div>`;
+      <div class="card center muted">—— 小圈教育，让每一次进步都被看见 ——<br>续费锁定优惠，私信老师立省 ¥${stu.remaining<=4?(S.packages.find(p=>p.subject===subj)||S.packages[0]).price:0}</div>`;
     openSub(stu.name + ' · 家长版报告', html);
   }
 
@@ -902,7 +902,7 @@
       <div class="card"><div class="card-h"><span class="t">🗂️ 数据管理</span></div>
         <div class="set-item"><div><div class="s-label">导出全部数据</div></div><button class="s-act" id="expBtn">导出</button></div>
         <div class="set-item"><div><div class="s-label">导入备份</div></div><button class="s-act" id="impBtn">导入</button></div>
-        <div class="set-item"><div><div class="s-label">重置为演示数据</div><div class="s-desc">清空本地，重新载入晨光教育</div></div><button class="s-act" id="resetBtn">重置</button></div>
+        <div class="set-item"><div><div class="s-label">重置为演示数据</div><div class="s-desc">清空本地，重新载入小圈教育</div></div><button class="s-act" id="resetBtn">重置</button></div>
       </div>
       <div class="card"><div class="card-h"><span class="t">📊 数据概览</span></div>
         <div class="set-item"><div class="s-label">学员 / 班级 / 课包</div><div class="s-act">${S.students.length} / ${S.classes.length} / ${S.packages.length}</div></div>

@@ -37,6 +37,7 @@
     <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
     <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
     <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
+    <a class="nav-item" data-page="exercise"><span class="nav-icon">✎</span><span class="nav-label">练习生成器</span></a>
     <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
     <a class="nav-item" data-page="life"><span class="nav-icon">○</span><span class="nav-label">生活助手</span></a>
     <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
@@ -44,7 +45,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.2.1 · 语文教师版</span>
+    <span class="version">v3.3 · 语文教师版</span>
   </div>
 </aside>
 
@@ -204,7 +205,7 @@
         <h2>学员综合档案</h2>
         <div class="header-actions">
           <button class="btn-ghost" id="importStudentsBtn">导入学员</button>
-          <input type="file" id="importStudentsInput" accept=".xlsx,.xls,.csv" hidden>
+          <input type="file" id="importStudentsInput" accept=".xlsx,.xls,.csv,.txt" hidden>
           <button class="btn-ghost" id="exportAllStudentsBtn">导出WPS</button>
           <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
         </div>
@@ -398,8 +399,9 @@
         </div>
         <div class="mindmap-output">
           <div class="mm-toolbar">
-            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 右键添加子节点</span>
+            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 选中节点后点「＋ 添加子节点」 · 已配置 AI 模型时自动调用 AI 生成多级结构</span>
             <button class="btn-ghost" id="addRootNode">＋ 新增主节点</button>
+            <button class="btn-ghost" id="addChildNodeBtn">＋ 添加子节点</button>
             <button class="btn-ghost" id="saveMindmapBtn">保存到本地</button>
           </div>
           <div class="mm-canvas-wrap">
@@ -482,6 +484,40 @@
           <div class="prep-file-grid" id="prepFileGridJunior"></div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- 练习生成器 -->
+  <section class="page" id="page-exercise" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>练习生成器</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="exPrintBtn">打印 / 导出PDF</button>
+        </div>
+      </div>
+      <div class="ex-input-area">
+        <label>粘贴今天的学习内容（课文段落、词语表、古诗等）</label>
+        <textarea id="exSource" rows="6" placeholder="例：春晓 孟浩然&#10;春眠不觉晓，处处闻啼鸟。&#10;夜来风雨声，花落知多少。"></textarea>
+        <div class="ex-controls">
+          <div class="ex-type-group">
+            <span>题型：</span>
+            <label><input type="radio" name="exType" value="fill" checked> 填空练习</label>
+            <label><input type="radio" name="exType" value="dictation"> 听写训练</label>
+            <label><input type="radio" name="exType" value="dot"> 加点字训练</label>
+          </div>
+          <div class="ex-diff-group">
+            <span>难度：</span>
+            <select id="exDifficulty">
+              <option value="easy">简单</option>
+              <option value="medium" selected>中等</option>
+              <option value="hard">困难</option>
+            </select>
+          </div>
+          <button class="btn-primary" id="exGenBtn">生成练习题</button>
+        </div>
+      </div>
+      <div class="ex-preview" id="exPreview"></div>
     </div>
   </section>
 
@@ -620,6 +656,21 @@
           <p>关闭过渡动画以提升性能</p>
           <button class="btn-primary" id="toggleAnimationBtn">一键切换动画</button>
           <span class="setting-status" id="animationStatus">当前：开启</span>
+        </div>
+        <div class="setting-item">
+          <h3>AI 模型配置（可选）</h3>
+          <p>配置后，AI 备课导图将调用你的模型生成更丰富的多级结构（支持 OpenAI / DeepSeek 等兼容接口）；三项都留空则使用内置本地生成。</p>
+          <label class="setting-label">API 地址</label>
+          <input type="text" id="aiApiUrl" placeholder="https://api.openai.com/v1/chat/completions">
+          <label class="setting-label">API Key</label>
+          <input type="password" id="aiApiKey" placeholder="sk-... 或留空">
+          <label class="setting-label">模型名</label>
+          <input type="text" id="aiModel" placeholder="gpt-4o / deepseek-chat / 自定义">
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-primary" id="saveAiConfigBtn">保存配置</button>
+            <button class="btn-ghost" id="testAiConfigBtn">测试连接</button>
+          </div>
+          <span class="setting-status" id="aiConfigStatus"></span>
         </div>
       </div>
     </div>
@@ -908,6 +959,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=38"></script>
+<script src="./app.js?v=40"></script>
 </body>
 </html>

@@ -419,7 +419,7 @@
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
       settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
       accounting: '个人记账本', ledger: '学情台账',
-      prep: '备课助手'
+      prep: '备课助手', exercise: '练习生成器'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -623,6 +623,8 @@
     if (exportMindmapBtn) exportMindmapBtn.onclick = exportMindmapPNG;
     const addRootNodeBtn = $('#addRootNode');
     if (addRootNodeBtn) addRootNodeBtn.onclick = addRootNode;
+    const addChildNodeBtn = $('#addChildNodeBtn');
+    if (addChildNodeBtn) addChildNodeBtn.onclick = addChildNode;
     const saveMindmapBtn = $('#saveMindmapBtn');
     if (saveMindmapBtn) saveMindmapBtn.onclick = saveCurrentMindmap;
     const loadHistoryBtn = $('#loadHistoryBtn');
@@ -633,6 +635,33 @@
     if (mindmapFileInput) mindmapFileInput.onchange = e => handleMindmapImport(e.target.files[0]);
     const exportMindmapJsonBtn = $('#exportMindmapJsonBtn');
     if (exportMindmapJsonBtn) exportMindmapJsonBtn.onclick = exportMindmapJSON;
+
+    // 练习生成器
+    const exGenBtn = $('#exGenBtn');
+    if (exGenBtn) exGenBtn.onclick = generateExercises;
+    const exPrintBtn = $('#exPrintBtn');
+    if (exPrintBtn) exPrintBtn.onclick = () => {
+      const preview = $('#exPreview');
+      if (!preview || !preview.innerHTML.trim()) { toast('请先生成练习题'); return; }
+      const w = window.open('', '_blank');
+      w.document.write(`<html><head><meta charset="utf-8"><title>练习题-${todayStr()}</title>
+        <style>
+          body{font-family:"Microsoft YaHei",sans-serif;padding:32px;line-height:2;max-width:800px;margin:0 auto}
+          .ex-h{margin-top:24px;border-left:4px solid #5b6cff;padding-left:10px}
+          .ex-blank{color:#5b6cff;font-weight:600}
+          .ex-dictation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+          .ex-dict-item{text-align:center}
+          .ex-write-line{border-bottom:1px solid #333;height:32px}
+          .ex-word{font-size:12px;color:#666}
+          .ex-dot{border-bottom:2px solid #e74c3c;font-weight:600;padding:0 2px}
+          .ex-dot-note{font-size:12px;color:#666;margin-top:8px}
+          .ex-answer{margin-top:16px}
+          details summary{cursor:pointer;color:#5b6cff}
+          @media print{body{padding:16px}}
+        </style></head><body>${preview.innerHTML}<p style="margin-top:32px;color:#999;font-size:12px">语文教师工作台 · 练习生成器 · ${todayStr()}</p>
+        <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`);
+      w.document.close();
+    };
 
     // 看板
     const addTodoBtn = $('#addTodoBtn');
@@ -780,6 +809,28 @@
       updateSetting('noAnimation', isOff ? '1' : '');
       renderSettings();
       toast(isOff ? '动画已关闭' : '动画已开启');
+    };
+
+    // v3.3: 自定义 AI 模型配置
+    const saveAiConfigBtn = $('#saveAiConfigBtn');
+    if (saveAiConfigBtn) saveAiConfigBtn.onclick = () => {
+      const url = $('#aiApiUrl').value.trim();
+      const key = $('#aiApiKey').value.trim();
+      const model = $('#aiModel').value.trim();
+      updateSetting('aiApiUrl', url);
+      updateSetting('aiApiKey', key);
+      updateSetting('aiModel', model);
+      const st = $('#aiConfigStatus');
+      if (st) st.textContent = '已保存' + (url ? '（AI 导图已启用）' : '（使用本地生成）');
+      toast('AI 配置已保存');
+    };
+    const testAiConfigBtn = $('#testAiConfigBtn');
+    if (testAiConfigBtn) testAiConfigBtn.onclick = async () => {
+      const st = $('#aiConfigStatus');
+      if (st) st.textContent = '测试中…';
+      const ok = await testAiConfig();
+      if (st) st.textContent = ok ? '连接成功 ✔' : '连接失败 ✘';
+      toast(ok ? 'AI 连接成功' : 'AI 连接失败，请检查配置');
     };
     $$('#themePalette button').forEach(b => { b.onclick = () => {}; });
 
@@ -1196,6 +1247,12 @@
     // 预设背景选中态
     const bgPreset = getSetting('bgPreset', '');
     $$('.bg-preset-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.preset === bgPreset));
+    // v3.3: AI 模型配置回填
+    const aiApiUrlEl = $('#aiApiUrl'); if (aiApiUrlEl) aiApiUrlEl.value = getSetting('aiApiUrl', '');
+    const aiApiKeyEl = $('#aiApiKey'); if (aiApiKeyEl) aiApiKeyEl.value = getSetting('aiApiKey', '');
+    const aiModelEl = $('#aiModel'); if (aiModelEl) aiModelEl.value = getSetting('aiModel', '');
+    const aiStatus = $('#aiConfigStatus');
+    if (aiStatus) aiStatus.textContent = getSetting('aiApiUrl', '') ? '已启用 AI 导图' : '';
   }
 
   // ================= 首页 =================
@@ -1206,15 +1263,19 @@
     $('#stat-comm').textContent = state.communications.length;
     $('#stat-todo').textContent = state.todos.filter(t => t.status !== 'done').length;
 
-    // 待回访
+    // 待回访 + 备忘记事 + 便签
     const callbacks = state.callbacks.filter(c => !c.done);
+    const memos = (state.memos || []).slice().sort((a, b) => b.ts - a.ts).slice(0, 8);
+    const sticky = state.sticky.filter(s => s.id === 'main' && s.text).map(s => ({ text: s.text, ts: s.ts || Date.now() }));
+    const items = [];
+    callbacks.slice(0, 5).forEach(c => items.push({ type: 'callback', html: `<span class="badge">待回访</span> ${escapeHtml(c.student)} · ${escapeHtml(c.reason)} · ${fmtDate(c.ts)}` }));
+    memos.forEach(m => items.push({ type: 'memo', html: `<span class="badge badge-memo">备忘</span> ${escapeHtml(m.text)} · ${fmtDate(m.ts)}` }));
+    sticky.forEach(s => items.push({ type: 'sticky', html: `<span class="badge badge-memo">便签</span> ${escapeHtml(s.text)}` }));
     const list = $('#reminderList');
-    if (callbacks.length === 0) {
-      list.innerHTML = '<li>暂无待回访提醒</li>';
+    if (items.length === 0) {
+      list.innerHTML = '<li>暂无提醒与备忘</li>';
     } else {
-      list.innerHTML = callbacks.slice(0, 5).map(c =>
-        `<li><span class="badge">待回访</span> ${escapeHtml(c.student)} · ${escapeHtml(c.reason)} · ${fmtDate(c.ts)}</li>`
-      ).join('');
+      list.innerHTML = items.slice(0, 12).map(it => `<li>${it.html}</li>`).join('');
     }
   }
 
@@ -1689,6 +1750,62 @@
       </div>
 
       <div class="sd-section">
+        <h3>入门测记录</h3>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">可逐次追加学员每次入门测成绩，无需重建</p>
+        <div style="overflow-x:auto;max-width:100%">
+          <table class="score-table">
+            <thead>
+              <tr><th>日期</th><th>科目/内容</th><th>得分</th><th>备注</th><th>操作</th></tr>
+            </thead>
+            <tbody id="entryTestBody">
+              ${(s.entryTests||[]).map((et, i) => `
+                <tr data-et-idx="${i}">
+                  <td><input type="date" data-et-field="date" value="${et.date||''}"></td>
+                  <td><input type="text" data-et-field="subject" value="${escapeHtml(et.subject||'')}" placeholder="例：字词基础"></td>
+                  <td><input type="number" data-et-field="score" value="${et.score||0}"></td>
+                  <td><input type="text" data-et-field="note" value="${escapeHtml(et.note||'')}" placeholder="备注"></td>
+                  <td><button class="btn-ghost" onclick="window.__app.delEntryTest(${i})">删除</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn-ghost" onclick="window.__app.addEntryTest()">＋ 添加入门测</button>
+        <button class="btn-primary" onclick="window.__app.saveEntryTests()">保存</button>
+      </div>
+
+      <div class="sd-section">
+        <h3>作业情况记录</h3>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">可逐次追加学员每次作业完成情况</p>
+        <div style="overflow-x:auto;max-width:100%">
+          <table class="score-table">
+            <thead>
+              <tr><th>日期</th><th>作业内容</th><th>完成度</th><th>评价</th><th>操作</th></tr>
+            </thead>
+            <tbody id="homeworkBody">
+              ${(s.homework||[]).map((hw, i) => `
+                <tr data-hw-idx="${i}">
+                  <td><input type="date" data-hw-field="date" value="${hw.date||''}"></td>
+                  <td><input type="text" data-hw-field="content" value="${escapeHtml(hw.content||'')}" placeholder="例：抄写生字"></td>
+                  <td>
+                    <select data-hw-field="status">
+                      <option ${hw.status==='已完成'?'selected':''}>已完成</option>
+                      <option ${hw.status==='未完成'?'selected':''}>未完成</option>
+                      <option ${hw.status==='部分完成'?'selected':''}>部分完成</option>
+                    </select>
+                  </td>
+                  <td><input type="text" data-hw-field="comment" value="${escapeHtml(hw.comment||'')}" placeholder="评价"></td>
+                  <td><button class="btn-ghost" onclick="window.__app.delHomework(${i})">删除</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn-ghost" onclick="window.__app.addHomework()">＋ 添加作业</button>
+        <button class="btn-primary" onclick="window.__app.saveHomework()">保存</button>
+      </div>
+
+      <div class="sd-section">
         <h3>成绩走势图</h3>
         <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
       </div>
@@ -1765,6 +1882,60 @@
     renderScoreChart(s);
     toast('成绩已保存');
   };
+
+  // v3.3: 入门测逐次追加
+  function addEntryTest() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    s.entryTests = s.entryTests || [];
+    s.entryTests.push({ date: todayStr(), subject: '', score: 0, note: '' });
+    saveStudentSilent(s);
+    renderStudentDetail();
+  }
+  function delEntryTest(idx) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    s.entryTests.splice(idx, 1);
+    saveStudentSilent(s);
+    renderStudentDetail();
+  }
+  function saveEntryTests() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    const rows = $$('#entryTestBody tr');
+    s.entryTests = rows.map(tr => ({
+      date: tr.querySelector('[data-et-field="date"]').value,
+      subject: tr.querySelector('[data-et-field="subject"]').value,
+      score: parseFloat(tr.querySelector('[data-et-field="score"]').value) || 0,
+      note: tr.querySelector('[data-et-field="note"]').value
+    }));
+    saveStudentSilent(s);
+    toast('入门测已保存');
+  }
+
+  // v3.3: 作业逐次追加
+  function addHomework() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    s.homework = s.homework || [];
+    s.homework.push({ date: todayStr(), content: '', status: '已完成', comment: '' });
+    saveStudentSilent(s);
+    renderStudentDetail();
+  }
+  function delHomework(idx) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    s.homework.splice(idx, 1);
+    saveStudentSilent(s);
+    renderStudentDetail();
+  }
+  function saveHomework() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    const rows = $$('#homeworkBody tr');
+    s.homework = rows.map(tr => ({
+      date: tr.querySelector('[data-hw-field="date"]').value,
+      content: tr.querySelector('[data-hw-field="content"]').value,
+      status: tr.querySelector('[data-hw-field="status"]').value,
+      comment: tr.querySelector('[data-hw-field="comment"]').value
+    }));
+    saveStudentSilent(s);
+    toast('作业记录已保存');
+  }
 
   function renderScoreChart(s) {
     const canvas = $('#scoreChart');
@@ -1976,6 +2147,25 @@
     const ws3 = XLSX.utils.aoa_to_sheet(repData);
     XLSX.utils.book_append_sheet(wb, ws3, '学情报告');
 
+    // v3.3: 反馈记录（发给该学员的课后反馈）
+    const feedbacks = (state.feedbacks || []).filter(f => f.studentId === s.id);
+    const fbData = [['日期', '反馈内容']];
+    feedbacks.forEach(f => fbData.push([fmtDate(f.ts), f.content || '']));
+    const ws4 = XLSX.utils.aoa_to_sheet(fbData);
+    XLSX.utils.book_append_sheet(wb, ws4, '反馈记录');
+
+    // v3.3: 作业情况
+    const hwData = [['日期', '作业内容', '完成度', '评价']];
+    (s.homework || []).forEach(h => hwData.push([h.date, h.content, h.status, h.comment]));
+    const ws5 = XLSX.utils.aoa_to_sheet(hwData);
+    XLSX.utils.book_append_sheet(wb, ws5, '作业情况');
+
+    // v3.3: 入门测记录
+    const etData = [['日期', '科目/内容', '得分', '备注']];
+    (s.entryTests || []).forEach(e => etData.push([e.date, e.subject, e.score, e.note]));
+    const ws6 = XLSX.utils.aoa_to_sheet(etData);
+    XLSX.utils.book_append_sheet(wb, ws6, '入门测');
+
     XLSX.writeFile(wb, `${s.name}_档案_${todayStr()}.xlsx`);
     toast('WPS 表格已导出');
   }
@@ -2152,11 +2342,17 @@
     el.innerHTML = list.map(l => {
       let contentHtml = '';
       if (l.type === '文件' && l.content) {
-        // 图片文件 - 显示缩略图
-        contentHtml = `<div style="margin-top:8px"><img src="${l.content}" style="max-width:120px;max-height:80px;border-radius:6px;border:1px solid #e5e7eb" /></div>`;
-      } else if (l.type === '文件') {
-        // 非图片文件 - 显示文件名和下载按钮
-        contentHtml = `<div style="margin-top:8px;font-size:12px;color:#6b7280">${escapeHtml(l.fileName || l.title)} · ${l.fileSize || ''}</div>`;
+        if (l.isImage) {
+          // 图片文件 - 显示缩略图
+          contentHtml = `<div style="margin-top:8px"><img src="${l.content}" style="max-width:120px;max-height:80px;border-radius:6px;border:1px solid #e5e7eb" /></div>`;
+        } else {
+          // 非图片文件 - 显示文件图标 + 文件名
+          const ext = (l.fileName || l.title).split('.').pop().toUpperCase();
+          contentHtml = `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <div style="width:40px;height:48px;background:#f0f2f5;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#6b7280;font-weight:600">${escapeHtml(ext)}</div>
+            <div style="font-size:12px;color:#6b7280">${escapeHtml(l.fileName || l.title)} · ${l.fileSize || ''}</div>
+          </div>`;
+        }
       }
       return `
       <div class="lib-item">
@@ -2186,6 +2382,7 @@
     const isImage = fileType.startsWith('image/');
     const reader = new FileReader();
     reader.onload = async e => {
+      // v3.3: 所有文件统一存 base64（图片和非图片均可下载/预览）
       const data = {
         id: uid(),
         type: '文件',
@@ -2193,7 +2390,8 @@
         fileName: fileName,
         fileSize: fileSize,
         fileType: fileType,
-        content: isImage ? e.target.result : '',
+        isImage: isImage,
+        content: e.target.result,
         note: '',
         grade: '',
         ts: Date.now()
@@ -2204,39 +2402,37 @@
       renderLibrary();
       toast('文件已导入素材库');
     };
-    if (isImage) {
-      reader.readAsDataURL(file);
-    } else {
-      // 非图片文件只存元信息
-      const data = {
-        id: uid(),
-        type: '文件',
-        title: fileName,
-        fileName: fileName,
-        fileSize: fileSize,
-        fileType: fileType,
-        content: '',
-        note: '',
-        grade: '',
-        ts: Date.now()
-      };
-      dbPut('library', data);
-      state.library.push(data);
-      saveLocalCache();
-      renderLibrary();
-      toast('文件已导入素材库');
-    }
+    reader.readAsDataURL(file);
   }
 
   window.downloadLibFile = function (id) {
     const l = state.library.find(x => x.id === id);
     if (!l || !l.content) { toast('该文件无可下载内容'); return; }
+    // 从 dataURL/base64 还原为 Blob 下载（图片和非图片通用）
+    let blobUrl;
+    try {
+      if (l.content.startsWith('data:')) {
+        const arr = l.content.split(',');
+        const mime = arr[0].match(/:(.*?);/);
+        const mimeType = mime ? mime[1] : 'application/octet-stream';
+        const bstr = atob(arr[1]);
+        const u8 = new Uint8Array(bstr.length);
+        for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+        const blob = new Blob([u8], { type: mimeType });
+        blobUrl = URL.createObjectURL(blob);
+      } else {
+        blobUrl = l.content;
+      }
+    } catch (err) {
+      blobUrl = l.content;
+    }
     const link = document.createElement('a');
-    link.href = l.content;
+    link.href = blobUrl;
     link.download = l.fileName || l.title;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    if (blobUrl.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(blobUrl), 300);
   };
   window.editLibModal = function (id) {
     const l = id ? state.library.find(x => x.id === id) : {};
@@ -2303,15 +2499,37 @@
     }
   }
 
-  function generateMindmap() {
-    const content = $('#mmContent').value.trim();
-    const focus = $('#mmFocus').value.trim();
-    const plan = $('#mmPlan').value.trim();
-    if (!content) { toast('请填写本节课内容'); return; }
+  // v3.3: 本地生成思维导图（无 AI 配置时使用）
+  // v3.3: 递归解析分支，支持 "父：子、孙" 任意层级延伸
+  function parseMindmapBranch(str) {
+    str = (str || '').trim();
+    if (!str) return null;
+    const ci = str.indexOf('：');
+    const ei = str.indexOf(':');
+    let idx = -1;
+    if (ci === -1) idx = ei;
+    else if (ei === -1) idx = ci;
+    else idx = Math.min(ci, ei);
+    if (idx > -1) {
+      const parent = { id: uid(), text: str.slice(0, idx).trim(), children: [] };
+      const rest = str.slice(idx + 1);
+      rest.split(/[，,、]/).map(s => s.trim()).filter(Boolean).forEach(sub => {
+        const node = parseMindmapBranch(sub);
+        parent.children.push(node || { id: uid(), text: sub, children: [] });
+      });
+      return parent;
+    }
+    return { id: uid(), text: str, children: [] };
+  }
+
+  function buildLocalMindmap(content, focus, plan) {
     const root = { id: uid(), text: content, children: [] };
     if (focus) {
-      const items = focus.split(/[，。；\n;、]/).map(s => s.trim()).filter(Boolean);
-      items.forEach(it => root.children.push({ id: uid(), text: it, children: [] }));
+      // 支持多分支（用 ；/；/换行 分隔），每分支内用 "父：子、孙" 递归延伸
+      focus.split(/[；;\n]/).map(s => s.trim()).filter(Boolean).forEach(it => {
+        const node = parseMindmapBranch(it);
+        if (node) root.children.push(node);
+      });
     }
     if (plan) {
       const items = plan.split(/[，。；\n;、]/).map(s => s.trim()).filter(Boolean);
@@ -2322,9 +2540,122 @@
     if (root.children.length === 0) {
       root.children.push({ id: uid(), text: '重点内容', children: [] });
     }
-    mmData = { id: uid(), title: content, root, ts: Date.now() };
+    return { id: uid(), title: content, root, ts: Date.now() };
+  }
+
+  // v3.3: 将 AI 返回的纯文本/JSON 转换为标准导图节点（补全 id）
+  function buildMindmapFromJSON(obj) {
+    function conv(n) {
+      return {
+        id: uid(),
+        text: String(n.text || n.topic || n.name || '').trim() || '未命名',
+        children: Array.isArray(n.children)
+          ? n.children.map(conv)
+          : (Array.isArray(n.points) ? n.points.map(p => conv({ text: p })) : [])
+      };
+    }
+    const rootText = String(obj.root || obj.topic || obj.center || obj.title || obj.text || '中心主题').trim() || '中心主题';
+    return {
+      id: uid(),
+      title: rootText,
+      root: { id: uid(), text: rootText, children: (Array.isArray(obj.children) ? obj.children : (obj.branches || [])).map(conv) },
+      ts: Date.now()
+    };
+  }
+
+  async function generateMindmap() {
+    const content = $('#mmContent').value.trim();
+    const focus = $('#mmFocus').value.trim();
+    const plan = $('#mmPlan').value.trim();
+    if (!content) { toast('请填写本节课内容'); return; }
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (aiUrl) {
+      const btn = $('#generateMindmapBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'AI 生成中…'; }
+      toast('正在调用 AI 生成导图…');
+      try {
+        const data = await generateMindmapByAI(content, focus, plan, aiUrl);
+        if (data && data.root && (data.root.children || []).length >= 0) {
+          mmData = data;
+          layoutAndRenderMindmap();
+          toast('AI 思维导图已生成');
+          return;
+        }
+      } catch (err) {
+        console.warn('AI 导图生成失败，回落本地：', err);
+        toast('AI 生成失败，改用本地生成');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '生成思维导图'; }
+      }
+    }
+    mmData = buildLocalMindmap(content, focus, plan);
     layoutAndRenderMindmap();
-    toast('思维导图已生成');
+    toast('思维导图已生成（本地）');
+  }
+
+  // v3.3: 调用自定义兼容接口生成导图 JSON
+  async function generateMindmapByAI(content, focus, plan, aiUrl) {
+    const aiKey = getSetting('aiApiKey', '').trim();
+    const aiModel = getSetting('aiModel', '').trim();
+    const prompt = `你是一位资深的语文备课助手。请根据下面的备课内容，生成一份结构化的思维导图。
+要求：
+1. 输出严格的 JSON，不要包含任何解释性文字，也不要用代码块标记包裹。
+2. JSON 结构为：{"root":"中心主题","children":[{"text":"一级分支","children":[{"text":"二级要点"}]}]}
+3. 至少给出 4 个一级分支，每个分支尽量再展开 2-3 个二级要点，体现多层级延伸。
+4. 用简洁的短语，不要长句。
+
+本节课内容：${content}
+${focus ? '重点/知识点：' + focus : ''}
+${plan ? '教学环节安排：' + plan : ''}`;
+
+    const body = {
+      model: aiModel || 'gpt-4o',
+      messages: [
+        { role: 'system', content: '你是语文备课思维导图生成器，只输出 JSON。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.6
+    };
+    const headers = { 'Content-Type': 'application/json' };
+    if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
+
+    const res = await fetch(aiUrl, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout ? AbortSignal.timeout(60000) : undefined });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+    // 容错：去除可能的 markdown 代码块标记
+    let clean = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    let parsed = null;
+    try { parsed = JSON.parse(clean); } catch (e) { parsed = null; }
+    if (!parsed) {
+      // 尝试从文本中提取第一个 {...} 片段
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) {} }
+    }
+    if (!parsed) throw new Error('AI 返回内容无法解析为 JSON');
+    return buildMindmapFromJSON(parsed);
+  }
+
+  // v3.3: 测试 AI 配置连通性
+  async function testAiConfig() {
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    const aiKey = getSetting('aiApiKey', '').trim();
+    const aiModel = getSetting('aiModel', '').trim();
+    if (!aiUrl) { toast('请先填写 API 地址'); return false; }
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
+      const res = await fetch(aiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ model: aiModel || 'gpt-4o', messages: [{ role: 'user', content: 'ping' }], max_tokens: 5 }),
+        signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('AI 测试失败：', err);
+      return false;
+    }
   }
 
   function addRootNode() {
@@ -2339,17 +2670,30 @@
     layoutAndRenderMindmap();
   }
 
+  // v3.3: 添加子节点（基于选中节点，否则默认加到根节点）
+  function addChildNode() {
+    if (!mmData) {
+      addRootNode();
+      return;
+    }
+    const parent = mmSelected ? findMMNode(mmData.root, mmSelected) : mmData.root;
+    const target = parent || mmData.root;
+    const text = prompt('子节点文本：', '新节点');
+    if (text) {
+      target.children = target.children || [];
+      target.children.push({ id: uid(), text, children: [] });
+      layoutAndRenderMindmap();
+    }
+  }
+
   function layoutAndRenderMindmap() {
     if (!mmData) return;
     const svg = $('#mindmapSvg');
     const wrap = svg.parentElement;
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
-    // 内部画布用更大尺寸，SVG 用 viewBox 缩放显示
-    const virtualW = Math.max(w, 900);
-    const virtualH = Math.max(h, 500);
-    svg.setAttribute('viewBox', `0 0 ${virtualW} ${virtualH}`);
-    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    let virtualW = w, virtualH = h;  // v3.3 修复：提前声明，避免 TDZ 报错
+    svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
 
     // 计算布局（水平右向辐射）
     const levels = [];
@@ -2407,6 +2751,31 @@
     }
     place(mmData.root, xStart, yMid, true);
 
+    // v3.3: 动态计算 viewBox（防止深层节点被裁切，支持无限延伸）
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    (function bbox(n) {
+      minX = Math.min(minX, n._x - n._w / 2);
+      maxX = Math.max(maxX, n._x + n._w / 2);
+      minY = Math.min(minY, n._y - n._h / 2);
+      maxY = Math.max(maxY, n._y + n._h / 2);
+      (n.children || []).forEach(bbox);
+    })(mmData.root);
+    const pad = 30;
+    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+    const vbx = Math.max(0, minX);
+    const vby = Math.max(0, minY);
+    virtualW = Math.max(w, maxX - vbx);
+    virtualH = Math.max(h, maxY - vby);
+    const offsetX = vbx;
+    const offsetY = vby;
+    // 所有节点坐标减去偏移，使 viewBox 从 0 开始
+    (function shift(n) {
+      n._x -= offsetX; n._y -= offsetY;
+      (n.children || []).forEach(shift);
+    })(mmData.root);
+    // 布局完成后再设置 viewBox（含偏移后的真实尺寸）
+    svg.setAttribute('viewBox', `0 0 ${virtualW} ${virtualH}`);
+
     // 渲染
     const colors = ['#5b6cff', '#8a7bff', '#2ec4b6', '#f59e0b', '#ef4444', '#06b6d4'];
     let html = '';
@@ -2446,6 +2815,7 @@
         if (mmEditing) return;
         const node = findMMNode(mmData.root, id);
         if (!node) return;
+        mmSelected = id;
         const pt = svgPoint(svg, e);
         mmDrag = { id, dx: pt.x - node._x, dy: pt.y - node._y, moved: false };
       };
@@ -2596,14 +2966,55 @@
   function exportMindmapPNG() {
     if (!mmData) { toast('请先生成导图'); return; }
     const svg = $('#mindmapSvg');
-    const xml = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([xml], { type: 'image/svg+xml' });
+    // v3.3: 导出前把样式内联到 SVG，避免外部 CSS 丢失导致节点变黑
+    const clone = svg.cloneNode(true);
+    const vb = svg.getAttribute('viewBox').split(' ').map(Number);
+    clone.setAttribute('width', vb[2]);
+    clone.setAttribute('height', vb[3]);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    // 内联所有节点矩形和文字样式
+    clone.querySelectorAll('.mm-node-rect').forEach(rect => {
+      const depth = parseInt(rect.parentElement.dataset.depth);
+      if (depth === 0) {
+        rect.setAttribute('fill', '#5b6cff');
+        rect.setAttribute('stroke', 'none');
+      } else if (depth === 1) {
+        rect.setAttribute('fill', '#8a7bff');
+        rect.setAttribute('stroke', 'none');
+      }
+      // depth>1 已有 inline style（renderNodes 设置），无需处理
+      rect.setAttribute('rx', '6');
+    });
+    clone.querySelectorAll('.mm-node-text').forEach(txt => {
+      const depth = parseInt(txt.parentElement.dataset.depth);
+      txt.setAttribute('fill', depth === 0 ? '#fff' : '#1f2937');
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('dominant-baseline', 'central');
+      txt.setAttribute('font-size', depth === 0 ? '14' : '13');
+      txt.setAttribute('font-family', 'sans-serif');
+      txt.setAttribute('font-weight', depth === 0 ? 'bold' : 'normal');
+    });
+    clone.querySelectorAll('.mm-edge').forEach(edge => {
+      edge.setAttribute('stroke', '#c0c4cc');
+      edge.setAttribute('stroke-width', '2');
+      edge.setAttribute('fill', 'none');
+    });
+    // 白底背景矩形
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', '0'); bg.setAttribute('y', '0');
+    bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]);
+    bg.setAttribute('fill', '#ffffff');
+    clone.insertBefore(bg, clone.firstChild);
+
+    const xml = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
+      const scale = 2;
       const canvas = document.createElement('canvas');
-      canvas.width = svg.clientWidth * 2;
-      canvas.height = svg.clientHeight * 2;
+      canvas.width = vb[2] * scale;
+      canvas.height = vb[3] * scale;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2616,6 +3027,7 @@
         toast('已导出 PNG');
       });
     };
+    img.onerror = () => toast('导出失败');
     img.src = url;
   }
 
@@ -2651,6 +3063,112 @@
     const json = JSON.stringify(cleanData, null, 2);
     downloadFile(json, `${mmData.title || '思维导图'}_${todayStr()}.json`, 'application/json');
     toast('已导出 JSON');
+  }
+
+  // ================= 练习生成器 =================
+  // v3.3: 根据粘贴文本生成填空/听写/加点字练习
+  const PUNCT = /[，。；：？！、""''（）《》\s\n\r…—.,;:?!()\[\]{}<>]/;
+  function extractChineseWords(text) {
+    // 提取连续中文字符串作为"词语/字"
+    const segs = text.split(/[，。；：？！、\n\r。.!?;,.\s]+/).filter(Boolean);
+    const words = [];
+    segs.forEach(seg => {
+      // 仅保留含中文的片段
+      if (/[一-龥]/.test(seg)) words.push(seg.trim());
+    });
+    return words;
+  }
+
+  function generateExercises() {
+    const source = $('#exSource').value.trim();
+    const type = (document.querySelector('input[name="exType"]:checked') || {}).value || 'fill';
+    const difficulty = $('#exDifficulty').value || 'medium';
+    if (!source) { toast('请先粘贴学习内容'); return; }
+
+    const words = extractChineseWords(source);
+    const preview = $('#exPreview');
+    if (type === 'fill') {
+      preview.innerHTML = renderFillExercise(source, words, difficulty);
+    } else if (type === 'dictation') {
+      preview.innerHTML = renderDictationExercise(words, difficulty);
+    } else if (type === 'dot') {
+      preview.innerHTML = renderDotExercise(source, words, difficulty);
+    }
+    preview.classList.add('ex-preview-active');
+  }
+
+  function renderFillExercise(text, words, difficulty) {
+    // 难度：简单挖 30%，中等 50%，困难 70%
+    const ratio = difficulty === 'easy' ? 0.3 : difficulty === 'hard' ? 0.7 : 0.5;
+    // 按词语长度倒序，优先挖长词
+    const sorted = words.slice().sort((a, b) => b.length - a.length);
+    const toBlank = new Set();
+    const n = Math.ceil(sorted.length * ratio);
+    for (let i = 0; i < n && i < sorted.length; i++) toBlank.add(sorted[i]);
+
+    let html = '<h3 class="ex-h">一、填空练习（在横线上写出正确的字）</h3><div class="ex-passage">';
+    let idx = 1;
+    const lines = text.split('\n');
+    lines.forEach(line => {
+      let out = escapeHtml(line);
+      // 逐词替换（长词优先，避免短词先匹配）
+      sorted.forEach(w => {
+        if (!toBlank.has(w)) return;
+        const blank = `（　　${idx++}　　）`;
+        out = out.split(escapeHtml(w)).join(`<span class="ex-blank">${blank}</span>`);
+      });
+      html += out + '<br>';
+    });
+    html += '</div>';
+    // 答案
+    html += '<details class="ex-answer"><summary>查看答案</summary><ol>';
+    sorted.forEach(w => { if (toBlank.has(w)) html += `<li>${escapeHtml(w)}</li>`; });
+    html += '</ol></details>';
+    return html;
+  }
+
+  function renderDictationExercise(words, difficulty) {
+    // 听写：列出词语，难度高则打乱顺序
+    let list = words.slice();
+    if (difficulty === 'hard') list = list.sort(() => Math.random() - 0.5);
+    let html = '<h3 class="ex-h">二、听写训练（根据拼音/读音写出词语）</h3>';
+    html += '<div class="ex-dictation-grid">';
+    list.forEach(w => {
+      html += `<div class="ex-dict-item"><div class="ex-write-line"></div><span class="ex-word">${escapeHtml(w)}</span></div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderDotExercise(source, words, difficulty) {
+    // 加点字：选若干字加下划线标记（模拟"加点字"），让学生注音/解释
+    const chars = source.split('').filter(c => /[一-龥]/.test(c));
+    const ratio = difficulty === 'easy' ? 0.15 : difficulty === 'hard' ? 0.4 : 0.25;
+    const n = Math.ceil(chars.length * ratio);
+    const pickIdx = new Set();
+    // 均匀挑选字符索引
+    const step = Math.floor(chars.length / n) || 1;
+    for (let i = 0; i < chars.length; i += step) if (pickIdx.size < n) pickIdx.add(i);
+
+    const dots = [];
+    let html = '<h3 class="ex-h">三、加点字训练（给下列带·的字注音或解释）</h3><div class="ex-dot-passage">';
+    let ci = 0;
+    source.split('').forEach(c => {
+      if (/[一-龥]/.test(c)) {
+        if (pickIdx.has(ci)) {
+          html += `<span class="ex-dot">${escapeHtml(c)}</span>`;
+          dots.push(c);
+        } else {
+          html += escapeHtml(c);
+        }
+        ci++;
+      } else {
+        html += escapeHtml(c);
+      }
+    });
+    html += '</div>';
+    html += `<p class="ex-dot-note">共标注 ${dots.length} 个加点字：${dots.map(d => escapeHtml(d)).join('、')}</p>`;
+    return html;
   }
 
   // ================= 工作看板 =================
@@ -3336,12 +3854,14 @@
             id: uid(),
             name,
             grade: r['年级'] || r['grade'] || '',
-            classTime: r['班次'] || r['上课时间'] || r['classTime'] || '',
+            className: r['班次'] || r['班级'] || r['className'] || r['上课时间'] || '',
             weakness: r['薄弱项'] || r['weakness'] || '',
-            parentPhone: r['家长电话'] || r['phone'] || r['联系电话'] || '',
+            phone: r['家长电话'] || r['电话'] || r['phone'] || r['联系电话'] || '',
             school: r['学校'] || r['school'] || '',
             tags: (r['标签'] || '').split(/[,，、]/).filter(Boolean),
             scores: [],
+            entryTests: [],
+            homework: [],
             reports: [],
             ts: Date.now()
           };
@@ -4562,12 +5082,15 @@
     editLedgerStudentModal: window.editLedgerStudentModal,
     generateLedgerImage: window.generateLedgerImage,
     openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt,
-    downloadPrepFile, deletePrepFile
+    downloadPrepFile, deletePrepFile,
+    addEntryTest, delEntryTest, saveEntryTests,
+    addHomework, delHomework, saveHomework,
+    generateExercises, exportStudentXLSX
   };
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '38';
+  const CURRENT_JS_VER = '40';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

@@ -699,6 +699,11 @@ label input, label select, label textarea { margin-top: 4px; }
   border-radius: 4px;
   font-size: 11px;
 }
+.reminder-list .badge-memo {
+  background: #fff7e6;
+  color: #d48806;
+  border: 1px solid #ffe7ba;
+}
 
 .info-block {
   padding: 16px 18px;
@@ -1898,3 +1903,26 @@ label input, label select, label textarea { margin-top: 4px; }
 .setting-item h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
 .setting-item p { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 .setting-status { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+.setting-label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 10px; margin-bottom: 4px; }
+
+/* ================= 练习生成器 ================= */
+.ex-input-area { padding: 16px; }
+.ex-input-area label { display: block; font-size: 13px; color: var(--text-soft); margin-bottom: 6px; }
+#exSource { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-size: 14px; font-family: inherit; resize: vertical; }
+.ex-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 12px; }
+.ex-type-group, .ex-diff-group { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.ex-type-group label, .ex-diff-group label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.ex-preview { padding: 16px 20px; border-top: 1px solid var(--border-light); }
+.ex-preview-active { background: var(--bg-section, #fafbfc); }
+.ex-h { font-size: 15px; color: var(--text); margin: 8px 0 12px; padding-left: 10px; border-left: 3px solid var(--primary); }
+.ex-passage { font-size: 15px; line-height: 2.2; white-space: pre-wrap; }
+.ex-blank { color: var(--primary); font-weight: 600; }
+.ex-dictation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; margin-top: 12px; }
+.ex-dict-item { text-align: center; }
+.ex-write-line { border-bottom: 1px solid #333; height: 34px; margin-bottom: 4px; }
+.ex-word { font-size: 12px; color: var(--text-muted); }
+.ex-dot-passage { font-size: 17px; line-height: 2.4; white-space: pre-wrap; }
+.ex-dot { border-bottom: 2px solid #e74c3c; font-weight: 600; padding: 0 2px; }
+.ex-dot-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+.ex-answer { margin-top: 16px; font-size: 13px; }
+.ex-answer summary { cursor: pointer; color: var(--primary); }

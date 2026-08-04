@@ -824,6 +824,24 @@
     };
 
     // v3.3: 自定义 AI 模型配置
+    const PRESETS = {
+      doubao: { url: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions', model: '', hint: '豆包：填入你的 Endpoint ID（如 ep-2024xxxxx）和 API Key' },
+      deepseek: { url: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', hint: 'DeepSeek：填入 API Key 即可' },
+      openai: { url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o', hint: 'OpenAI：填入 API Key 即可' },
+      clear: { url: '', model: '', hint: '已清空' }
+    };
+    $$('.ai-preset-btn').forEach(btn => btn.onclick = () => {
+      const p = PRESETS[btn.dataset.preset];
+      if (!p) return;
+      if (btn.dataset.preset === 'clear') {
+        $('#aiApiUrl').value = ''; $('#aiModel').value = '';
+        toast('已清空配置'); return;
+      }
+      $('#aiApiUrl').value = p.url;
+      $('#aiModel').value = p.model;
+      toast(p.hint || '已填入预设值，请补充 API Key 后保存');
+    });
+
     const saveAiConfigBtn = $('#saveAiConfigBtn');
     if (saveAiConfigBtn) saveAiConfigBtn.onclick = () => {
       const url = $('#aiApiUrl').value.trim();
@@ -833,8 +851,8 @@
       updateSetting('aiApiKey', key);
       updateSetting('aiModel', model);
       const st = $('#aiConfigStatus');
-      if (st) st.textContent = '已保存' + (url ? '（AI 导图已启用）' : '（使用本地生成）');
-      toast('AI 配置已保存');
+      if (st) st.textContent = url ? '已保存 ✅ AI 出题+导图已启用' : '已保存（使用本地模板）';
+      toast(url ? 'AI 配置已保存 — 练习/导图将调用你的模型' : 'AI 配置已清空 — 使用本地智能出题');
     };
     const testAiConfigBtn = $('#testAiConfigBtn');
     if (testAiConfigBtn) testAiConfigBtn.onclick = async () => {
@@ -3216,19 +3234,39 @@ ${plan ? '教学环节安排：' + plan : ''}`;
     const aiUrl = getSetting('aiApiUrl', '').trim();
     const aiKey = getSetting('aiApiKey', '').trim();
     const aiModel = getSetting('aiModel', '').trim();
-    const typeName = { fill: '填空题', choice: '选择题', judge: '判断题', saq: '简答题', reading: '阅读理解题', dictation: '听写训练', dot: '加点字训练', paper: '综合试卷' }[type] || '练习题';
-    const prompt = `你是一位经验丰富的语文老师。请根据下面的学习内容，生成一套「${typeName}」（难度：${difficulty}）。
-要求：
-1. 只输出严格 JSON，不要任何解释，不要用 markdown 代码块包裹。
-2. 整体结构：{"title":"练习标题","questions":[ ... ]}
-3. 各题型对象格式：
-   - 填空：{"type":"fill","stem":"题干，用（　　）表示要填的空","answer":"答案"}
-   - 选择：{"type":"choice","stem":"题干","options":["A.x","B.x","C.x","D.x"],"answer":"B"}
-   - 判断：{"type":"judge","stem":"题干","answer":"对"}（答案只能是"对"或"错"）
-   - 简答：{"type":"saq","stem":"问题","answer":"要点"}
-   - 阅读理解：{"type":"reading","passage":"短文原文","questions":[{"stem":"问题","answer":"要点"}]}
-4. 题量：填空/选择/判断 6-10 道，简答 3-5 道，阅读理解 1 篇配 3-4 问；综合试卷混合 8-12 道。
-5. 题目必须紧扣所给内容，不编造无关知识；答案准确简洁。
+
+    // v3.4.1: 按真实语文试卷风格出题（参考文言文对比阅读/现代文阅读/古诗词鉴赏等）
+    const typePrompts = {
+      fill: '【题型：基础积累·词语填空】根据课文内容，设计 6-8 道填空题。包括：①重点实词/虚词在句中的含义填空（用"______"表示）；②文学常识填空（作者、朝代、出处）；③名句默写填空。每道题要有明确的上下文语境。',
+      choice: '【题型：选择题】设计 6-8 道高质量单选题，选项为 A/B/C/D。题目类型要丰富多样：①加点词含义辨析（给出句子中加点的词，选正确解释）；②句子节奏划分/朗读停顿正误判断；③内容理解/主旨把握；④写作手法分析；⑤文化常识。干扰项要有迷惑性但不能太离谱。',
+      judge: '【题型：判断题】设计 5-6 道关于课文内容的判断题（对的打√，错的打×）。涉及：人物评价是否准确、事件顺序是否正确、手法分析是否得当、主题概括是否全面。',
+      saq: '【题型：简答题】设计 3-5 道需要组织语言作答的简答题。包括：①翻译指定文言句子为现代汉语；②概括段落/全文主要内容；③分析人物形象或性格特点；④赏析关键语句的表达效果；⑤比较两段文字的异同。',
+      reading: '【题型：阅读理解】如果原文较短则直接作为阅读材料；如果原文较长则截取核心段落。设计一篇完整的阅读理解，包含：①加点词解释（2-3个）；②选择题（节奏划分/内容理解/手法分析，2-3道）；③翻译句子（1-2道）；④简答题（评价/赏析/对比，1-2道）。格式参照标准语文试卷的"文言文对比阅读"或"现代文阅读"板块。',
+      dictation: '【题型：听写训练】从课文中提取 15-25 个重点词语（含双音节词、四字成语、易错字词），排列成听写表格格式。',
+      dot: '【题型：加点字训练】从课文中选取 8-15 个关键字词（实词、虚词、通假字、古今异义、词类活用），标注加点号，要求学生注音并解释含义。',
+      paper: `【题型：综合试卷】生成一套完整的语文课时练习卷，包含以下板块且顺序合理：一、基础积累（填空+加点词 6-8道）；二、选择题（4-6道）；三、翻译句子（2道）；四、简答题/阅读理解（3-4道）；五、拓展延伸（1道）。整体难度${difficulty === 'easy' ? '偏简单（适合巩固基础）' : difficulty === 'hard' ? '偏难（适合拔高训练）' : '中等（适合日常练习）'}。`
+    };
+    const typeName = { fill: '填空题', choice: '选择题', judge: '判断题', saq: '简答题', reading: '阅读理解', dictation: '听写训练', dot: '加点字训练', paper: '综合试卷' }[type] || '练习题';
+    const prompt = `你是一位资深语文教研员，擅长命制初中/小学语文试题。请严格根据下面提供的【学习内容】，命制一套「${typeName}」。
+${typePrompts[type] || typePrompts.paper}
+
+【重要格式要求】
+1. 只输出严格的 JSON，不要任何前缀/后缀/解释文字，不要用 markdown 代码块包裹。
+2. JSON 结构：
+{
+  "title": "试卷标题（如：八上《xxx》课时练习 / 《xxx》对比阅读）",
+  "questions": [ ... ]
+}
+3. 各题型 JSON 格式：
+   - 填空 {"type":"fill","stem":"完整题干（含______下划线）","answer":"答案"}
+   - 选择 {"type":"choice","stem":"题干","options":["A.选项","B.选项","C.选项","D.选项"],"answer":"B"}
+   - 判断 {"type":"judge","stem":"陈述句","answer":"对/错"}
+   - 简答 {"type":"saq","stem":"问题","answer":"参考答案要点"}
+   - 阅读理解 {"type":"reading","passage":"阅读材料原文","questions":[{"type":"fill|choice|saq","stem":"子问题","answer":"答案"}]}
+   - 听写 {"type":"dictation","words":["词语1","词语2",...]}
+   - 加点字 {"type":"dot","items":[{"char":"字","pinyin":"拼音","meaning":"释义"}]}
+4. 答案必须准确、简洁、可直接用于批改。
+5. 题目必须100%基于所给内容，不编造课外知识。
 
 【学习内容】
 ${source}`;
@@ -3250,34 +3288,90 @@ ${source}`;
     return parsed;
   }
 
-  // v3.4: 渲染 AI 返回的练习题
+  // v3.4: 渲染 AI 返回的练习题（支持全部题型）
   function renderAIExercise(json) {
     const title = json.title || '智能练习题';
     const qs = json.questions || [];
     let html = `<h3 class="ex-h">${escapeHtml(title)}</h3>`;
     let n = 1; const answers = [];
-    qs.forEach(q => {
-      if (q.type === 'reading') {
-        html += `<div class="ex-reading"><p class="ex-passage">${escapeHtml(q.passage || '')}</p>`;
-        (q.questions || []).forEach(sub => {
-          html += `<p class="ex-q">${n}. ${escapeHtml(sub.stem)}</p>`;
-          answers.push(`${n}. ${escapeHtml(sub.answer || '')}`);
-          n++;
+    // 按题型分组渲染，更接近真实试卷排版
+    const sections = { fill: [], choice: [], judge: [], saq: [], reading: [], dictation: [], dot: [] };
+    qs.forEach(q => { if (sections[q.type]) sections[q.type].push(q); else sections.saq.push(q); });
+
+    if (sections.dictation.length) {
+      html += '<div class="ex-section"><h4>一、听写训练</h4><p class="ex-tip">请根据读音写出下列词语</p><div class="ex-dictation-grid">';
+      sections.dictation.forEach(d => {
+        (d.words || []).forEach(w => {
+          html += `<div class="ex-dict-item"><div class="ex-write-line"></div><span class="ex-word">${escapeHtml(w)}</span></div>`;
         });
-        html += `</div>`;
-      } else if (q.type === 'choice') {
+      });
+      html += '</div></div>';
+    }
+    if (sections.dot.length) {
+      html += '<div class="ex-section"><h4>二、加点字训练</h4><p class="ex-tip">给下列加点的字注音并解释含义</p>';
+      sections.dot.forEach(d => {
+        (d.items || []).forEach(item => {
+          html += `<p class="ex-q">${n}. <span class="ex-dot">${escapeHtml(item.char)}</span>　拼音：__________　释义：__________</p>`;
+          answers.push(`${n}. ${item.char} → ${item.pinyin || '?'} ${item.meaning || '?'}`); n++;
+        });
+      });
+      html += '</div>';
+    }
+    if (sections.fill.length) {
+      html += '<div class="ex-section"><h4>' + (sections.dictation.length || sections.dot.length ? '三' : '一') + '、基础积累（填空）</h4>';
+      sections.fill.forEach(q => {
+        html += `<p class="ex-q">${n}. ${escapeHtml(q.stem).replace(/______/g, '<span class="ex-blank">__________</span>')}</p>`;
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`); n++;
+      });
+      html += '</div>';
+    }
+    if (sections.choice.length) {
+      let secNum = 1;
+      if (sections.dictation.length || sections.dot.length) secNum++;
+      if (sections.fill.length) secNum++;
+      const cn = ['一','二','三','四','五','六'];
+      html += '<div class="ex-section"><h4>' + cn[secNum-1] || secNum + '、选择题</h4>';
+      sections.choice.forEach(q => {
         html += `<p class="ex-q">${n}. ${escapeHtml(q.stem)}</p>`;
         (q.options || []).forEach(o => { html += `<p class="ex-opt">${escapeHtml(o)}</p>`; });
-        answers.push(`${n}. ${escapeHtml(q.answer || '')}`);
-        n++;
-      } else {
-        html += `<p class="ex-q">${n}. ${escapeHtml(q.stem)}</p>`;
-        answers.push(`${n}. ${escapeHtml(q.answer || '')}`);
-        n++;
-      }
-    });
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`); n++;
+      });
+      html += '</div>';
+    }
+    if (sections.judge.length) {
+      html += '<div class="ex-section"><h4>判断题</h4>';
+      sections.judge.forEach(q => {
+        html += `<p class="ex-q">${n}. ${escapeHtml(q.stem)}（　　）</p>`;
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`); n++;
+      });
+      html += '</div>';
+    }
+    if (sections.reading.length) {
+      sections.reading.forEach((r, ri) => {
+        html += `<div class="ex-reading ex-section"><h4>阅读理解${sections.reading.length > 1 ? '（' + (ri+1) + '）' : ''}</h4><p class="ex-passage">${escapeHtml(r.passage || '')}</p>`;
+        (r.questions || []).forEach(sub => {
+          if (sub.type === 'choice') {
+            html += `<p class="ex-q">${n}. ${escapeHtml(sub.stem)}</p>`;
+            (sub.options || []).forEach(o => { html += `<p class="ex-opt">${escapeHtml(o)}</p>`; });
+          } else {
+            html += `<p class="ex-q">${n}. ${escapeHtml(sub.stem || '')}${sub.type === 'fill' ? (sub.stem||'').replace(/______/g,'<span class="ex-blank">__________</span>') : ''}</p>`;
+          }
+          answers.push(`${n}. ${escapeHtml(sub.answer || '')}`); n++;
+        });
+        html += '</div>';
+      });
+    }
+    if (sections.saq.length) {
+      html += '<div class="ex-section"><h4>简答题</h4><ol class="ex-saq">';
+      sections.saq.forEach(q => {
+        html += `<li>${escapeHtml(q.stem)}</li>`;
+        answers.push(`${n}. ${escapeHtml(q.answer || '')}`); n++;
+      });
+      html += '</ol></div>';
+    }
+
     if (answers.length) {
-      html += '<details class="ex-answer"><summary>参考答案</summary><ol>';
+      html += '<details class="ex-answer"><summary>参考答案与解析</summary><ol>';
       answers.forEach(a => html += `<li>${a}</li>`);
       html += '</ol></details>';
     }
@@ -5475,7 +5569,7 @@ ${source}`;
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '41';
+  const CURRENT_JS_VER = '42';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

@@ -1919,6 +1919,7 @@ label input, label select, label textarea { margin-top: 4px; }
 .setting-item p { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 .setting-status { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
 .setting-label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 10px; margin-bottom: 4px; }
+.ai-preset-btn { font-size: 11px !important; padding: 4px 10px !important; border-radius: 6px !important; }
 
 /* ================= 练习生成器 ================= */
 .ex-input-area { padding: 16px; }
@@ -1949,3 +1950,5 @@ label input, label select, label textarea { margin-top: 4px; }
 .ex-saq li { margin-bottom: 10px; }
 .ex-sep { border: none; border-top: 1px dashed var(--border); margin: 18px 0; }
 #exUrl { width: 100%; margin-top: 4px; }
+.ex-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px dashed var(--border-light); }
+.ex-section:last-child { border-bottom: none; }

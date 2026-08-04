@@ -45,7 +45,7 @@
     <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.4 · 语文教师版</span>
+    <span class="version">v3.4.1 · 语文教师版</span>
   </div>
 </aside>
 
@@ -668,18 +668,28 @@
         </div>
         <div class="setting-item">
           <h3>AI 模型配置（可选）</h3>
-          <p>配置后，AI 备课导图将调用你的模型生成更丰富的多级结构（支持 OpenAI / DeepSeek 等兼容接口）；三项都留空则使用内置本地生成。</p>
-          <label class="setting-label">API 地址</label>
-          <input type="text" id="aiApiUrl" placeholder="https://api.openai.com/v1/chat/completions">
-          <label class="setting-label">API Key</label>
-          <input type="password" id="aiApiKey" placeholder="sk-... 或留空">
-          <label class="setting-label">模型名</label>
-          <input type="text" id="aiModel" placeholder="gpt-4o / deepseek-chat / 自定义">
+          <p>配置后，<b>练习生成器</b>和<b>备课导图</b>将调用你的模型智能出题/生成导图（支持 OpenAI / 豆包 / DeepSeek 等兼容接口）；未配置则用本地模板。</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn-ghost ai-preset-btn" data-preset="doubao">🫘 一键填入豆包(火山引擎)</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="deepseek">🔷 一键填入DeepSeek</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="openai">🤖 一键填入OpenAI</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="clear">✕ 清空</button>
+          </div>
+          <label class="setting-label">API 地址（Endpoint）</label>
+          <input type="text" id="aiApiUrl" placeholder="https://ark.cn-beijing.volces.com/api/v3/chat/completions">
+          <label class="setting-label">API Key（在对应平台获取）</label>
+          <input type="password" id="aiApiKey" placeholder="粘贴你的 API Key">
+          <label class="setting-label">模型名称</label>
+          <input type="text" id="aiModel" placeholder="ep-2024xxxxx / deepseek-chat / gpt-4o">
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-primary" id="saveAiConfigBtn">保存配置</button>
             <button class="btn-ghost" id="testAiConfigBtn">测试连接</button>
           </div>
           <span class="setting-status" id="aiConfigStatus"></span>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">
+            💡 <b>豆包推荐</b>：去 <a href="https://console.volcengine.com/ark" target="_blank">火山引擎控制台</a> 创建应用 → 获取 Endpoint ID 和 API Key → 填入上方即可。<br>
+            💡 <b>DeepSeek</b>：去 <a href="https://platform.deepseek.com/" target="_blank">DeepSeek平台</a> 获取 API Key → 地址填 https://api.deepseek.com/chat/completions
+          </p>
         </div>
       </div>
     </div>
@@ -968,6 +978,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=41"></script>
+<script src="./app.js?v=42"></script>
 </body>
 </html>

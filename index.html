@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
 <title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css?v=46">
+<link rel="stylesheet" href="./styles.css?v=47">
 </head>
 <body>
 
@@ -45,6 +45,8 @@
       <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
       <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
       <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
+      <a class="nav-item" data-page="diag"><span class="nav-icon">🔍</span><span class="nav-label">AI 学情诊断</span></a>
+      <a class="nav-item" data-page="aigrade"><span class="nav-icon">🤖</span><span class="nav-label">AI 作业批改</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">沟通运营</div>
@@ -64,7 +66,7 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.7.1 · 语文教师版</span>
+    <span class="version">v3.7.3 · 语文教师版</span>
   </div>
 </aside>
 
@@ -180,7 +182,6 @@
         <button class="quick-btn" data-page="students">＋ 新建学员</button>
         <button class="quick-btn" data-page="communicate">＋ 沟通记录</button>
         <button class="quick-btn" data-page="schedule">＋ 课表登记</button>
-        <button class="quick-btn" data-page="mindmap">＋ 备课导图</button>
         <button class="quick-btn" data-page="kanban">＋ 待办任务</button>
         <button class="quick-btn" data-page="library">＋ 素材归档</button>
         <button class="quick-btn" data-page="accounting">¥ 记账本</button>
@@ -449,7 +450,8 @@
         </div>
       </div>
     </div>
-
+  </section>
+  <section class="page" id="page-diag" hidden>
     <div class="panel">
       <div class="panel-header">
         <h2>AI 学情诊断 · 一键发家长</h2>
@@ -487,6 +489,41 @@
       </div>
     </div>
   </section>
+  <section class="page" id="page-aigrade" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🤖 AI 作业批改（存档 + 生成作业情况）</h2>
+        <span style="font-size:12px;color:var(--text-muted)">上传作业图片，AI 逐题批改；批改后可存入学员档案，并一键生成「作业情况」导入学员台账</span>
+      </div>
+      <div class="cf-template-area">
+        <div class="feedback-gen-left">
+          <label>选择学员
+            <select id="pgAgStudent"><option value="">请选择学员</option></select>
+          </label>
+          <label>上传作业图片（可多张，逐题批改）
+            <input type="file" id="pgAgImages" accept="image/*" multiple>
+          </label>
+          <div id="pgAgPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px"></div>
+          <label>补充说明（可选）
+            <textarea id="pgAgNote" rows="2" placeholder="如：本次第三单元默写，要求全对"></textarea>
+          </label>
+          <button class="btn-primary" id="pgAgRun" style="width:100%">开始批改</button>
+        </div>
+        <div class="feedback-gen-right">
+          <div id="pgAgResult" style="display:none;margin-top:8px">
+            <p style="font-size:14px">得分：<b id="pgAgScore"></b> / <b id="pgAgFull"></b></p>
+            <p id="pgAgSummary" style="font-size:13px;white-space:pre-wrap;color:var(--text-soft)"></p>
+            <div id="pgAgProblems"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn-ghost" id="pgAgSave">存入批改记录</button>
+            <button class="btn-primary" id="pgAgImport">生成作业情况并导入档案</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="page" id="page-mindmap" hidden>
     <div class="panel">
       <div class="panel-header">
         <h2>AI 思维导图备课</h2>
@@ -1102,6 +1139,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=46"></script>
+<script src="./app.js?v=47"></script>
 </body>
 </html>

@@ -424,7 +424,8 @@
       mindmap: 'AI 备课导图', kanban: '工作看板', tools: '工具中心',
       settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
       accounting: '个人记账本', ledger: '学情台账',
-      prep: '备课助手', exercise: '练习生成器'
+      prep: '备课助手', exercise: '练习生成器',
+      diag: 'AI 学情诊断', aigrade: 'AI 作业批改'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -453,6 +454,8 @@
         ? '已检测到 AI 模型配置：将调用你的模型按内容智能出题（类型不限）。未配置时也能用本地智能生成。'
         : '未配置 AI 模型：当前使用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。在「个性化设置 → AI 模型配置」可接入你的模型获得更强出题。';
     }
+    if (page === 'diag') populateDiagSelect();
+    if (page === 'aigrade') populateAIGradeStudent();
     if (page === 'prep') {
       const savedSection = getSetting('prepSection', 'primary');
       $$('.tab[data-ptab]').forEach(t => t.classList.toggle('active', t.dataset.ptab === savedSection));
@@ -965,6 +968,9 @@
     if (diagCopyAll) diagCopyAll.onclick = () => { const v = ($('#diagResult').value + '\n\n' + $('#diagParent').value); if (v.trim()) copyText(v); else toast('内容为空'); };
     const diagSave = $('#diagSave');
     if (diagSave) diagSave.onclick = saveDiagnosis;
+
+    // 独立「AI 作业批改」页面
+    bindAIGradePage();
 
     // 导入学员
     const importStudentsBtn = $('#importStudentsBtn');
@@ -2464,6 +2470,91 @@ ${note ? '附加要求：' + note : ''}`;
       toast('已存入' + (s.name || '学员') + '的专属档案');
     };
   };
+
+  // v3.7.3: 独立「AI 作业批改」页面（与学员档案内弹窗共用 AI 逻辑，但用独立 ID 避免冲突）
+  let pgAgImgs = [];
+  let pgGrade = null;
+  function bindAIGradePage() {
+    const imgsEl = $('#pgAgImages');
+    if (!imgsEl) return;
+    imgsEl.onchange = async e => {
+      pgAgImgs = [];
+      for (const f of (e.target.files || [])) { const d = await readFileAsDataURL(f); if (d) pgAgImgs.push(d); }
+      const prev = $('#pgAgPreview');
+      if (prev) prev.innerHTML = pgAgImgs.map(d => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('');
+    };
+    const run = $('#pgAgRun');
+    if (run) run.onclick = async () => {
+      const sid = $('#pgAgStudent').value;
+      if (!sid) { toast('请先选择学员'); return; }
+      if (!pgAgImgs.length) { toast('请先上传作业图片'); return; }
+      const note = $('#pgAgNote').value.trim();
+      const prompt = `你是语文老师，请批改下面学生的语文作业图片。逐题识别题目与学生作答，判断正误，给出正确答案与简短解析。
+严格只输出 JSON（不要解释、不要代码块标记）：
+{"summary":"整体评价(2-3句)","score":数字,"fullScore":数字,"problems":[{"no":题号,"question":"题目简述","studentAnswer":"学生答案","correct":true或false,"correctAnswer":"正确答案","analysis":"解析"}],"wrong":["错题要点1",...]}
+${note ? '附加要求：' + note : ''}`;
+      run.disabled = true; run.textContent = '批改中…';
+      try {
+        const text = await callAIVision(prompt, pgAgImgs);
+        const j = extractJSON(text);
+        if (!j) { toast('AI 返回无法解析，请重试'); run.disabled = false; run.textContent = '开始批改'; return; }
+        pgGrade = j;
+        $('#pgAgScore').textContent = (j.score != null ? j.score : '?');
+        $('#pgAgFull').textContent = (j.fullScore != null ? j.fullScore : '?');
+        $('#pgAgSummary').textContent = j.summary || '';
+        $('#pgAgProblems').innerHTML = (j.problems || []).map(p => `
+          <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:6px 0;border-left:3px solid ${p.correct ? '#16a34a' : '#e11d48'}">
+            <div style="font-size:13px"><b>第${p.no}题</b> ${p.correct ? '<span style="color:#16a34a">✓ 正确</span>' : '<span style="color:#e11d48">✗ 错误</span>'}</div>
+            <div style="font-size:12px;color:var(--text-soft)">${escapeHtml(p.question || '')}</div>
+            ${p.correctAnswer ? `<div style="font-size:12px">正确答案：${escapeHtml(p.correctAnswer)}</div>` : ''}
+            ${p.analysis ? `<div style="font-size:12px;color:#475569">解析：${escapeHtml(p.analysis)}</div>` : ''}
+          </div>`).join('');
+        $('#pgAgResult').style.display = '';
+        toast('批改完成');
+      } catch (e) {
+        toast('批改失败：' + e.message);
+      } finally { run.disabled = false; run.textContent = '开始批改'; }
+    };
+    const save = $('#pgAgSave');
+    if (save) save.onclick = async () => {
+      const sid = $('#pgAgStudent').value;
+      if (!sid) { toast('请先选择学员'); return; }
+      if (!pgGrade) { toast('请先批改'); return; }
+      const s = state.students.find(x => x.id === sid);
+      s.aiGrades = s.aiGrades || [];
+      s.aiGrades.push({ date: todayStr(), img: pgAgImgs[0] || '', summary: pgGrade.summary || '', score: pgGrade.score, fullScore: pgGrade.fullScore, problems: pgGrade.problems || [], wrong: pgGrade.wrong || [], ts: Date.now() });
+      await dbPut('students', s); saveStudentSilent(s);
+      toast('已存入' + (s.name || '学员') + '的专属档案');
+    };
+    const imp = $('#pgAgImport');
+    if (imp) imp.onclick = async () => {
+      const sid = $('#pgAgStudent').value;
+      if (!sid) { toast('请先选择学员'); return; }
+      if (!pgGrade) { toast('请先批改'); return; }
+      const s = state.students.find(x => x.id === sid);
+      const g = pgGrade;
+      const hw = {
+        date: todayStr(),
+        subject: 'AI作业批改',
+        content: g.summary || '作业批改',
+        status: (g.score != null && g.fullScore && g.fullScore > 0 && g.score / g.fullScore >= 0.6) ? '已完成' : '需订正',
+        score: g.score != null ? g.score : '',
+        comment: 'AI批改：' + ((g.wrong || []).join('；') || '无明显错误'),
+        img: pgAgImgs[0] || '',
+        ts: Date.now()
+      };
+      s.homework = s.homework || [];
+      s.homework.push(hw);
+      await dbPut('students', s); saveStudentSilent(s);
+      const ls = state.ledgerStudents.find(x => x.name === s.name);
+      if (ls) {
+        ls.homeworks = ls.homeworks || [];
+        ls.homeworks.push({ date: hw.date, status: hw.status, score: hw.score, subject: hw.subject, comment: hw.comment, img: hw.img });
+        await dbPut('ledgerStudents', ls);
+      }
+      toast('已生成作业情况并导入「' + (s.name || '学员') + '」档案' + (ls ? '及学情台账' : ''));
+    };
+  }
 
   // v3.7: 续费助手——续费依据汇总 + 个性化续费方案/话术
   function buildRenewBasis(s) {
@@ -4770,11 +4861,22 @@ ${source}`;
     }
     const gcfDate = $('#genClassFbDate');
     if (gcfDate && !gcfDate.value) gcfDate.value = todayStr();
+    populateDiagSelect();
+  }
+  function populateDiagSelect() {
     const diagSel = $('#diagStudent');
     if (diagSel) {
       const cur = diagSel.value;
       diagSel.innerHTML = '<option value="">不关联 / 仅生成文案</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name || '未命名')}</option>`).join('');
       if (cur) diagSel.value = cur;
+    }
+  }
+  function populateAIGradeStudent() {
+    const sel = $('#pgAgStudent');
+    if (sel) {
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">请选择学员</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name || '未命名')}</option>`).join('');
+      if (cur) sel.value = cur;
     }
   }
 
@@ -6592,13 +6694,15 @@ ${note ? '补充背景：' + note : ''}`;
   };
 
   // 启动
-  // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '46';
+  // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
+  const CURRENT_JS_VER = '47';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {
-      console.log('[v3.2.1] 检测到旧版本，准备刷新数据迁移');
       updateSetting('jsVer', CURRENT_JS_VER);
+      // 版本不符：强制刷新拉取新资源（location.reload(true) 跳过缓存）
+      try { location.reload(true); } catch (e) { location.reload(); }
+      return;
     }
     updateSetting('jsVer', CURRENT_JS_VER);
   })();

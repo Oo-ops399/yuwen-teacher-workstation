@@ -12,6 +12,27 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
+<meta name="app-version" content="47">
+<script>
+  // 轻量版本自检：每次加载都比对 version.txt，版本不符则带缓存破坏参数强刷（绕过 bfcache/HTML 缓存）
+  (function () {
+    try {
+      var LV = (document.querySelector('meta[name="app-version"]') || {}).content;
+      if (!LV) return;
+      var x = new XMLHttpRequest();
+      x.open('GET', './version.txt?t=' + Date.now(), true);
+      x.onreadystatechange = function () {
+        if (x.readyState === 4 && x.status === 200) {
+          var nv = (x.responseText || '').trim();
+          if (nv && nv !== LV) {
+            location.replace(location.pathname + '?v=' + encodeURIComponent(nv) + (location.hash || ''));
+          }
+        }
+      };
+      x.send();
+    } catch (e) {}
+  })();
+</script>
 <title>语文教师专属工作台</title>
 <link rel="stylesheet" href="./styles.css?v=47">
 </head>

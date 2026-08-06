@@ -406,18 +406,21 @@
           <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-soft);margin:4px 0 12px">
             <input type="checkbox" id="genClassFbUseMat" checked> 引用素材库常用表述补充「学生表现」
           </label>
+          <label>生成格式
+            <select id="genClassFbStyle">
+              <option value="wechat">标准微信版（带图标分块）</option>
+              <option value="concise">简洁一行版</option>
+              <option value="detail">分点详版</option>
+            </select>
+          </label>
           <button class="btn-primary" id="genClassFbBtn" style="width:100%">智能生成课堂反馈</button>
         </div>
         <div class="feedback-gen-right">
-          <label>课堂反馈模板（占位符：{班级} {日期} {内容} {表现} {作业} {素材}）
-            <textarea id="genClassFbTemplate" rows="9">【{班级} · {日期} 课堂反馈】
-📖 本节课内容：
-{内容}
-👥 学生整体表现：
-{表现}
-📝 家庭作业：
-{作业}</textarea>
-          </label>
+          <details class="fb-custom">
+            <summary>自定义模板（高级）</summary>
+            <p style="font-size:12px;color:var(--text-muted);margin:6px 0 4px">可用占位符：{班级} {日期} {内容} {表现} {作业} {素材}。留空则用上方所选格式，系统会自动替换并清掉残留占位符。</p>
+            <textarea id="genClassFbTemplate" rows="9" placeholder="【{班级} · {日期} 课堂反馈】&#10;📖 本节课内容：{内容}&#10;👥 学生整体表现：{表现}&#10;📝 家庭作业：{作业}"></textarea>
+          </details>
           <label>生成结果
             <textarea id="genClassFbResult" rows="8" placeholder="点击「智能生成课堂反馈」，系统将套用上方模板与内容生成课堂反馈，可编辑后保存…"></textarea>
           </label>

@@ -4969,6 +4969,12 @@ ${source}`;
     }
     return text.slice(start, end).trim();
   }
+  // v3.7.1: 课堂反馈预设格式（免占位符编辑，直接选风格）
+  const CLASS_FB_PRESETS = {
+    wechat: '【{班级} · {日期} 课堂反馈】\n📖 本节课内容：\n{内容}\n👥 学生整体表现：\n{表现}\n📝 家庭作业：\n{作业}',
+    concise: '{班级} {日期} 课堂反馈\n本节课内容：{内容}\n学生整体表现：{表现}\n家庭作业：{作业}',
+    detail: '📋 {班级} · {日期} 课堂反馈\n\n一、本节课内容\n{内容}\n\n二、学生整体表现\n{表现}\n\n三、家庭作业\n{作业}'
+  };
   function generateClassFeedbackFromTemplate() {
     const cid = $('#genClassFbClass').value;
     const date = $('#genClassFbDate').value || todayStr();
@@ -4985,18 +4991,23 @@ ${source}`;
       const pick = materials.slice(0, 3).join('；') + '。';
       perf = perf ? (perf + '\n' + pick) : pick;
     }
-    let tpl = $('#genClassFbTemplate').value;
-    if (!tpl) tpl = '【{班级} · {日期} 课堂反馈】\n📖 本节课内容：\n{内容}\n👥 学生整体表现：\n{表现}\n📝 家庭作业：\n{作业}';
-    const matText = materials.join('；') || '（暂无素材）';
-    const result = tpl
+    // 模板：优先用用户自定义（高级），否则用所选格式预设
+    const custom = ($('#genClassFbTemplate') && $('#genClassFbTemplate').value.trim()) || '';
+    const style = ($('#genClassFbStyle') && $('#genClassFbStyle').value) || 'wechat';
+    const tpl = custom || CLASS_FB_PRESETS[style] || CLASS_FB_PRESETS.wechat;
+    const matText = materials.join('；') || '';
+    let result = tpl
       .replace(/\{班级\}/g, cname)
       .replace(/\{日期\}/g, date)
-      .replace(/\{内容\}/g, content || '（待补充）')
-      .replace(/\{表现\}/g, perf || '（待补充）')
-      .replace(/\{作业\}/g, hw || '（待补充）')
+      .replace(/\{内容\}/g, content || '（待补充本节课内容）')
+      .replace(/\{表现\}/g, perf || '（待补充学生表现）')
+      .replace(/\{作业\}/g, hw || '（待补充家庭作业）')
       .replace(/\{素材\}/g, matText);
+    // 兜底：清掉任何残留占位符，绝不留 {xxx} 在成品里
+    result = result.replace(/\{([^{}]*)\}/g, '').replace(/\{\{/g, '').replace(/\}\}/g, '');
+    result = result.replace(/\n{3,}/g, '\n\n').trim();
     $('#genClassFbResult').value = result;
-    toast('已按模板生成，可编辑后保存');
+    toast(custom ? '已按自定义模板生成' : '已生成课堂反馈，可编辑后保存');
   }
   async function saveClassFeedbackFromTemplate() {
     const cid = $('#genClassFbClass').value;
@@ -6582,7 +6593,7 @@ ${note ? '补充背景：' + note : ''}`;
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '45';
+  const CURRENT_JS_VER = '46';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

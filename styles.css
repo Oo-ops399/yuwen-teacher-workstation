@@ -1254,6 +1254,21 @@ label input, label select, label textarea { margin-top: 4px; }
   border-top: 1px solid var(--border);
   padding: 0 16px 16px;
 }
+.fb-custom {
+  margin-top: 4px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg-soft);
+}
+.fb-custom summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-soft);
+  user-select: none;
+}
+.fb-custom summary:hover { color: var(--primary); }
+.fb-custom textarea { margin-top: 8px; }
 
 /* ================= 生活助手 ================= */
 .life-tabs {

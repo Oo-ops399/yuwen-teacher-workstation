@@ -55,7 +55,7 @@
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance'];
 
   let dbInstance = null;
   function openDB() {
@@ -165,7 +165,8 @@
     feedbackMaterials: [],
     classFeedbacks: [],
     accounting: [],
-    ledgerStudents: []
+    ledgerStudents: [],
+    attendance: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -953,6 +954,18 @@
       else { toast('生成结果为空'); }
     };
 
+    // AI 学情诊断
+    const diagImages = $('#diagImages');
+    if (diagImages) diagImages.onchange = async e => { await diagReadImages(e.target.files); renderDiagPreview(); };
+    const diagBtn = $('#diagBtn');
+    if (diagBtn) diagBtn.onclick = runDiagnosis;
+    const diagCopyParent = $('#diagCopyParent');
+    if (diagCopyParent) diagCopyParent.onclick = () => { const v = $('#diagParent').value; if (v) copyText(v); else toast('家长文案为空'); };
+    const diagCopyAll = $('#diagCopyAll');
+    if (diagCopyAll) diagCopyAll.onclick = () => { const v = ($('#diagResult').value + '\n\n' + $('#diagParent').value); if (v.trim()) copyText(v); else toast('内容为空'); };
+    const diagSave = $('#diagSave');
+    if (diagSave) diagSave.onclick = saveDiagnosis;
+
     // 导入学员
     const importStudentsBtn = $('#importStudentsBtn');
     if (importStudentsBtn) importStudentsBtn.onclick = () => $('#importStudentsInput').click();
@@ -1690,13 +1703,22 @@
       list.innerHTML = '<div class="info-block">暂无班级，点击右上「＋ 新建班级」开始</div>';
       return;
     }
-    list.innerHTML = classes.map(c => {
+    // 冲突检测：同一 星期+开始时间 出现多次即冲突
+    const conflictKeys = {};
+    classes.forEach(c => { migrateClassSchedule(c); (c.lessons || []).forEach(l => { const k = l.day + '_' + l.start; conflictKeys[k] = (conflictKeys[k] || 0) + 1; }); });
+    const conflictSet = new Set();
+    classes.forEach(c => (c.lessons || []).forEach(l => { if (conflictKeys[l.day + '_' + l.start] > 1) conflictSet.add(c.id + '_' + l.id); }));
+    list.innerHTML = renderScheduleToday() + classes.map(c => {
       migrateClassSchedule(c);
+      const rate = classAttendanceRate(c.id);
+      const rateTxt = rate != null ? ` · 到课率 ${rate}%` : '';
+      const hasConflict = (c.lessons || []).some(l => conflictSet.has(c.id + '_' + l.id));
+      const conflictTag = hasConflict ? ' <span class="tag-warn">⚠冲突</span>' : '';
       return `
       <div class="sched-class">
         <div class="sched-class-head">
-          <h4>${escapeHtml(c.name)} <span class="tag-type ${c.type === 'summer' ? 'summer' : ''}">${c.type === 'summer' ? '暑假班' : '常规班'}</span></h4>
-          <p>${escapeHtml(c.time || '')} · ${escapeHtml(c.room || '')} · ${c.studentCount || 0} 人</p>
+          <h4>${escapeHtml(c.name)} <span class="tag-type ${c.type === 'summer' ? 'summer' : ''}">${c.type === 'summer' ? '暑假班' : '常规班'}</span>${conflictTag}</h4>
+          <p>${escapeHtml(c.time || '')} · ${escapeHtml(c.room || '')} · ${c.studentCount || 0} 人${rateTxt}</p>
           <div class="actions">
             <button class="btn-ghost" onclick="window.__app.editClassModal('${c.id}')">班级信息</button>
             <button class="btn-primary" onclick="window.__app.addLessonModal('${c.id}')">＋ 课次</button>
@@ -1859,6 +1881,99 @@
     toast('课表已导出为WPS格式');
   }
 
+  // v3.7: 排课增强——今日待上课 / 签到 / 到课率 / 冲突检测
+  function isSameWeekday(dateStr, wd) {
+    if (!dateStr) return false;
+    const dt = new Date(dateStr + 'T00:00:00');
+    if (isNaN(dt.getTime())) return false;
+    const d = dt.getDay();
+    return (d === 0 ? 7 : d) === wd;
+  }
+  function collectTodayLessons() {
+    const wd = (new Date().getDay() === 0 ? 7 : new Date().getDay());
+    const out = [];
+    state.classes.forEach(c => {
+      migrateClassSchedule(c);
+      (c.lessons || []).forEach(l => {
+        if (l.day !== wd) return;
+        let ov = null;
+        if (c.overrides) {
+          for (const [dt, o] of Object.entries(c.overrides)) {
+            if (o.lessonId === l.id && isSameWeekday(dt, wd)) { ov = o; }
+          }
+        }
+        out.push({ c, l, ov });
+      });
+    });
+    return out;
+  }
+  function classAttendanceRate(cid) {
+    const recs = state.attendance.filter(a => a.classId === cid);
+    let total = 0, present = 0;
+    recs.forEach(a => (a.records || []).forEach(r => { total++; if (r.status === '到课') present++; }));
+    return total ? Math.round(present / total * 100) : null;
+  }
+  function renderScheduleToday() {
+    const list = collectTodayLessons();
+    if (!list.length) return '<div class="today-banner empty">📅 今天没有排课</div>';
+    const items = list.map(({ c, l, ov }) => {
+      const rate = classAttendanceRate(c.id);
+      const rateTxt = rate != null ? ` · 到课率 ${rate}%` : '';
+      const ovTxt = ov ? (ov.type === '停课' ? ' <span class="tag-warn">今日停课</span>' : ` <span class="tag-warn">调课${ov.toTime ? ' ' + escapeHtml(ov.toTime) : ''}</span>`) : '';
+      const signBtn = (ov && ov.type === '停课') ? '' : `<button class="btn-primary btn-sm" onclick="window.__app.openAttendance('${c.id}','${l.id}')">签到</button>`;
+      return `<div class="today-item">
+        <div><b>${escapeHtml(c.name)}</b> · ${escapeHtml(l.title || '课次')} · ${escapeHtml(l.start || '')}-${escapeHtml(l.end || '')}${rateTxt}${ovTxt}</div>
+        <div>${signBtn}</div>
+      </div>`;
+    }).join('');
+    const active = list.filter(x => !(x.ov && x.ov.type === '停课')).length;
+    return `<div class="today-banner"><div class="today-title">⏰ 今日待上课（${active} 节）</div>${items}</div>`;
+  }
+  window.openAttendance = function (cid, lid) {
+    const c = state.classes.find(x => x.id === cid); if (!c) return;
+    const l = (c.lessons || []).find(x => x.id === lid);
+    const roster = state.ledgerStudents.filter(x => x.classId === cid);
+    const date = todayStr();
+    const body = `
+      <p style="font-size:13px;color:#6b7280">${escapeHtml(c.name)} · ${escapeHtml(l ? l.title : '')} · ${date} 签到</p>
+      ${roster.length ? '' : '<p style="color:#e11d48;font-size:13px">该班在「学情台账」还没有学员，请先添加学员再签到。</p>'}
+      <div id="attRoster" class="att-roster">
+        ${roster.map(r => `
+          <div class="att-row" data-sid="${r.id}" data-name="${escapeAttr(r.name || '')}">
+            <span>${escapeHtml(r.name || '未命名')}</span>
+            <div class="att-btns">
+              <button class="btn-ghost att-st" data-st="到课">到课</button>
+              <button class="btn-ghost att-st" data-st="缺勤">缺勤</button>
+              <button class="btn-ghost att-st" data-st="请假">请假</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    openModal('课堂签到', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="att_save">保存签到</button>`);
+    const rs = $('#attRoster'); if (!rs) return;
+    rs.querySelectorAll('.att-st').forEach(b => {
+      b.onclick = () => {
+        const row = b.closest('.att-row');
+        row.dataset.st = b.dataset.st;
+        row.querySelectorAll('.att-st').forEach(x => x.classList.toggle('active', x === b));
+      };
+    });
+    $('#att_save').onclick = async () => {
+      const records = [];
+      rs.querySelectorAll('.att-row').forEach(row => {
+        records.push({ studentId: row.dataset.sid, name: row.dataset.name, status: row.dataset.st || '到课' });
+      });
+      if (!records.length) { toast('没有可签到的学员'); return; }
+      state.attendance = state.attendance.filter(a => !(a.classId === cid && a.lessonId === lid && a.date === date));
+      const item = { id: uid(), classId: cid, lessonId: lid, date, records };
+      state.attendance.push(item);
+      await dbPut('attendance', item);
+      saveLocalCache();
+      closeModal();
+      renderSchedule();
+      toast('签到已保存');
+    };
+  };
+
   // ================= 学员档案 =================
   // v3.5: 成绩是否下滑（对比最近两次有日期的成绩）
   function isScoreDeclining(s) {
@@ -2020,6 +2135,8 @@
     if (!s) { showPage('students'); return; }
     $('#studentDetailTitle').textContent = s.name + ' - 档案';
     const detail = $('#studentDetail');
+    // v3.7: 续费助手快捷入口
+    const renewBtn = `<div style="margin:10px 0 4px"><button class="btn-primary" onclick="window.__app.openRenewAssistant('${s.id}')">💡 续费助手（生成续费方案+话术）</button></div>`;
     detail.innerHTML = `
       <div class="sd-section">
         <h3>基本信息</h3>
@@ -2045,6 +2162,7 @@
           <button class="btn-ghost" onclick="window.__app.confirmDelete('students','${s.id}','${escapeHtml(s.name)}')">删除学员</button>
         </div>
       </div>
+      ${renewBtn}
 
       <div class="sd-section">
         <h3>固定成绩栏目</h3>
@@ -2094,6 +2212,21 @@
         </div>
         <button class="btn-ghost" onclick="window.__app.addHomework()">＋ 添加作业</button>
         <button class="btn-primary" onclick="window.__app.saveHomework()">保存</button>
+        <button class="btn-ghost" onclick="window.__app.openAIGrade('${s.id}')">🤖 AI 批改作业</button>
+      </div>
+      <h4 style="margin:14px 0 6px;font-size:13px;color:var(--text-soft)">AI 批改记录（存专属档案）</h4>
+      <ul class="report-list" id="aiGradeList">
+        ${(s.aiGrades || []).slice().reverse().map(g => `
+          <li class="report-item" style="position:relative">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <b>${escapeHtml(g.date || '')}</b>
+              <span class="student-tag">${g.score != null ? g.score + ' / ' + (g.fullScore || '?') + ' 分' : '已批改'}</span>
+            </div>
+            ${g.img ? `<img src="${g.img}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin:4px 0;border:1px solid var(--border)">` : ''}
+            <p style="white-space:pre-wrap;font-size:12px;margin:4px 0">${escapeHtml(g.summary || '')}</p>
+            ${g.wrong && g.wrong.length ? `<p style="font-size:12px;color:var(--danger,#e11d48)">错题：${escapeHtml(g.wrong.join('；'))}</p>` : ''}
+          </li>`).join('') || '<li style="color:var(--text-muted);font-size:12px">暂无 AI 批改记录，点上方「AI 批改作业」上传图片试试</li>'}
+      </ul>
       </div>
 
       <div class="sd-section">
@@ -2255,6 +2388,189 @@
     }));
     saveStudentSilent(s);
     toast('作业记录已保存');
+  }
+
+  // v3.7: AI 作业批改 + 改错 + 存档案
+  function readFileAsDataURL(file) {
+    return new Promise(res => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => res(null);
+      r.readAsDataURL(file);
+    });
+  }
+  window.openAIGrade = async function (sid) {
+    const s = state.students.find(x => x.id === sid); if (!s) return;
+    let imgs = [];
+    let grade = null;
+    const body = `
+      <label>上传作业图片（可多张，逐题批改）
+        <input type="file" id="agImages" accept="image/*" multiple>
+      </label>
+      <div id="agPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0"></div>
+      <label>补充说明（可选，如：本次是第三单元默写，要求全对）
+        <textarea id="agNote" rows="2"></textarea>
+      </label>
+      <div id="agResult" style="display:none;margin-top:8px">
+        <p style="font-size:14px">得分：<b id="agScore"></b> / <b id="agFull"></b></p>
+        <p id="agSummary" style="font-size:13px;white-space:pre-wrap;color:var(--text-soft)"></p>
+        <div id="agProblems"></div>
+      </div>`;
+    openModal('🤖 AI 作业批改', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="agRun">开始批改</button><button class="btn-primary" id="agSave" style="display:none">存入档案</button>`);
+    const prev = $('#agPreview');
+    $('#agImages').onchange = async e => {
+      imgs = [];
+      for (const f of (e.target.files || [])) { const d = await readFileAsDataURL(f); if (d) imgs.push(d); }
+      if (prev) prev.innerHTML = imgs.map(d => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('');
+    };
+    $('#agRun').onclick = async () => {
+      if (!imgs.length) { toast('请先上传作业图片'); return; }
+      const note = $('#agNote').value.trim();
+      const prompt = `你是语文老师，请批改下面学生的语文作业图片。逐题识别题目与学生作答，判断正误，给出正确答案与简短解析。
+严格只输出 JSON（不要解释、不要代码块标记）：
+{"summary":"整体评价(2-3句)","score":数字,"fullScore":数字,"problems":[{"no":题号,"question":"题目简述","studentAnswer":"学生答案","correct":true或false,"correctAnswer":"正确答案","analysis":"解析"}],"wrong":["错题要点1",...]}
+${note ? '附加要求：' + note : ''}`;
+      const run = $('#agRun'); run.disabled = true; run.textContent = '批改中…';
+      try {
+        const text = await callAIVision(prompt, imgs);
+        const j = extractJSON(text);
+        if (!j) { toast('AI 返回无法解析，请重试'); run.disabled = false; run.textContent = '开始批改'; return; }
+        grade = j;
+        $('#agScore').textContent = (j.score != null ? j.score : '?');
+        $('#agFull').textContent = (j.fullScore != null ? j.fullScore : '?');
+        $('#agSummary').textContent = j.summary || '';
+        $('#agProblems').innerHTML = (j.problems || []).map(p => `
+          <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:6px 0;border-left:3px solid ${p.correct ? '#16a34a' : '#e11d48'}">
+            <div style="font-size:13px"><b>第${p.no}题</b> ${p.correct ? '<span style="color:#16a34a">✓ 正确</span>' : '<span style="color:#e11d48">✗ 错误</span>'}</div>
+            <div style="font-size:12px;color:var(--text-soft)">${escapeHtml(p.question || '')}</div>
+            ${p.correctAnswer ? `<div style="font-size:12px">正确答案：${escapeHtml(p.correctAnswer)}</div>` : ''}
+            ${p.analysis ? `<div style="font-size:12px;color:#475569">解析：${escapeHtml(p.analysis)}</div>` : ''}
+          </div>`).join('');
+        $('#agResult').style.display = '';
+        $('#agSave').style.display = '';
+        toast('批改完成');
+      } catch (e) {
+        toast('批改失败：' + e.message);
+      } finally { run.disabled = false; run.textContent = '开始批改'; }
+    };
+    $('#agSave').onclick = async () => {
+      if (!grade) { toast('请先批改'); return; }
+      s.aiGrades = s.aiGrades || [];
+      s.aiGrades.push({ date: todayStr(), img: imgs[0] || '', summary: grade.summary || '', score: grade.score, fullScore: grade.fullScore, problems: grade.problems || [], wrong: grade.wrong || [], ts: Date.now() });
+      await dbPut('students', s);
+      saveStudentSilent(s);
+      closeModal();
+      renderStudentDetail();
+      toast('已存入' + (s.name || '学员') + '的专属档案');
+    };
+  };
+
+  // v3.7: 续费助手——续费依据汇总 + 个性化续费方案/话术
+  function buildRenewBasis(s) {
+    const sc = (s.scores || []).filter(x => x.date).slice().sort((a, b) => a.date.localeCompare(b.date));
+    let trend = '暂无成绩记录';
+    let delta = null;
+    if (sc.length >= 2) {
+      const first = Number(sc[0].score) || 0, last = Number(sc[sc.length - 1].score) || 0;
+      delta = last - first;
+      trend = `从 ${first} 分提升到 ${last} 分（${delta >= 0 ? '+' : ''}${delta} 分）`;
+    } else if (sc.length === 1) {
+      trend = `最近一次 ${sc[0].score} 分`;
+    }
+    const recentFb = (state.feedbacks || []).filter(f => f.studentId === s.id).slice(-3).map(f => (f.content || '').slice(0, 40));
+    const comms = (state.communications || []).filter(c => c.studentId === s.id).length;
+    const rate = classAttendanceRateOfStudent(s.id);
+    return {
+      name: s.name || '该生',
+      grade: s.grade || '',
+      weakness: s.weakness || '无明显薄弱项',
+      tags: (s.tags || []).join('、'),
+      trend, delta,
+      recentFb,
+      comms,
+      attendance: rate != null ? rate + '%' : '暂无签到记录'
+    };
+  }
+  function classAttendanceRateOfStudent(sid) {
+    let total = 0, present = 0;
+    state.attendance.forEach(a => (a.records || []).forEach(r => {
+      if (r.studentId === sid) { total++; if (r.status === '到课') present++; }
+    }));
+    return total ? Math.round(present / total * 100) : null;
+  }
+  window.openRenewAssistant = async function (sid) {
+    const s = state.students.find(x => x.id === sid); if (!s) return;
+    const basis = buildRenewBasis(s);
+    const basisHtml = `
+      <div style="background:var(--bg-soft);border-radius:8px;padding:10px;font-size:13px;line-height:1.9">
+        <div>👤 <b>${escapeHtml(basis.name)}</b> ${escapeHtml(basis.grade)}</div>
+        <div>📈 成绩走势：${escapeHtml(basis.trend)}</div>
+        <div>🎯 薄弱项：${escapeHtml(basis.weakness)}</div>
+        ${basis.tags ? `<div>🏷 标签：${escapeHtml(basis.tags)}</div>` : ''}
+        <div>🚪 到课率：${escapeHtml(basis.attendance)}</div>
+        <div>💬 历史沟通：${basis.comms} 次</div>
+        ${basis.recentFb.length ? `<div>📝 近期反馈：${basis.recentFb.map(escapeHtml).join('；')}</div>` : ''}
+      </div>`;
+    const body = `
+      <p style="font-size:12px;color:var(--text-soft)">续费依据（已自动汇总该生学情）：</p>
+      ${basisHtml}
+      <label>续报方向（可选）
+        <select id="ra_dir">
+          <option value="提分冲刺">提分冲刺</option>
+          <option value="巩固基础">巩固基础</option>
+          <option value="暑假衔接">暑假衔接</option>
+          <option value="竞赛/培优">竞赛 / 培优</option>
+          <option value="兴趣维持">兴趣维持</option>
+        </select>
+      </label>
+      <label>报课节数建议（可选）<input type="number" id="ra_lessons" placeholder="如 20"></label>
+      <label>生成结果（续费方案 + 微信话术，可编辑）
+        <textarea id="raResult" rows="10" placeholder="点击「生成续费方案与话术」…"></textarea>
+      </label>`;
+    openModal('💡 续费助手', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ra_gen">生成续费方案与话术</button><button class="btn-primary" id="ra_copy" style="display:none">复制话术</button>`);
+    const gen = $('#ra_gen');
+    gen.onclick = async () => {
+      const dir = $('#ra_dir').value;
+      const lessons = $('#ra_lessons').value.trim();
+      const prompt = `你是培训班的语文老师，需要给学员${basis.name}的家长做续费沟通。
+已有学情依据：
+- 成绩走势：${basis.trend}
+- 薄弱项：${basis.weakness}
+- 标签：${basis.tags || '无'}
+- 到课率：${basis.attendance}
+- 历史沟通：${basis.comms} 次
+- 近期反馈：${basis.recentFb.join('；') || '无'}
+续报方向：${dir}${lessons ? '；建议报 ' + lessons + ' 节' : ''}。
+
+请输出：
+【续费方案】2-4 条，说明为什么现在该续、主攻什么、预期效果（具体、有数据支撑，不要空话）。
+【微信话术】一段发给家长的微信文字：先肯定孩子进步与亮点，再自然带出续报建议，语气温和、专业、不硬销，像老师日常沟通。可提及具体学情数据。`;
+      gen.disabled = true; gen.textContent = '生成中…';
+      try {
+        const text = await callAIText(prompt);
+        $('#raResult').value = text;
+        $('#ra_copy').style.display = '';
+        toast('已生成');
+      } catch (e) {
+        // 无 key / 失败：本地规则兜底
+        $('#raResult').value = localRenewScript(basis, dir, lessons);
+        $('#ra_copy').style.display = '';
+        toast('已用本地模板生成（未配置 AI，建议到「个性化设置」填 AI 接口获得更自然话术）');
+      } finally { gen.disabled = false; gen.textContent = '重新生成'; }
+    };
+    $('#ra_copy').onclick = () => { const v = $('#raResult').value; if (v) copyText(v); else toast('结果为空'); };
+  };
+  function localRenewScript(b, dir, lessons) {
+    const up = (b.delta != null && b.delta >= 0);
+    const lead = up ? `孩子这段时间的语文成绩从原有基础稳步提升（${b.trend}），学习状态和能力都在往上走` : `孩子近阶段在${b.weakness}上还需要持续打磨，正好趁热打铁巩固`;
+    const plan = `【续费方案】
+1. 建议续报「${dir}」方向，聚焦${b.weakness}的针对性突破。
+2. ${lessons ? '规划 ' + lessons + ' 节课' : '按阶段连续排课'}，保证学习连贯性，避免断层。
+3. 目标：在现有基础上进一步提分，并养成稳定的语文学习习惯。
+
+【微信话术】
+${b.name}家长好！跟您同步下孩子最近的语文情况：${lead}。咱们目前${b.attendance !== '暂无签到记录' ? '到课率' + b.attendance + '，' : ''}学习节奏保持得不错。考虑到${b.weakness}还需要持续强化，建议您给孩子续报「${dir}」阶段的课程，趁现在状态好接着往上推，效果最稳。您方便的话我们细聊下排课~`;
+    return plan;
   }
 
   function renderScoreChart(s) {
@@ -2969,6 +3285,52 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
     }
     if (!parsed) throw new Error('AI 返回内容无法解析为 JSON');
     return buildMindmapFromJSON(parsed);
+  }
+
+  // v3.7: 通用 AI 调用底座（文本 + 多模态图片）
+  async function callAIText(prompt, sysRole) {
+    return callAIVision(prompt, null, sysRole);
+  }
+  async function callAIVision(prompt, images, sysRole) {
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    const aiKey = getSetting('aiApiKey', '').trim();
+    const aiModel = getSetting('aiModel', '').trim() || 'gpt-4o';
+    if (!aiUrl) throw new Error('未配置 AI 接口，请到「个性化设置」填写 aiApiUrl');
+    const content = [{ type: 'text', text: prompt }];
+    (images || []).forEach(img => {
+      if (img) content.push({ type: 'image_url', image_url: { url: img } });
+    });
+    const body = {
+      model: aiModel,
+      messages: [
+        { role: 'system', content: sysRole || '你是资深中小学语文教师助手，回答专业、简洁、可直接使用。' },
+        { role: 'user', content }
+      ],
+      temperature: 0.5
+    };
+    const headers = { 'Content-Type': 'application/json' };
+    if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
+    const res = await fetch(aiUrl, {
+      method: 'POST', headers, body: JSON.stringify(body),
+      signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(90000) : undefined
+    });
+    if (!res.ok) {
+      let msg = 'HTTP ' + res.status;
+      try { const t = await res.text(); if (t) msg += ' ' + t.slice(0, 200); } catch (e) {}
+      throw new Error(msg);
+    }
+    const json = await res.json();
+    const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+    if (!text) throw new Error('AI 未返回内容');
+    return text;
+  }
+  // v3.7: 容错解析 JSON（去除代码块标记 + 抽取首个 {...}）
+  function extractJSON(text) {
+    let s = (text || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    try { return JSON.parse(s); } catch (e) {}
+    const m = s.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
+    return null;
   }
 
   // v3.5: 收集导图全部节点（含路径）
@@ -4408,6 +4770,12 @@ ${source}`;
     }
     const gcfDate = $('#genClassFbDate');
     if (gcfDate && !gcfDate.value) gcfDate.value = todayStr();
+    const diagSel = $('#diagStudent');
+    if (diagSel) {
+      const cur = diagSel.value;
+      diagSel.innerHTML = '<option value="">不关联 / 仅生成文案</option>' + state.students.map(s => `<option value="${s.id}">${escapeHtml(s.name || '未命名')}</option>`).join('');
+      if (cur) diagSel.value = cur;
+    }
   }
 
   function renderFeedbackList() {
@@ -4653,6 +5021,72 @@ ${source}`;
     renderClassFeedbackList();
     $('#genClassFbResult').value = '';
     toast('课堂反馈已保存到「课堂整体反馈」');
+  }
+
+  // v3.7: AI 学情诊断 · 一键发家长
+  let diagImageData = [];
+  async function diagReadImages(files) {
+    diagImageData = [];
+    const out = [];
+    for (const f of (files || [])) {
+      const dataUrl = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = () => res(null);
+        r.readAsDataURL(f);
+      });
+      if (dataUrl) { diagImageData.push(dataUrl); out.push(dataUrl); }
+    }
+    return out;
+  }
+  function renderDiagPreview() {
+    const el = $('#diagPreview');
+    if (!el) return;
+    el.innerHTML = diagImageData.map((d, i) => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><input type="hidden" class="diag-img" value="${i}">`).join('');
+  }
+  async function runDiagnosis() {
+    const sid = $('#diagStudent').value;
+    const note = $('#diagNote').value.trim();
+    if (diagImageData.length === 0) { toast('请先上传至少一张图片'); return; }
+    const sname = sid ? (state.students.find(x => x.id === sid) || {}).name : '';
+    const prompt = `你是一位资深中小学语文老师。请分析下面这张（这些）学生作业 / 入门测 / 试卷的图片，图片里存在需要指出的问题。
+请严格按以下两部分输出，用标记分隔：
+【诊断】
+- 用 3-6 条分点，指出主要问题（如：错别字、病句、阅读理解答偏、作文跑题、古诗文默写错误、书写潦草等），每条问题要具体、有据（指出错在哪）。
+- 再给出针对性的"怎么做"改进建议（可操作、分点）。
+【给家长的沟通文案】
+- 写一段发给家长的微信文字：语气温和、肯定优点、具体说明进步空间、给出在家配合建议。不要生硬推销，像专业老师日常沟通。
+${sname ? '学员姓名：' + sname + '。' : ''}
+${note ? '补充背景：' + note : ''}`;
+    const btn = $('#diagBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'AI 分析中…'; }
+    try {
+      const text = await callAIVision(prompt, diagImageData);
+      const m = text.split(/【给家长的沟通文案】/);
+      const diag = (m[0] || text).replace(/【诊断】/g, '').trim();
+      const parent = (m[1] || '').trim();
+      $('#diagResult').value = diag;
+      $('#diagParent').value = parent || '(AI 未单独生成家长文案，可复制上方诊断自行发给家长)';
+      toast('诊断完成');
+    } catch (e) {
+      toast('诊断失败：' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'AI 诊断并生成家长文案'; }
+    }
+  }
+  async function saveDiagnosis() {
+    const sid = $('#diagStudent').value;
+    const diag = $('#diagResult').value.trim();
+    const parent = $('#diagParent').value.trim();
+    if (!sid) { toast('未关联学员，无法存入档案（可在上方选择学员）'); return; }
+    if (!diag && !parent) { toast('没有可保存的内容'); return; }
+    const s = state.students.find(x => x.id === sid);
+    if (!s) { toast('学员不存在'); return; }
+    s.diagnoses = s.diagnoses || [];
+    s.diagnoses.push({ date: todayStr(), diag, parent, img: diagImageData[0] || '', ts: Date.now() });
+    await dbPut('students', s);
+    saveStudentSilent(s);
+    toast('已存入' + (s.name || '学员') + '的专属档案');
   }
 
   // 导入学员（Excel/CSV）
@@ -6128,6 +6562,9 @@ ${source}`;
     editClassFeedback: editClassFeedbackModal, delClassFeedback,
     editAccountingModal: window.editAccountingModal,
     editLedgerClassModal: window.editLedgerClassModal,
+    openAttendance: window.openAttendance,
+    openAIGrade: window.openAIGrade,
+    openRenewAssistant: window.openRenewAssistant,
     openLedgerStudentModal: window.openLedgerStudentModal,
     generateLedgerImage: window.generateLedgerImage,
     openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt,
@@ -6145,7 +6582,7 @@ ${source}`;
 
   // 启动
   // v3.2.1: 检测 JS 版本，如果 IndexedDB 中存的版本与当前脚本版本不一致则提示强制刷新
-  const CURRENT_JS_VER = '44';
+  const CURRENT_JS_VER = '45';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

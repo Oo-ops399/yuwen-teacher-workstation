@@ -822,6 +822,20 @@ label input, label select, label textarea { margin-top: 4px; }
   margin-left: 6px;
 }
 .tag-type.summer { background: var(--bg); color: var(--text-muted); }
+.tag-warn { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #fef2f2; color: var(--danger, #e11d48); margin-left: 6px; font-weight: 600; }
+
+/* v3.7: 今日待上课横幅 + 签到 */
+.today-banner { background: linear-gradient(135deg, #fff7ed, #fef2f2); border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.today-banner.empty { background: var(--bg); border-color: var(--border); color: var(--text-muted); font-size: 13px; }
+.today-title { font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 8px; }
+.today-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px dashed #fde2c4; font-size: 13px; }
+.today-item:first-of-type { border-top: none; }
+.att-roster { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
+.att-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--border-light); }
+.att-row > span { font-size: 14px; }
+.att-btns { display: flex; gap: 6px; }
+.att-st.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-sm { padding: 4px 10px !important; font-size: 12px; }
 
 /* v3.5 周课表 */
 .sched-class { background: var(--bg); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }

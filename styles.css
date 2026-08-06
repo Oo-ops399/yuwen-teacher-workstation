@@ -1790,6 +1790,9 @@ label input, label select, label textarea { margin-top: 4px; }
 .row-imgcell { display: inline-flex; align-items: center; gap: 4px; }
 .row-imgbtn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
 .row-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+/* v3.6: 图片移除按钮（修复重新编辑/生成时旧图残留） */
+.row-imgdel, .ls-imgdel { padding: 2px 6px !important; font-size: 12px; line-height: 1; color: var(--danger, #e11d48); border-color: var(--danger, #e11d48); }
+.row-imgdel:hover, .ls-imgdel:hover { background: var(--danger, #e11d48); color: #fff; }
 
 @media (max-width: 768px) {
   .ledger-class-header { flex-direction: column; align-items: flex-start; }

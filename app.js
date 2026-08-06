@@ -941,6 +941,18 @@
     const classFeedbackClassFilter = $('#classFeedbackClassFilter');
     if (classFeedbackClassFilter) classFeedbackClassFilter.onchange = renderClassFeedbackList;
 
+    // 按模板智能生成课堂反馈
+    const genClassFbBtn = $('#genClassFbBtn');
+    if (genClassFbBtn) genClassFbBtn.onclick = generateClassFeedbackFromTemplate;
+    const genClassFbSave = $('#genClassFbSave');
+    if (genClassFbSave) genClassFbSave.onclick = saveClassFeedbackFromTemplate;
+    const genClassFbCopy = $('#genClassFbCopy');
+    if (genClassFbCopy) genClassFbCopy.onclick = () => {
+      const r = $('#genClassFbResult');
+      if (r && r.value) { copyText(r.value); }
+      else { toast('生成结果为空'); }
+    };
+
     // 导入学员
     const importStudentsBtn = $('#importStudentsBtn');
     if (importStudentsBtn) importStudentsBtn.onclick = () => $('#importStudentsInput').click();
@@ -1899,6 +1911,7 @@
       <button type="button" class="btn-ghost row-imgbtn" title="添加图片">📷</button>
       <input type="file" class="row-file" accept="image/*" hidden>
       <img class="row-thumb" src="${img || ''}" ${img ? '' : 'style="display:none"'}>
+      <button type="button" class="btn-ghost row-imgdel" title="移除图片" ${img ? '' : 'style="display:none"'}>✕</button>
     </span>`;
   }
   function bindRowImages() {
@@ -1914,11 +1927,13 @@
         const cell = file.closest('.row-imgcell');
         const hidden = cell.querySelector('.row-img');
         const thumb = cell.querySelector('.row-thumb');
+        const del = cell.querySelector('.row-imgdel');
         const reader = new FileReader();
         reader.onload = () => {
           hidden.value = reader.result;
           thumb.src = reader.result;
           thumb.style.display = '';
+          if (del) del.style.display = '';
           const s = state.students.find(x => x.id === currentStudentId);
           if (!s) return;
           const tr = file.closest('tr');
@@ -1931,6 +1946,73 @@
         reader.readAsDataURL(f);
       };
     });
+    // v3.6: 移除图片（修复重新编辑/生成条目时旧图残留）
+    $$('.row-imgdel').forEach(del => {
+      del.onclick = () => {
+        const cell = del.closest('.row-imgcell');
+        const hidden = cell.querySelector('.row-img');
+        const thumb = cell.querySelector('.row-thumb');
+        const file = cell.querySelector('.row-file');
+        if (file) file.value = '';
+        hidden.value = '';
+        thumb.src = '';
+        thumb.style.display = 'none';
+        del.style.display = 'none';
+        const s = state.students.find(x => x.id === currentStudentId);
+        if (!s) return;
+        const tr = cell.closest('tr');
+        let arr, i;
+        if (tr.dataset.etIdx != null) { arr = s.entryTests; i = +tr.dataset.etIdx; }
+        else if (tr.dataset.hwIdx != null) { arr = s.homework; i = +tr.dataset.hwIdx; }
+        else if (tr.dataset.idx != null) { arr = s.scores; i = +tr.dataset.idx; }
+        if (arr && arr[i]) { arr[i].img = ''; saveStudentSilent(s); }
+        toast('已移除图片');
+      };
+    });
+  }
+
+  // v3.6: 行 HTML 辅助函数（初始渲染与就地追加共用，去掉分条序号后缀）
+  function scoreRowHtml(sc, i) {
+    return `<tr data-idx="${i}">
+      <td>
+        <select data-score-field="type">
+          <option ${sc.type==='月考'?'selected':''}>月考</option>
+          <option ${sc.type==='期中'?'selected':''}>期中</option>
+          <option ${sc.type==='期末'?'selected':''}>期末</option>
+          <option ${sc.type==='单元测'?'selected':''}>单元测</option>
+        </select>
+      </td>
+      <td><input type="date" data-score-field="date" value="${sc.date||''}"></td>
+      <td><input type="number" data-score-field="score" value="${sc.score||0}"></td>
+      <td>${rowImgCell(sc.img, 'sc', i)}</td>
+      <td><button class="btn-ghost" onclick="window.__app.delScore(${i})">删除</button></td>
+    </tr>`;
+  }
+  function entryTestRowHtml(et, i) {
+    return `<tr data-et-idx="${i}">
+      <td><input type="date" data-et-field="date" value="${et.date||''}"></td>
+      <td><input type="text" data-et-field="subject" value="${escapeHtml(et.subject||'')}" placeholder="例：字词基础"></td>
+      <td><input type="number" data-et-field="score" value="${et.score||0}"></td>
+      <td><input type="text" data-et-field="note" value="${escapeHtml(et.note||'')}" placeholder="备注"></td>
+      <td>${rowImgCell(et.img, 'et', i)}</td>
+      <td><button class="btn-ghost" onclick="window.__app.delEntryTest(${i})">删除</button></td>
+    </tr>`;
+  }
+  function homeworkRowHtml(hw, i) {
+    return `<tr data-hw-idx="${i}">
+      <td><input type="date" data-hw-field="date" value="${hw.date||''}"></td>
+      <td><input type="text" data-hw-field="content" value="${escapeHtml(hw.content||'')}" placeholder="例：抄写生字"></td>
+      <td>
+        <select data-hw-field="status">
+          <option ${hw.status==='已完成'?'selected':''}>已完成</option>
+          <option ${hw.status==='未完成'?'selected':''}>未完成</option>
+          <option ${hw.status==='部分完成'?'selected':''}>部分完成</option>
+        </select>
+      </td>
+      <td><input type="text" data-hw-field="comment" value="${escapeHtml(hw.comment||'')}" placeholder="评价"></td>
+      <td>${rowImgCell(hw.img, 'hw', i)}</td>
+      <td><button class="btn-ghost" onclick="window.__app.delHomework(${i})">删除</button></td>
+    </tr>`;
   }
 
   function renderStudentDetail() {
@@ -1972,22 +2054,7 @@
               <tr><th>类型</th><th>日期</th><th>分数</th><th>图片</th><th>操作</th></tr>
             </thead>
             <tbody id="scoreBody">
-              ${(s.scores||[]).map((sc, i) => `
-                <tr data-idx="${i}">
-                  <td>
-                    <select data-score-field="type">
-                      <option ${sc.type==='月考'?'selected':''}>月考</option>
-                      <option ${sc.type==='期中'?'selected':''}>期中</option>
-                      <option ${sc.type==='期末'?'selected':''}>期末</option>
-                      <option ${sc.type==='单元测'?'selected':''}>单元测</option>
-                    </select>
-                  </td>
-                  <td><input type="date" data-score-field="date" value="${sc.date||''}"></td>
-                  <td><input type="number" data-score-field="score" value="${sc.score||0}"></td>
-                  <td>${rowImgCell(sc.img, 'sc', i)}</td>
-                  <td><button class="btn-ghost" onclick="window.__app.delScore(${i})">删除</button></td>
-                </tr>
-              `).join('')}
+              ${(s.scores||[]).map((sc, i) => scoreRowHtml(sc, i)).join('')}
             </tbody>
           </table>
         </div>
@@ -2004,16 +2071,7 @@
               <tr><th>日期</th><th>科目/内容</th><th>得分</th><th>备注</th><th>操作</th></tr>
             </thead>
             <tbody id="entryTestBody">
-              ${(s.entryTests||[]).map((et, i) => `
-                <tr data-et-idx="${i}">
-                  <td><input type="date" data-et-field="date" value="${et.date||''}"></td>
-                  <td><input type="text" data-et-field="subject" value="${escapeHtml(et.subject||'')}" placeholder="例：字词基础"></td>
-                  <td><input type="number" data-et-field="score" value="${et.score||0}"></td>
-                  <td><input type="text" data-et-field="note" value="${escapeHtml(et.note||'')}" placeholder="备注"></td>
-                  <td>${rowImgCell(et.img, 'et', i)}</td>
-                  <td><button class="btn-ghost" onclick="window.__app.delEntryTest(${i})">删除</button></td>
-                </tr>
-              `).join('')}
+              ${(s.entryTests||[]).map((et, i) => entryTestRowHtml(et, i)).join('')}
             </tbody>
           </table>
         </div>
@@ -2030,22 +2088,7 @@
               <tr><th>日期</th><th>作业内容</th><th>完成度</th><th>评价</th><th>操作</th></tr>
             </thead>
             <tbody id="homeworkBody">
-              ${(s.homework||[]).map((hw, i) => `
-                <tr data-hw-idx="${i}">
-                  <td><input type="date" data-hw-field="date" value="${hw.date||''}"></td>
-                  <td><input type="text" data-hw-field="content" value="${escapeHtml(hw.content||'')}" placeholder="例：抄写生字"></td>
-                  <td>
-                    <select data-hw-field="status">
-                      <option ${hw.status==='已完成'?'selected':''}>已完成</option>
-                      <option ${hw.status==='未完成'?'selected':''}>未完成</option>
-                      <option ${hw.status==='部分完成'?'selected':''}>部分完成</option>
-                    </select>
-                  </td>
-                  <td><input type="text" data-hw-field="comment" value="${escapeHtml(hw.comment||'')}" placeholder="评价"></td>
-                  <td>${rowImgCell(hw.img, 'hw', i)}</td>
-                  <td><button class="btn-ghost" onclick="window.__app.delHomework(${i})">删除</button></td>
-                </tr>
-              `).join('')}
+              ${(s.homework||[]).map((hw, i) => homeworkRowHtml(hw, i)).join('')}
             </tbody>
           </table>
         </div>
@@ -2109,9 +2152,18 @@
 
   window.addScore = function () {
     const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
     s.scores = s.scores || [];
     s.scores.push({ type: '月考', date: todayStr(), score: 0, img: '' });
-    renderStudentDetail();
+    saveStudentSilent(s);
+    const body = $('#scoreBody');
+    if (!body) { renderStudentDetail(); return; }
+    const i = s.scores.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = scoreRowHtml(s.scores[i], i);
+    body.appendChild(tr);
+    bindRowImages();
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   window.delScore = function (idx) {
     const s = state.students.find(x => x.id === currentStudentId);
@@ -2136,10 +2188,18 @@
   // v3.3: 入门测逐次追加
   function addEntryTest() {
     const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
     s.entryTests = s.entryTests || [];
     s.entryTests.push({ date: todayStr(), subject: '', score: 0, note: '', img: '' });
     saveStudentSilent(s);
-    renderStudentDetail();
+    const body = $('#entryTestBody');
+    if (!body) { renderStudentDetail(); return; }
+    const i = s.entryTests.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = entryTestRowHtml(s.entryTests[i], i);
+    body.appendChild(tr);
+    bindRowImages();
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function delEntryTest(idx) {
     const s = state.students.find(x => x.id === currentStudentId);
@@ -2164,10 +2224,18 @@
   // v3.3: 作业逐次追加
   function addHomework() {
     const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
     s.homework = s.homework || [];
     s.homework.push({ date: todayStr(), content: '', status: '已完成', comment: '', img: '' });
     saveStudentSilent(s);
-    renderStudentDetail();
+    const body = $('#homeworkBody');
+    if (!body) { renderStudentDetail(); return; }
+    const i = s.homework.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = homeworkRowHtml(s.homework[i], i);
+    body.appendChild(tr);
+    bindRowImages();
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function delHomework(idx) {
     const s = state.students.find(x => x.id === currentStudentId);
@@ -4332,6 +4400,14 @@ ${source}`;
     // 填充班级下拉
     const sel3 = $('#classFeedbackClassFilter');
     if (sel3) sel3.innerHTML = '<option value="">全部班级</option>' + state.classes.map(c => `<option value="${c.id}">${escapeHtml(c.name||'')}</option>`).join('');
+    const sel4 = $('#genClassFbClass');
+    if (sel4) {
+      const cur = sel4.value;
+      sel4.innerHTML = '<option value="">选择班级…</option>' + state.classes.map(c => `<option value="${c.id}">${escapeHtml(c.name||'')}</option>`).join('');
+      if (cur) sel4.value = cur;
+    }
+    const gcfDate = $('#genClassFbDate');
+    if (gcfDate && !gcfDate.value) gcfDate.value = todayStr();
   }
 
   function renderFeedbackList() {
@@ -4508,6 +4584,75 @@ ${source}`;
     renderFeedbackList();
     $('#genFeedbackResult').value = '';
     toast('反馈已保存到该学员档案');
+  }
+
+  // v3.6: 按模板智能生成课堂反馈
+  function genClassFbBetween(text, startKey, endKey) {
+    const si = text.indexOf(startKey);
+    if (si < 0) return null;
+    let start = text.indexOf('\n', si) + 1;
+    let end = text.length;
+    if (endKey) {
+      const ei = text.indexOf(endKey, si + 1);
+      if (ei >= 0) {
+        const before = text.lastIndexOf('\n', ei);
+        end = before >= start ? before : ei;
+      }
+    }
+    return text.slice(start, end).trim();
+  }
+  function generateClassFeedbackFromTemplate() {
+    const cid = $('#genClassFbClass').value;
+    const date = $('#genClassFbDate').value || todayStr();
+    if (!cid) { toast('请先选择班级'); return; }
+    const cls = state.classes.find(c => c.id === cid);
+    const cname = cls ? cls.name : '';
+    let content = $('#genClassFbContent').value.trim();
+    let perf = $('#genClassFbPerf').value.trim();
+    let hw = $('#genClassFbHw').value.trim();
+    // 引用素材库常用表述（智能补充「学生表现」）
+    const useMat = $('#genClassFbUseMat') && $('#genClassFbUseMat').checked;
+    const materials = state.feedbackMaterials.map(m => m.text);
+    if (useMat && materials.length) {
+      const pick = materials.slice(0, 3).join('；') + '。';
+      perf = perf ? (perf + '\n' + pick) : pick;
+    }
+    let tpl = $('#genClassFbTemplate').value;
+    if (!tpl) tpl = '【{班级} · {日期} 课堂反馈】\n📖 本节课内容：\n{内容}\n👥 学生整体表现：\n{表现}\n📝 家庭作业：\n{作业}';
+    const matText = materials.join('；') || '（暂无素材）';
+    const result = tpl
+      .replace(/\{班级\}/g, cname)
+      .replace(/\{日期\}/g, date)
+      .replace(/\{内容\}/g, content || '（待补充）')
+      .replace(/\{表现\}/g, perf || '（待补充）')
+      .replace(/\{作业\}/g, hw || '（待补充）')
+      .replace(/\{素材\}/g, matText);
+    $('#genClassFbResult').value = result;
+    toast('已按模板生成，可编辑后保存');
+  }
+  async function saveClassFeedbackFromTemplate() {
+    const cid = $('#genClassFbClass').value;
+    const date = $('#genClassFbDate').value || todayStr();
+    const result = $('#genClassFbResult').value.trim();
+    if (!cid) { toast('请先选择班级'); return; }
+    if (!result) { toast('请先生成课堂反馈'); return; }
+    // 从生成结果按板块拆分（兼容自定义模板，缺失板块则整体存入内容）
+    const hasBlock = result.includes('本节课内容') && result.includes('学生整体表现') && result.includes('家庭作业');
+    let content = '', performance = '', homework = '';
+    if (hasBlock) {
+      content = genClassFbBetween(result, '本节课内容', '学生整体表现') || '';
+      performance = genClassFbBetween(result, '学生整体表现', '家庭作业') || '';
+      homework = genClassFbBetween(result, '家庭作业', null) || '';
+    } else {
+      content = result;
+    }
+    const item = { id: uid(), classId: cid, date, content, performance, homework, ts: Date.now() };
+    state.classFeedbacks.push(item);
+    await dbPut('classFeedbacks', item);
+    saveLocalCache();
+    renderClassFeedbackList();
+    $('#genClassFbResult').value = '';
+    toast('课堂反馈已保存到「课堂整体反馈」');
   }
 
   // 导入学员（Excel/CSV）
@@ -5420,6 +5565,7 @@ ${source}`;
       <button type="button" class="btn-ghost ls-imgbtn" title="添加图片">📷</button>
       <input type="file" class="ls-file" accept="image/*" hidden>
       <img class="ls-thumb" src="${img || ''}" ${img ? '' : 'style="display:none"'}>
+      <button type="button" class="btn-ghost ls-imgdel" title="移除图片" ${img ? '' : 'style="display:none"'}>✕</button>
     </span>`;
   }
   function bindLsRowImg(row) {
@@ -5427,13 +5573,28 @@ ${source}`;
     const file = row.querySelector('.ls-file');
     const hidden = row.querySelector('.ls-img');
     const thumb = row.querySelector('.ls-thumb');
+    const imgdel = row.querySelector('.ls-imgdel');
     if (btn && file) btn.onclick = () => file.click();
     if (file) file.onchange = e => {
       const f = e.target.files[0];
       if (!f) return;
       const reader = new FileReader();
-      reader.onload = () => { hidden.value = reader.result; thumb.src = reader.result; thumb.style.display = ''; };
+      reader.onload = () => {
+        hidden.value = reader.result;
+        thumb.src = reader.result;
+        thumb.style.display = '';
+        if (imgdel) imgdel.style.display = '';
+      };
       reader.readAsDataURL(f);
+    };
+    // v3.6: 移除图片（修复重新编辑/生成条目时旧图残留）
+    if (imgdel) imgdel.onclick = () => {
+      if (file) file.value = '';
+      hidden.value = '';
+      thumb.src = '';
+      thumb.style.display = 'none';
+      imgdel.style.display = 'none';
+      toast('已移除图片');
     };
     const del = row.querySelector('.ls-del');
     if (del) del.onclick = () => row.remove();
@@ -5772,9 +5933,9 @@ ${source}`;
       normalizeLedger(s);
       const et = s.entryTests || [], hw = s.homeworks || [], sc = s.scores || [];
       const imgs = [];
-      et.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `入门测${i + 1}` }); });
-      hw.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `作业${i + 1}` }); });
-      sc.forEach((r, i) => { if (r.img) imgs.push({ src: r.img, label: `积分${i + 1}` }); });
+      et.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `入门测` }); });
+      hw.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `作业` }); });
+      sc.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `积分` }); });
       const loaded = [];
       for (const m of imgs) {
         const img = await loadImg(m.src);
@@ -5973,6 +6134,7 @@ ${source}`;
     downloadPrepFile, deletePrepFile,
     addEntryTest, delEntryTest, saveEntryTests,
     addHomework, delHomework, saveHomework,
+    generateClassFeedbackFromTemplate, saveClassFeedbackFromTemplate,
     generateExercises, exportStudentXLSX,
     addLessonModal: window.addLessonModal, editLessonModal: window.editLessonModal,
     suspendLesson: window.suspendLesson, adjustLesson: window.adjustLesson,

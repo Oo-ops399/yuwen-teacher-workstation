@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📚</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -375,6 +376,56 @@
           <button class="btn-primary" id="addFeedbackMaterialBtn">添加素材</button>
         </div>
         <ul class="record-list" id="feedbackMaterialList"></ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>按模板智能生成课堂反馈</h2>
+        <span style="font-size:12px;color:var(--text-muted)">套用你给的模板，一键生成课堂整体反馈</span>
+      </div>
+      <div class="feedback-gen-area">
+        <div class="feedback-gen-left">
+          <label>选择班级
+            <select id="genClassFbClass">
+              <option value="">选择班级…</option>
+            </select>
+          </label>
+          <label>上课日期
+            <input type="date" id="genClassFbDate">
+          </label>
+          <label>本节课内容
+            <textarea id="genClassFbContent" rows="3" placeholder="如：六年级第三单元古诗三首——望岳、登飞来峰…"></textarea>
+          </label>
+          <label>学生整体表现
+            <textarea id="genClassFbPerf" rows="3" placeholder="如：大部分同学积极发言，张小明进步明显…"></textarea>
+          </label>
+          <label>家庭作业
+            <textarea id="genClassFbHw" rows="2" placeholder="如：1. 背诵望岳 2. 完成练习册P45…"></textarea>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-soft);margin:4px 0 12px">
+            <input type="checkbox" id="genClassFbUseMat" checked> 引用素材库常用表述补充「学生表现」
+          </label>
+          <button class="btn-primary" id="genClassFbBtn" style="width:100%">智能生成课堂反馈</button>
+        </div>
+        <div class="feedback-gen-right">
+          <label>课堂反馈模板（占位符：{班级} {日期} {内容} {表现} {作业} {素材}）
+            <textarea id="genClassFbTemplate" rows="9">【{班级} · {日期} 课堂反馈】
+📖 本节课内容：
+{内容}
+👥 学生整体表现：
+{表现}
+📝 家庭作业：
+{作业}</textarea>
+          </label>
+          <label>生成结果
+            <textarea id="genClassFbResult" rows="8" placeholder="点击「智能生成课堂反馈」，系统将套用上方模板与内容生成课堂反馈，可编辑后保存…"></textarea>
+          </label>
+          <div style="display:flex;gap:8px">
+            <button class="btn-ghost" id="genClassFbCopy">复制</button>
+            <button class="btn-primary" id="genClassFbSave">保存为课堂反馈</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>

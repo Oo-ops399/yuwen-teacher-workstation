@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
 <title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=46">
 </head>
 <body>
 
@@ -28,25 +28,43 @@
     <button class="collapse-btn" id="collapseBtn" title="收起/展开">‹</button>
   </div>
   <nav class="nav-list">
-    <a class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span class="nav-label">工作台首页</span></a>
-    <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
-    <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
-    <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
-    <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
-    <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
-    <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
-    <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
-    <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
-    <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
-    <a class="nav-item" data-page="exercise"><span class="nav-icon">✎</span><span class="nav-label">练习生成器</span></a>
-    <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
-    <a class="nav-item" data-page="life"><span class="nav-icon">○</span><span class="nav-label">生活助手</span></a>
-    <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
-    <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
-    <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
+    <div class="nav-group">
+      <div class="nav-group-title">总览</div>
+      <a class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span class="nav-label">工作台首页</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">教学备课</div>
+      <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
+      <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
+      <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
+      <a class="nav-item" data-page="exercise"><span class="nav-icon">✎</span><span class="nav-label">练习生成器</span></a>
+      <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">学员学情</div>
+      <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
+      <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
+      <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">沟通运营</div>
+      <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
+      <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">工具</div>
+      <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
+      <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
+      <a class="nav-item" data-page="life"><span class="nav-icon">○</span><span class="nav-label">生活助手</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">系统</div>
+      <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
+      <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
+    </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.5 · 语文教师版</span>
+    <span class="version">v3.7.1 · 语文教师版</span>
   </div>
 </aside>
 
@@ -1084,6 +1102,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=44"></script>
+<script src="./app.js?v=46"></script>
 </body>
 </html>

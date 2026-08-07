@@ -12,7 +12,25 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="51">
+<meta name="app-version" content="52">
+<script>
+  // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
+  // 避免出现「页面能打开但点什么都没反应」的静默假死
+  (function () {
+    var shown = false;
+    window.addEventListener('error', function (ev) {
+      if (shown) return; shown = true;
+      try {
+        var bar = document.createElement('div');
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#e11d48;color:#fff;padding:10px 14px;font:13px/1.5 system-ui,-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+        bar.textContent = '⚠️ 脚本加载出错，部分功能可能无法点击：' + (ev.message || '未知错误') +
+          (ev.filename ? ' （' + String(ev.filename).split('/').pop() + ':' + ev.lineno + '）' : '') +
+          ' — 请先「强制刷新」（Ctrl/Cmd+Shift+R），仍不行请把这行字截图反馈。';
+        (document.body || document.documentElement).appendChild(bar);
+      } catch (e) {}
+    });
+  })();
+</script>
 <script>
   // 版本自检：比对 version.txt，版本不符则清缓存并强刷。带会话次数锁（最多 3 次），杜绝无限闪屏
   (function () {
@@ -54,7 +72,7 @@
   })();
 </script>
 <title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css?v=51">
+<link rel="stylesheet" href="./styles.css?v=52">
 </head>
 <body>
 
@@ -109,7 +127,7 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.7.7 · 语文教师版</span>
+    <span class="version">v3.7.8 · 语文教师版</span>
   </div>
 </aside>
 
@@ -1322,6 +1340,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=51"></script>
+<script src="./app.js?v=52"></script>
 </body>
 </html>

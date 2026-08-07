@@ -6,6 +6,11 @@
 (function () {
   'use strict';
 
+  // v3.7.8 修复：__app 命名空间必须在最前面创建。
+  // 否则文件中途出现的 window.__app.xxx = ... 会抛 TypeError，
+  // 导致整个 app.js 初始化中断（表现为所有标签/按钮点击无反应）。
+  window.__app = window.__app || {};
+
   // ================= 工具函数 =================
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -7042,7 +7047,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('已删除');
   };
 
-  window.__app = {
+  // v3.7.8：用 Object.assign 合并，保留前面已挂载的方法（delPgAgImg / delDiagImg 等）
+  Object.assign(window.__app, {
     editClassModal: window.editClassModal, editStudentModal: window.editStudentModal,
     editCommModal: window.editCommModal, editTemplateModal: window.editTemplateModal,
     editCallbackModal: window.editCallbackModal,
@@ -7075,11 +7081,11 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     removeOverride: window.removeOverride, openCourseware: window.openCourseware,
     checkMindmap: window.checkMindmap, saveMindmapToLibrary: window.saveMindmapToLibrary,
     quickAddTodo: window.quickAddTodo
-  };
+  });
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '51';
+  const CURRENT_JS_VER = '52';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

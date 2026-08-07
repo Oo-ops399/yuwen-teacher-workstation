@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="49">
+<meta name="app-version" content="51">
 <script>
   // 版本自检：比对 version.txt，版本不符则清缓存并强刷。带会话次数锁（最多 3 次），杜绝无限闪屏
   (function () {
@@ -54,7 +54,7 @@
   })();
 </script>
 <title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css?v=49">
+<link rel="stylesheet" href="./styles.css?v=51">
 </head>
 <body>
 
@@ -94,6 +94,7 @@
       <div class="nav-group-title">沟通运营</div>
       <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
       <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
+      <a class="nav-item" data-page="renew"><span class="nav-icon">💡</span><span class="nav-label">续费助手</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">工具</div>
@@ -108,7 +109,7 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.7.5 · 语文教师版</span>
+    <span class="version">v3.7.7 · 语文教师版</span>
   </div>
 </aside>
 
@@ -532,12 +533,26 @@
               <option value="">不关联 / 仅生成文案</option>
             </select>
           </label>
+          <label>沟通口吻
+            <select id="diagTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
           <label>上传图片（可多张：作业/入门测/试卷，有问题的那页）
             <input type="file" id="diagImages" accept="image/*" multiple>
           </label>
           <div id="diagPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px"></div>
           <label>补充说明（可选，如：这是周三的作业，张小明基础较弱）
             <textarea id="diagNote" rows="2" placeholder="补充背景，帮助 AI 更准确定位问题"></textarea>
+          </label>
+          <label>家长性格 / 看重方面（选填，帮 AI 打动痛点）
+            <textarea id="diagParentProfile" rows="2" placeholder="如：家长雷厉风行、最看重提分与效率；或：家长容易焦虑、最看重孩子开心自信"></textarea>
           </label>
           <button class="btn-primary" id="diagBtn" style="width:100%">AI 诊断并生成家长文案</button>
         </div>
@@ -551,6 +566,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-ghost" id="diagCopyParent">复制家长文案</button>
             <button class="btn-ghost" id="diagCopyAll">复制全部</button>
+            <button class="btn-ghost" id="diagClear">清空</button>
             <button class="btn-primary" id="diagSave">存入学员档案</button>
           </div>
         </div>
@@ -568,6 +584,17 @@
           <label>选择学员
             <select id="pgAgStudent"><option value="">请选择学员</option></select>
           </label>
+          <label>沟通口吻
+            <select id="pgAgTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
           <label>上传作业图片（可多张，逐题批改）
             <input type="file" id="pgAgImages" accept="image/*" multiple>
           </label>
@@ -584,8 +611,68 @@
             <div id="pgAgProblems"></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn-ghost" id="pgAgClear">清空结果</button>
             <button class="btn-ghost" id="pgAgSave">存入批改记录</button>
             <button class="btn-primary" id="pgAgImport">生成作业情况并导入档案</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="page" id="page-renew" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>💡 续费助手 · 应对不续费理由</h2>
+        <span style="font-size:12px;color:var(--text-muted)">选学员 → 勾选家长不续费的理由 → 生成「对应方案 + 微信话术」，可存进沟通档案</span>
+      </div>
+      <div class="cf-template-area">
+        <div class="feedback-gen-left">
+          <label>选择学员
+            <select id="renewStudent"><option value="">请选择学员</option></select>
+          </label>
+          <label>沟通口吻
+            <select id="renewTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
+          <label>家长不续费的理由（可多选，针对性给方案）
+            <div class="reason-chips" id="renewReasons"></div>
+          </label>
+          <label>家长性格 / 看重方面（选填，帮话术打动痛点）
+            <textarea id="renewProfile" rows="2" placeholder="如：家长精打细算、最看重性价比与提分；或：家长重视习惯养成、怕孩子厌学"></textarea>
+          </label>
+          <label>补充说明（选填）
+            <textarea id="renewNote" rows="2" placeholder="如：该生刚有起色，或家长最近提过想停"></textarea>
+          </label>
+          <button class="btn-primary" id="renewGen" style="width:100%">生成应对方案与话术</button>
+        </div>
+        <div class="feedback-gen-right">
+          <div id="renewBasisWrap" style="display:none;margin-bottom:10px">
+            <div class="renew-basis" id="renewBasis"></div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">快捷话术（点一下插入到结果里）</div>
+            <div class="reason-chips" id="renewQuick">
+              <span class="reason-chip" data-snip="✅ 试听兜底：下阶段前 2 节按试听价，看到效果再决定，零风险。">试听体验</span>
+              <span class="reason-chip" data-snip="💰 老生优惠：续报可享老生价 / 分期付款，降低一次性支出压力。">优惠/分期</span>
+              <span class="reason-chip" data-snip="⏸ 冻结保留：课程可暂停保留名额与优惠，等安顿好再续。">冻结保留</span>
+              <span class="reason-chip" data-snip="🕒 弹性排课：按孩子节奏减量提质、调整时段，不占精力。">弹性排课</span>
+              <span class="reason-chip" data-snip="📊 量化目标：约定 4 周内可见的小目标（如默写全对），给确定性。">量化目标</span>
+            </div>
+          </div>
+          <label>生成结果（逐条方案 + 微信话术，可编辑）
+            <textarea id="renewResult" rows="12" placeholder="点击「生成应对方案与话术」…"></textarea>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" id="renewCopy">复制话术</button>
+            <button class="btn-ghost" id="renewClear">清空</button>
+            <button class="btn-primary" id="renewSave">存入沟通档案</button>
           </div>
         </div>
       </div>
@@ -1235,6 +1322,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=49"></script>
+<script src="./app.js?v=51"></script>
 </body>
 </html>

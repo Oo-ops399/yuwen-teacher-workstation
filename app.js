@@ -425,7 +425,8 @@
       settings: '个性化设置', data: '数据备份', life: '生活助手', feedback: '课后反馈',
       accounting: '个人记账本', ledger: '学情台账',
       prep: '备课助手', exercise: '练习生成器',
-      diag: 'AI 学情诊断', aigrade: 'AI 作业批改', 'feedback-mat': '反馈素材'
+      diag: 'AI 学情诊断', aigrade: 'AI 作业批改', 'feedback-mat': '反馈素材',
+      renew: '续费助手'
     };
     $('#pageTitle').textContent = titles[page] || page;
 
@@ -462,6 +463,7 @@
     }
     if (page === 'diag') populateDiagSelect();
     if (page === 'aigrade') populateAIGradeStudent();
+    if (page === 'renew') renderRenewPage();
     if (page === 'prep') {
       const savedSection = getSetting('prepSection', 'primary');
       $$('.tab[data-ptab]').forEach(t => t.classList.toggle('active', t.dataset.ptab === savedSection));
@@ -984,6 +986,8 @@
     if (diagCopyAll) diagCopyAll.onclick = () => { const v = ($('#diagResult').value + '\n\n' + $('#diagParent').value); if (v.trim()) copyText(v); else toast('内容为空'); };
     const diagSave = $('#diagSave');
     if (diagSave) diagSave.onclick = saveDiagnosis;
+    const diagClear = $('#diagClear');
+    if (diagClear) diagClear.onclick = () => { const r = $('#diagResult'), p = $('#diagParent'); if (r) r.value = ''; if (p) p.value = ''; toast('已清空'); };
 
     // 独立「AI 作业批改」页面
     bindAIGradePage();
@@ -2452,18 +2456,24 @@
       </div>`;
     openModal('🤖 AI 作业批改', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="agRun">开始批改</button><button class="btn-primary" id="agSave" style="display:none">存入档案</button>`);
     const prev = $('#agPreview');
+    const renderAgPreview = () => {
+      if (!prev) return;
+      prev.innerHTML = imgs.map(d => `<span class="img-thumb"><img src="${d}"><button type="button" class="img-del" title="删除">×</button></span>`).join('');
+      prev.querySelectorAll('.img-del').forEach((b, i) => { b.onclick = () => { imgs.splice(i, 1); renderAgPreview(); }; });
+    };
     $('#agImages').onchange = async e => {
       imgs = [];
       for (const f of (e.target.files || [])) { const d = await readFileAsDataURL(f); if (d) imgs.push(d); }
-      if (prev) prev.innerHTML = imgs.map(d => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('');
+      renderAgPreview();
     };
     $('#agRun').onclick = async () => {
       if (!imgs.length) { toast('请先上传作业图片'); return; }
       const note = $('#agNote').value.trim();
+      const tone = $('#agTone') ? $('#agTone').value : '';
       const prompt = `你是语文老师，请批改下面学生的语文作业图片。逐题识别题目与学生作答，判断正误，给出正确答案与简短解析。
 严格只输出 JSON（不要解释、不要代码块标记）：
 {"summary":"整体评价(2-3句)","score":数字,"fullScore":数字,"problems":[{"no":题号,"question":"题目简述","studentAnswer":"学生答案","correct":true或false,"correctAnswer":"正确答案","analysis":"解析"}],"wrong":["错题要点1",...]}
-${note ? '附加要求：' + note : ''}`;
+${note ? '附加要求：' + note : ''}${toneSuffix(tone)}`;
       const run = $('#agRun'); run.disabled = true; run.textContent = '批改中…';
       try {
         const text = await callAIVision(prompt, imgs);
@@ -2502,6 +2512,12 @@ ${note ? '附加要求：' + note : ''}`;
   // v3.7.3: 独立「AI 作业批改」页面（与学员档案内弹窗共用 AI 逻辑，但用独立 ID 避免冲突）
   let pgAgImgs = [];
   let pgGrade = null;
+  window.__app.delPgAgImg = function (i) {
+    if (i < 0 || i >= pgAgImgs.length) return;
+    pgAgImgs.splice(i, 1);
+    const prev = $('#pgAgPreview');
+    if (prev) prev.innerHTML = pgAgImgs.map((d, k) => `<span class="img-thumb"><img src="${d}"><button type="button" class="img-del" title="删除" onclick="window.__app.delPgAgImg(${k})">×</button></span>`).join('');
+  };
   function bindAIGradePage() {
     const imgsEl = $('#pgAgImages');
     if (!imgsEl) return;
@@ -2509,7 +2525,7 @@ ${note ? '附加要求：' + note : ''}`;
       pgAgImgs = [];
       for (const f of (e.target.files || [])) { const d = await readFileAsDataURL(f); if (d) pgAgImgs.push(d); }
       const prev = $('#pgAgPreview');
-      if (prev) prev.innerHTML = pgAgImgs.map(d => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('');
+      if (prev) prev.innerHTML = pgAgImgs.map((d, k) => `<span class="img-thumb"><img src="${d}"><button type="button" class="img-del" title="删除" onclick="window.__app.delPgAgImg(${k})">×</button></span>`).join('');
     };
     const run = $('#pgAgRun');
     if (run) run.onclick = async () => {
@@ -2517,10 +2533,11 @@ ${note ? '附加要求：' + note : ''}`;
       if (!sid) { toast('请先选择学员'); return; }
       if (!pgAgImgs.length) { toast('请先上传作业图片'); return; }
       const note = $('#pgAgNote').value.trim();
+      const tone = $('#pgAgTone') ? $('#pgAgTone').value : '';
       const prompt = `你是语文老师，请批改下面学生的语文作业图片。逐题识别题目与学生作答，判断正误，给出正确答案与简短解析。
 严格只输出 JSON（不要解释、不要代码块标记）：
 {"summary":"整体评价(2-3句)","score":数字,"fullScore":数字,"problems":[{"no":题号,"question":"题目简述","studentAnswer":"学生答案","correct":true或false,"correctAnswer":"正确答案","analysis":"解析"}],"wrong":["错题要点1",...]}
-${note ? '附加要求：' + note : ''}`;
+${note ? '附加要求：' + note : ''}${toneSuffix(tone)}`;
       run.disabled = true; run.textContent = '批改中…';
       try {
         const text = await callAIVision(prompt, pgAgImgs);
@@ -2581,6 +2598,13 @@ ${note ? '附加要求：' + note : ''}`;
         await dbPut('ledgerStudents', ls);
       }
       toast('已生成作业情况并导入「' + (s.name || '学员') + '」档案' + (ls ? '及学情台账' : ''));
+    };
+    const clr = $('#pgAgClear');
+    if (clr) clr.onclick = () => {
+      pgAgImgs = []; pgGrade = null;
+      const prev = $('#pgAgPreview'); if (prev) prev.innerHTML = '';
+      const res = $('#pgAgResult'); if (res) res.style.display = 'none';
+      toast('已清空');
     };
   }
 
@@ -2690,6 +2714,125 @@ ${note ? '附加要求：' + note : ''}`;
 【微信话术】
 ${b.name}家长好！跟您同步下孩子最近的语文情况：${lead}。咱们目前${b.attendance !== '暂无签到记录' ? '到课率' + b.attendance + '，' : ''}学习节奏保持得不错。考虑到${b.weakness}还需要持续强化，建议您给孩子续报「${dir}」阶段的课程，趁现在状态好接着往上推，效果最稳。您方便的话我们细聊下排课~`;
     return plan;
+  }
+
+  // v3.7.6: 独立「续费助手」页面——应对家长不续费理由
+  const RENEW_REASONS = ['价格太贵', '孩子没时间', '感觉效果不明显', '想换机构比较', '家里最近有事', '孩子自己不想学', '距离太远不方便', '暂时想观望', '觉得内容太难/太简单', '其他'];
+  function renderRenewPage() {
+    const sel = $('#renewStudent');
+    if (sel) sel.innerHTML = '<option value="">请选择学员</option>' + (state.students || []).map(s => `<option value="${s.id}">${escapeHtml(s.name || '未命名')}${s.grade ? '（' + escapeHtml(s.grade) + '）' : ''}</option>`).join('');
+    const rc = $('#renewReasons');
+    if (rc) {
+      rc.innerHTML = RENEW_REASONS.map(r => `<span class="reason-chip" data-reason="${r}">${r}</span>`).join('');
+      rc.querySelectorAll('.reason-chip').forEach(ch => ch.onclick = () => ch.classList.toggle('active'));
+    }
+    bindRenewPage();
+  }
+  function bindRenewPage() {
+    const gen = $('#renewGen');
+    if (gen) gen.onclick = generateRenew;
+    const copy = $('#renewCopy');
+    if (copy) copy.onclick = () => { const v = $('#renewResult'); if (v && v.value.trim()) copyText(v.value); else toast('结果为空'); };
+    const clr = $('#renewClear');
+    if (clr) clr.onclick = () => { const v = $('#renewResult'); if (v) v.value = ''; const bw = $('#renewBasisWrap'); if (bw) bw.style.display = 'none'; toast('已清空'); };
+    const save = $('#renewSave');
+    if (save) save.onclick = saveRenewRecord;
+    const quick = $('#renewQuick');
+    if (quick) quick.querySelectorAll('.reason-chip').forEach(ch => ch.onclick = () => {
+      const ta = $('#renewResult');
+      if (!ta) return;
+      const snip = ch.dataset.snip || '';
+      ta.value = (ta.value ? ta.value.replace(/\n+$/, '') + '\n\n' : '') + snip + '\n';
+      ta.focus();
+      toast('已插入：' + (ch.textContent || '话术'));
+    });
+  }
+  async function generateRenew() {
+    const sid = $('#renewStudent') ? $('#renewStudent').value : '';
+    const s = state.students.find(x => x.id === sid);
+    if (!s) { toast('请先选择学员'); return; }
+    const reasons = Array.from($$('#renewReasons .reason-chip.active')).map(c => c.dataset.reason);
+    const profile = $('#renewProfile') ? $('#renewProfile').value.trim() : '';
+    const note = $('#renewNote') ? $('#renewNote').value.trim() : '';
+    const tone = $('#renewTone') ? $('#renewTone').value : '';
+    const basis = buildRenewBasis(s);
+    const bw = $('#renewBasisWrap'), bb = $('#renewBasis');
+    if (bw && bb) {
+      bw.style.display = '';
+      bb.innerHTML = `<div>👤 <b>${escapeHtml(basis.name)}</b> ${escapeHtml(basis.grade)}</div>
+        <div>📈 成绩走势：${escapeHtml(basis.trend)}</div>
+        <div>🎯 薄弱项：${escapeHtml(basis.weakness)}</div>
+        ${basis.tags ? `<div>🏷 标签：${escapeHtml(basis.tags)}</div>` : ''}
+        <div>🚪 到课率：${escapeHtml(basis.attendance)}</div>
+        <div>💬 历史沟通：${basis.comms} 次</div>
+        ${basis.recentFb.length ? `<div>📝 近期反馈：${basis.recentFb.map(escapeHtml).join('；')}</div>` : ''}`;
+    }
+    const reasonsText = reasons.length ? reasons.join('、') : '（未勾选具体理由，按通用续费沟通处理）';
+    const prompt = `你是培训班的语文老师，需要应对学员${basis.name}家长的「不续费」顾虑并促成续费。
+家长不续费的理由（针对每一条都给对应话术）：
+${reasons.length ? reasons.map((r, i) => (i + 1) + '. ' + r).join('\n') : '（未明确，按通用情况）'}
+已有学情依据：
+- 成绩走势：${basis.trend}
+- 薄弱项：${basis.weakness}
+- 标签：${basis.tags || '无'}
+- 到课率：${basis.attendance}
+- 历史沟通：${basis.comms} 次
+- 近期反馈：${basis.recentFb.join('；') || '无'}
+${note ? '补充背景：' + note : ''}${profileSuffix(profile)}${toneSuffix(tone)}
+
+请输出：
+【逐条应对方案】对家长每一条不续费理由，分别给出：① 家长真实顾虑点（一句话点破痛点）② 对应说法 / 话术（具体、可说出口）③ 一个可落地的补救或承诺（如试听、调课、分期）。用「理由：xxx」分段。
+【微信话术】综合上面，写一段发给家长的微信文字：先共情家长顾虑、再针对重点理由给方案、最后自然带出续报建议，语气温和、专业、不硬销，像老师真心为孩子考虑。`;
+    const genBtn = $('#renewGen');
+    if (genBtn) { genBtn.disabled = true; genBtn.textContent = '生成中…'; }
+    try {
+      const text = await callAIText(prompt);
+      const res = $('#renewResult');
+      if (res) res.value = text;
+      toast('已生成');
+    } catch (e) {
+      const res = $('#renewResult');
+      if (res) res.value = localRenewWithReasons(basis, reasons, profile, note, tone);
+      toast('已用本地模板生成（未配置 AI，建议到「个性化设置」填 AI 接口获得更自然话术）');
+    } finally {
+      if (genBtn) { genBtn.disabled = false; genBtn.textContent = '生成应对方案与话术'; }
+    }
+  }
+  function localRenewWithReasons(b, reasons, profile, note, tone) {
+    const counterMap = {
+      '价格太贵': '家长顾虑其实是「值不值」。话术：先肯定家长对性价比的重视，再用学情数据说明投入产出——孩子目前' + b.trend + '，每节课都在涨分，折算到单次课成本并不高；可主动给出分期或老生优惠方案，降低决策门槛。',
+      '孩子没时间': '家长怕占用太多精力。话术：强调我们可以根据孩子节奏「减量提质」，每周保底 1 次、作业精讲，避免无效刷题；把时间花在刀刃上。',
+      '感觉效果不明显': '这是最该正视的。话术：不回避，先拿出具体进步点（' + b.trend + '、到课率' + b.attendance + '），再说明下一阶段会针对' + b.weakness + '做专项突破，并约定一个可量化的小目标（如 4 周内默写全对），让家长看到确定性。',
+      '想换机构比较': '话术：理解家长想多比较，欢迎；同时主动提供一份「孩子当前薄弱项清单 + 我们下一阶段计划」，帮家长做比较时有依据，体现专业与诚意。',
+      '家里最近有事': '话术：先共情，说明课程可以「冻结保留」，等家里安顿好再续，不催；保留当前优惠与名额，降低家长压力。',
+      '孩子自己不想学': '话术：孩子抗拒往往是因为受挫。先肯定孩子的优点，再用更轻松的内容 / 方式重新点燃兴趣；建议先试 2-3 次「兴趣型」课，不急着定长期。',
+      '距离太远不方便': '话术：提供附近点位 / 线上补充课的选项，或调整上课时段减少往返；实在不便可接受暂时转线上。',
+      '暂时想观望': '话术：理解观望，给一个「低门槛体验」——下阶段前 2 节按试听价，看到效果再决定，零风险。',
+      '觉得内容太难/太简单': '话术：说明我们会按孩子水平动态调整难度（太难就降维打基础，太简单就拔高），并展示分层教案，让家长放心。',
+      '其他': '话术：先耐心倾听家长真实想法，复述确认，再针对性回应；保持真诚，不急于成交。'
+    };
+    let out = '【逐条应对方案】\n';
+    if (reasons.length) {
+      reasons.forEach(r => { out += '\n理由：' + r + '\n' + (counterMap[r] || counterMap['其他']) + '\n'; });
+    } else {
+      out += '\n（未勾选具体理由）通用应对：先共情、再凭学情数据说明价值、给出低门槛续报方案。\n';
+    }
+    out += '\n【微信话术】\n' + b.name + '家长好！特别理解您这边' + (reasons.length ? '「' + reasons.join('、') + '」' : '的一些顾虑') + '，其实也是为孩子好。跟您同步下孩子最近情况：' + b.trend + '，到课率' + b.attendance + '，咱们一直盯着' + b.weakness + '在补。结合您关心的点，我想跟您细聊下怎么安排更合适（比如' + (reasons.length ? reasons[0] + '这块' : '课时和节奏') + '我们可以灵活调整）。您看这周末方便通个话？';
+    return out;
+  }
+  async function saveRenewRecord() {
+    const sid = $('#renewStudent') ? $('#renewStudent').value : '';
+    const s = state.students.find(x => x.id === sid);
+    if (!s) { toast('请先选择学员'); return; }
+    const text = $('#renewResult') ? $('#renewResult').value.trim() : '';
+    if (!text) { toast('没有可保存的内容'); return; }
+    const data = { id: uid(), studentId: s.id, studentName: s.name, type: '续费沟通', content: text, ts: Date.now() };
+    await dbPut('communications', data);
+    state.communications.push(data);
+    saveLocalCache();
+    if (currentStudentId && state.students.find(x => x.id === currentStudentId)) renderStudentComm(state.students.find(x => x.id === currentStudentId));
+    else if (typeof renderCommunicate === 'function') { try { renderCommunicate(); } catch (e) {} }
+    toast('已存入' + (s.name || '学员') + '的沟通档案');
   }
 
   function renderScoreChart(s) {
@@ -3004,12 +3147,51 @@ ${b.name}家长好！跟您同步下孩子最近的语文情况：${lead}。咱�
           <option>电话</option><option>微信</option><option>面谈</option><option>其他</option>
         </select>
       </label>
-      <label>沟通内容 <textarea id="cm_content" rows="4" placeholder="本次沟通要点…"></textarea></label>
+      <label>沟通口吻
+        <select id="cm_tone">
+          <option value="">默认（温和专业）</option>
+          <option value="专业严谨">专业严谨</option>
+          <option value="温和亲切">温和亲切</option>
+          <option value="鼓励肯定">鼓励肯定</option>
+          <option value="简洁直接">简洁直接</option>
+          <option value="幽默轻松">幽默轻松</option>
+          <option value="正式客气">正式客气</option>
+        </select>
+      </label>
+      <label>家长性格 / 看重方面（选填，帮 AI 打动痛点）
+        <textarea id="cm_profile" rows="2" placeholder="如：家长精打细算、最看重性价比与提分；或：家长重视习惯养成、怕孩子厌学"></textarea>
+      </label>
+      <label>沟通内容
+        <textarea id="cm_content" rows="5" placeholder="可点「AI 帮写话术」自动生成，或手动填写…"></textarea>
+      </label>
     `;
     openModal('记录沟通', body, `
       <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
+      <button class="btn-ghost" id="cm_ai">AI 帮写话术</button>
       <button class="btn-primary" id="cm_save">保存</button>
     `);
+    const aiBtn = $('#cm_ai');
+    if (aiBtn) aiBtn.onclick = async () => {
+      const sidv = $('#cm_student').value;
+      const s = state.students.find(x => x.id === sidv);
+      if (!s) { toast('请先选择学员'); return; }
+      const profile = $('#cm_profile').value.trim();
+      const tone = $('#cm_tone').value;
+      const basis = buildRenewBasis(s);
+      const prompt = `你是培训班语文老师，要给学员${basis.name}的家长写一段微信沟通文字。
+已知学情：${basis.trend}；薄弱项：${basis.weakness}；到课率：${basis.attendance}；标签：${basis.tags || '无'}。
+${profile ? '家长画像/前提：' + profile + '\n请结合这位家长的性格与最看重的方面来组织话术，真正打动其痛点。' : ''}${toneSuffix(tone)}
+要求：语气像专业老师日常沟通，先肯定孩子优点、再具体说明情况、最后给家长可配合的建议；一段话，可直接发微信，不要标题、不要括号说明。`;
+      aiBtn.disabled = true; aiBtn.textContent = '生成中…';
+      try {
+        const text = await callAIText(prompt);
+        const c = $('#cm_content'); if (c) c.value = text;
+        toast('已生成话术');
+      } catch (e) {
+        const c = $('#cm_content'); if (c) c.value = localCommScript(basis, profile, tone);
+        toast('已用本地模板生成（未配置 AI 时可用）');
+      } finally { aiBtn.disabled = false; aiBtn.textContent = 'AI 帮写话术'; }
+    };
     $('#cm_save').onclick = async () => {
       const data = {
         id: uid(),
@@ -3031,6 +3213,10 @@ ${b.name}家长好！跟您同步下孩子最近的语文情况：${lead}。咱�
       toast('已记录');
     };
   };
+  function localCommScript(b, profile, tone) {
+    const toneTip = (tone && TONE_MAP[tone]) ? '（' + TONE_MAP[tone] + '）' : '';
+    return `${b.name}家长好！${toneTip}跟您同步下孩子最近的语文情况：${b.trend}，到课率${b.attendance}，咱们一直盯着${b.weakness}在补。孩子这段时间的状态整体是往上走的，也有些小进步值得肯定。在家您可以多鼓励孩子开口朗读、每天坚持 15 分钟阅读，配合咱们的节奏效果会更稳。您方便的话我们细聊下孩子接下来的安排~`;
+  }
 
   window.editTemplateModal = function (id) {
     const t = id ? state.templates.find(x => x.id === id) : {};
@@ -5244,6 +5430,21 @@ ${source}`;
 
   // v3.7: AI 学情诊断 · 一键发家长
   let diagImageData = [];
+  const TONE_MAP = {
+    '专业严谨': '语气温和专业严谨，用词准确、有依据，不客套',
+    '温和亲切': '语气温和亲切，像日常跟家长拉家常',
+    '鼓励肯定': '语气以鼓励、肯定为主，多表扬孩子亮点',
+    '简洁直接': '语气简洁直接，不绕弯子，重点突出',
+    '幽默轻松': '语气轻松幽默一点，但不轻浮',
+    '正式客气': '语气正式客气，尊称家长'
+  };
+  function toneSuffix(tone) {
+    return (tone && TONE_MAP[tone]) ? '\n【口吻要求】' + TONE_MAP[tone] + '。' : '';
+  }
+  function profileSuffix(text) {
+    const t = (text || '').trim();
+    return t ? '\n【家长画像/前提】' + t + '\n请结合这位家长的性格与最看重的方面来组织话术，真正打动其痛点。' : '';
+  }
   async function diagReadImages(files) {
     diagImageData = [];
     const out = [];
@@ -5261,11 +5462,19 @@ ${source}`;
   function renderDiagPreview() {
     const el = $('#diagPreview');
     if (!el) return;
-    el.innerHTML = diagImageData.map((d, i) => `<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><input type="hidden" class="diag-img" value="${i}">`).join('');
+    if (!diagImageData.length) { el.innerHTML = ''; return; }
+    el.innerHTML = diagImageData.map((d, i) => `<span class="img-thumb"><img src="${d}"><button type="button" class="img-del" title="删除" onclick="window.__app.delDiagImg(${i})">×</button></span>`).join('');
   }
+  window.__app.delDiagImg = function (i) {
+    if (i < 0 || i >= diagImageData.length) return;
+    diagImageData.splice(i, 1);
+    renderDiagPreview();
+  };
   async function runDiagnosis() {
     const sid = $('#diagStudent').value;
     const note = $('#diagNote').value.trim();
+    const tone = $('#diagTone') ? $('#diagTone').value : '';
+    const profile = $('#diagParentProfile') ? $('#diagParentProfile').value.trim() : '';
     if (diagImageData.length === 0) { toast('请先上传至少一张图片'); return; }
     const sname = sid ? (state.students.find(x => x.id === sid) || {}).name : '';
     const prompt = `你是一位资深中小学语文老师。请分析下面这张（这些）学生作业 / 入门测 / 试卷的图片，图片里存在需要指出的问题。
@@ -5276,7 +5485,7 @@ ${source}`;
 【给家长的沟通文案】
 - 写一段发给家长的微信文字：语气温和、肯定优点、具体说明进步空间、给出在家配合建议。不要生硬推销，像专业老师日常沟通。
 ${sname ? '学员姓名：' + sname + '。' : ''}
-${note ? '补充背景：' + note : ''}`;
+${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profile)}`;
     const btn = $('#diagBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'AI 分析中…'; }
     try {
@@ -6870,7 +7079,7 @@ ${note ? '补充背景：' + note : ''}`;
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '49';
+  const CURRENT_JS_VER = '51';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

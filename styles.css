@@ -2130,3 +2130,53 @@ label input, label select, label textarea { margin-top: 4px; }
 #exUrl { width: 100%; margin-top: 4px; }
 .ex-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px dashed var(--border-light); }
 .ex-section:last-child { border-bottom: none; }
+
+/* ================= v3.7.6：字号真正生效（覆盖组件写死的 px，分层级缩放） ================= */
+.main-area p, .main-area label, .main-area .panel, .main-area .card,
+.main-area .info-block, .main-area .report-item, .main-area .cf-template-area,
+.main-area td, .main-area th, .main-area .modal-body, .main-area .hint,
+.main-area .cw-content, .main-area .today-item, .main-area .att-row,
+.main-area .ov-row, .main-area .schedule-item .info p, .main-area .ledger-quick-form,
+.main-area .setting-item p, .main-area .timeline-item p, .main-area .kanban-card p,
+.main-area .lib-item p, .main-area .student-card p, .main-area .tool-card p,
+.main-area .data-block p, .main-area .mm-check-item, .main-area .mm-tip,
+.main-area .report-item p, .main-area .card-contact-back p, .main-area .express-quick-btn .eq-desc,
+.main-area .template-item p, .main-area .stat-label, .main-area .panel-header span,
+.main-area .nav-icon, .main-area .bnav-item span {
+  font-size: var(--font-size) !important;
+}
+.main-area h4, .main-area .panel-header h2, .main-area .section-title,
+.main-area .sd-section h3, .main-area .card-h .t, .main-area .tool-card h3,
+.main-area .data-block h3, .main-area .modal-header h3, .main-area .ex-h,
+.main-area .recipe-h, .main-area .timeline-item h4 {
+  font-size: calc(var(--font-size) * 1.12) !important;
+}
+.main-area h2, .main-area .page-title, .main-area .banner-info h2,
+.main-area .stat-num, .main-area .brand-text, .main-area .hero h2, .main-area .ex-passage {
+  font-size: calc(var(--font-size) * 1.28) !important;
+}
+.main-area textarea,
+.main-area input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]) {
+  font-size: max(16px, var(--font-size)) !important;
+}
+
+/* 上传图片缩略图 + 删除按钮 */
+.img-thumb { position: relative; display: inline-block; }
+.img-thumb img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: block; }
+.img-thumb .img-del { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%; background: var(--danger, #e11d48); color: #fff; border: none; font-size: 12px; line-height: 1; display: grid; place-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.25); padding: 0; }
+
+/* 生成区通用行（口吻/理由） */
+.gen-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.gen-row > label { flex: 1; min-width: 150px; }
+.gen-row select { min-width: 150px; }
+
+/* ================= v3.7.6：续费板块 ================= */
+.reason-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.reason-chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 16px; padding: 7px 14px; font-size: 13px; cursor: pointer; user-select: none; transition: all .12s; }
+.reason-chip:active { transform: scale(.96); }
+.reason-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.renew-basis { background: var(--bg-soft); border-radius: 8px; padding: 10px 12px; line-height: 1.9; }
+.renew-result { white-space: pre-wrap; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--bg-section, #fafbfc); min-height: 80px; margin-top: 8px; }
+.renew-plan-item { border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.renew-plan-item h4 { margin: 0 0 4px; font-size: calc(var(--font-size) * 1.05); color: var(--text); }
+.renew-plan-item p { margin: 0; color: var(--text-soft); line-height: 1.7; }

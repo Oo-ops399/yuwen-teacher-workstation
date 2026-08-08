@@ -60,7 +60,7 @@
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib'];
 
   let dbInstance = null;
   function openDB() {
@@ -461,6 +461,7 @@
     if (page === 'accounting') renderAccounting();
     if (page === 'ledger') { renderLedger(); renderLedgerQuick(); }
     if (page === 'exercise') {
+      renderExStudentOptions();
       const tip = $('#exAiTip');
       if (tip) tip.textContent = getSetting('aiApiUrl', '').trim()
         ? '已检测到 AI 模型配置：将调用你的模型按内容智能出题（类型不限）。未配置时也能用本地智能生成。'
@@ -682,25 +683,12 @@
     if (exPrintBtn) exPrintBtn.onclick = () => {
       const preview = $('#exPreview');
       if (!preview || !preview.innerHTML.trim()) { toast('请先生成练习题'); return; }
-      const w = window.open('', '_blank');
-      w.document.write(`<html><head><meta charset="utf-8"><title>练习题-${todayStr()}</title>
-        <style>
-          body{font-family:"Microsoft YaHei",sans-serif;padding:32px;line-height:2;max-width:800px;margin:0 auto}
-          .ex-h{margin-top:24px;border-left:4px solid #5b6cff;padding-left:10px}
-          .ex-blank{color:#5b6cff;font-weight:600}
-          .ex-dictation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
-          .ex-dict-item{text-align:center}
-          .ex-write-line{border-bottom:1px solid #333;height:32px}
-          .ex-word{font-size:12px;color:#666}
-          .ex-dot{border-bottom:2px solid #e74c3c;font-weight:600;padding:0 2px}
-          .ex-dot-note{font-size:12px;color:#666;margin-top:8px}
-          .ex-answer{margin-top:16px}
-          details summary{cursor:pointer;color:#5b6cff}
-          @media print{body{padding:16px}}
-        </style></head><body>${preview.innerHTML}<p style="margin-top:32px;color:#999;font-size:12px">语文教师工作台 · 练习生成器 · ${todayStr()}</p>
-        <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`);
-      w.document.close();
+      printExerciseHtml(preview.innerHTML, '练习题-' + todayStr());
     };
+    // v3.8.2: 练习生成器增强（拍照识别 / 薄弱项 / 题库复用）
+    bindExPhoto();
+    bindExLib();
+    renderExStudentOptions();
 
     // 看板
     const addTodoBtn = $('#addTodoBtn');
@@ -2067,17 +2055,30 @@
     const forceOpen = !!(filter || tag || weak);
     const today = todayStr();
 
+    // v3.8.1: 卡片外包一层滑动容器 —— 左滑露出「置顶 / 编辑 / 删除」
     const cardHtml = s => `
-      <div class="student-card" onclick="window.__app.openStudent('${s.id}')">
-        <h4>${escapeHtml(s.name||'未命名')}</h4>
-        <p>${escapeHtml(s.grade||'')}${(s.grade && s.className) ? ' · ' : ''}${escapeHtml(s.className||'')}</p>
-        <p>薄弱项：${escapeHtml(s.weakness||'无')}</p>
-        <p>课时：${s.hours||0} · 最近成绩：${s.scores && s.scores.length ? s.scores[s.scores.length-1].score : '-'}</p>
-        <div class="student-tags">${(s.tags||[]).map(t => `<span class="student-tag">${escapeHtml(t)}</span>`).join('')}</div>
+      <div class="swipe-item" data-sid="${s.id}">
+        <div class="swipe-actions">
+          <button type="button" class="swipe-btn sw-pin" data-act="pin" data-sid="${s.id}">${s.pinned ? '取消置顶' : '置顶'}</button>
+          <button type="button" class="swipe-btn sw-edit" data-act="edit" data-sid="${s.id}">编辑</button>
+          <button type="button" class="swipe-btn sw-del" data-act="del" data-sid="${s.id}">删除</button>
+        </div>
+        <div class="swipe-content">
+          <div class="student-card${s.pinned ? ' pinned' : ''}" data-open="${s.id}">
+            ${s.pinned ? '<span class="pin-flag">📌 置顶</span>' : ''}
+            <h4>${escapeHtml(s.name||'未命名')}</h4>
+            <p>${escapeHtml(s.grade||'')}${(s.grade && s.className) ? ' · ' : ''}${escapeHtml(s.className||'')}</p>
+            <p>薄弱项：${escapeHtml(s.weakness||'无')}</p>
+            <p>课时：${s.hours||0} · 最近成绩：${s.scores && s.scores.length ? s.scores[s.scores.length-1].score : '-'}</p>
+            <div class="student-tags">${(s.tags||[]).map(t => `<span class="student-tag">${escapeHtml(t)}</span>`).join('')}</div>
+          </div>
+        </div>
       </div>`;
 
     list.innerHTML = keys.map(k => {
       const arr = groups.get(k);
+      // 置顶的排最前
+      arr.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
       const collapsed = forceOpen ? false : !!studentGroupCollapsed[k];
       // 今日从台账同步过来的记录条数，做个醒目提示
       const todayCnt = arr.reduce((a, s) =>
@@ -2103,8 +2104,121 @@
         renderStudentList();
       };
     });
+    bindSwipeCards();
   }
   const studentGroupCollapsed = {};
+
+  // ===== v3.8.1: 卡片滑动操作（手机左滑 / 电脑鼠标拖拽，均可露出操作按钮）=====
+  const SWIPE_W = 210;            // 操作区总宽度
+  function closeAllSwipe(except) {
+    $$('.swipe-item.open').forEach(it => {
+      if (it === except) return;
+      it.classList.remove('open');
+      const c = it.querySelector('.swipe-content');
+      if (c) c.style.transform = '';
+    });
+  }
+  function bindSwipeCards() {
+    $$('#studentList .swipe-item').forEach(item => {
+      const content = item.querySelector('.swipe-content');
+      if (!content || content.dataset.bound) return;
+      content.dataset.bound = '1';
+      let x0 = 0, y0 = 0, dx = 0, dragging = false, decided = false, horizontal = false;
+
+      const start = (x, y) => {
+        x0 = x; y0 = y; dx = 0; dragging = true; decided = false; horizontal = false;
+        content.style.transition = 'none';
+      };
+      const move = (x, y) => {
+        if (!dragging) return false;
+        const mx = x - x0, my = y - y0;
+        if (!decided) {
+          if (Math.abs(mx) < 6 && Math.abs(my) < 6) return false;
+          decided = true;
+          horizontal = Math.abs(mx) > Math.abs(my);
+          if (horizontal) closeAllSwipe(item);
+        }
+        if (!horizontal) return false;
+        const base = item.classList.contains('open') ? -SWIPE_W : 0;
+        dx = Math.max(-SWIPE_W - 30, Math.min(0, base + mx));
+        content.style.transform = `translateX(${dx}px)`;
+        return true;                       // 告知调用方：这是横向滑动，需要阻止页面滚动
+      };
+      const end = () => {
+        if (!dragging) return;
+        dragging = false;
+        content.style.transition = '';
+        if (!horizontal) { content.style.transform = ''; return; }
+        if (dx < -SWIPE_W / 2) {
+          item.classList.add('open');
+          content.style.transform = `translateX(${-SWIPE_W}px)`;
+        } else {
+          item.classList.remove('open');
+          content.style.transform = '';
+        }
+      };
+
+      // 触摸
+      content.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+      content.addEventListener('touchmove', e => {
+        if (move(e.touches[0].clientX, e.touches[0].clientY) && e.cancelable) e.preventDefault();
+      }, { passive: false });
+      content.addEventListener('touchend', end);
+      content.addEventListener('touchcancel', end);
+
+      // 鼠标（电脑端也能拖）
+      content.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        start(e.clientX, e.clientY);
+        const mm = ev => move(ev.clientX, ev.clientY);
+        const mu = () => { end(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+        document.addEventListener('mousemove', mm);
+        document.addEventListener('mouseup', mu);
+      });
+
+      // 打开详情：滑动过程中不触发
+      const card = content.querySelector('[data-open]');
+      if (card) card.addEventListener('click', e => {
+        if (horizontal && Math.abs(dx) > 4) { e.preventDefault(); e.stopPropagation(); return; }
+        if (item.classList.contains('open')) { closeAllSwipe(); e.stopPropagation(); return; }
+        window.openStudent(card.dataset.open);
+      });
+    });
+
+    // 操作按钮
+    $$('#studentList .swipe-btn').forEach(btn => {
+      btn.onclick = async e => {
+        e.stopPropagation();
+        const sid = btn.dataset.sid, act = btn.dataset.act;
+        const s = state.students.find(x => x.id === sid);
+        if (!s) return;
+        if (act === 'pin') {
+          s.pinned = !s.pinned;
+          s.ts = Date.now();
+          await dbPut('students', s);
+          saveLocalCache();
+          closeAllSwipe();
+          renderStudentList();
+          toast(s.pinned ? '已置顶' : '已取消置顶');
+        } else if (act === 'edit') {
+          closeAllSwipe();
+          window.editStudentModal(sid);
+        } else if (act === 'del') {
+          if (!confirm(`确认删除学员「${s.name || '未命名'}」？\n该学员的档案记录将一并删除，且无法恢复。`)) return;
+          await dbDel('students', sid);
+          state.students = state.students.filter(x => x.id !== sid);
+          saveLocalCache();
+          closeAllSwipe();
+          renderStudentList();
+          toast('已删除「' + (s.name || '未命名') + '」');
+        }
+      };
+    });
+  }
+  // 点空白处收起已展开的滑动卡片
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.swipe-item')) closeAllSwipe();
+  });
 
   window.openStudent = function (id) {
     currentStudentId = id;
@@ -3086,12 +3200,58 @@ ${note ? '补充背景：' + note : ''}${profileSuffix(profile)}${toneSuffix(ton
       await dbPut('students', data);
       state.students = state.students.filter(x => x.id !== data.id);
       state.students.push(data);
+      // v3.8.1: 反向同步到学情台账，保证「快速记录」的学员下拉能立刻选到
+      const mirrored = await mirrorToLedger(data, s.name);
       saveLocalCache();
       closeModal();
       renderStudentList();
-      toast('保存成功');
+      if (typeof renderLedgerQuick === 'function') renderLedgerQuick();
+      if (typeof renderLedger === 'function') renderLedger();
+      toast('保存成功' + (mirrored === 'new' ? ' · 已加入学情台账' : ''));
     };
   };
+
+  // v3.8.1: 学员档案 → 学情台账 反向同步。
+  // 档案里新建/改名的学员，自动在台账里建出对应条目（含班级归属），
+  // 否则「快速记录」的下拉永远看不到这个人。
+  async function mirrorToLedger(sp, oldName) {
+    try {
+      const name = (sp.name || '').trim();
+      if (!name || name === '未命名') return false;
+      const clsName = (sp.className || '').trim();
+      // 班级：按名字找现有班级，找不到就自动建一个，方便台账按班分组
+      let cls = clsName ? state.classes.find(c => (c.name || '').trim() === clsName) : null;
+      if (clsName && !cls) {
+        cls = { id: uid(), name: clsName, type: 'regular', time: '', room: '', studentCount: 0, note: '', ts: Date.now() };
+        state.classes.push(cls);
+        await dbPut('classes', cls);
+      }
+      const cid = cls ? cls.id : '';
+      // 优先按「原名」找（支持改名场景），再按新名字找
+      let ls = null;
+      if (oldName && oldName.trim() && oldName.trim() !== name) {
+        ls = state.ledgerStudents.find(x => (x.name || '').trim() === oldName.trim());
+      }
+      if (!ls) ls = state.ledgerStudents.find(x => (x.name || '').trim() === name);
+      if (ls) {
+        ls.name = name;
+        if (cid) ls.classId = cid;
+        ls.ts = Date.now();
+        await dbPut('ledgerStudents', ls);
+        return true;
+      }
+      const item = {
+        id: uid(), classId: cid, name: name,
+        entryTests: [], homeworks: [], scores: [], ts: Date.now()
+      };
+      state.ledgerStudents.push(item);
+      await dbPut('ledgerStudents', item);
+      return 'new';
+    } catch (e) {
+      console.warn('反向同步台账失败', e);
+      return false;
+    }
+  }
 
   function exportStudentXLSX() {
     const s = state.students.find(x => x.id === currentStudentId);
@@ -4302,6 +4462,171 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
     return a;
   }
 
+  // v3.8.2: 练习生成器增强 —— 学员选项、薄弱项定向、拍照识别、题库复用
+  function renderExStudentOptions() {
+    const sel = $('#exStudent');
+    if (!sel) return;
+    const list = state.students || [];
+    sel.innerHTML = '<option value="">选择学员</option>' + list.map(s =>
+      `<option value="${s.id}">${escapeHtml((s.name || '学员') + (s.className ? '（' + s.className + '）' : ''))}</option>`
+    ).join('');
+  }
+
+  // 收集某学员的薄弱项信息，拼接为给 AI 的定向要求文本
+  function buildWeakPromptExtra(sid) {
+    const s = (state.students || []).find(x => x.id === sid);
+    if (!s) return '';
+    const parts = [];
+    if (s.weakness && String(s.weakness).trim()) parts.push('· 档案记录的薄弱项：' + s.weakness);
+    const weakTags = (s.tags || []).filter(t => /薄弱|下滑|错/.test(t));
+    if (weakTags.length) parts.push('· 标签薄弱项：' + weakTags.join('、'));
+    // 近期 AI 批改错题要点
+    const wrongs = [];
+    (s.aiGrades || []).slice(-6).forEach(g => { (g.wrong || []).forEach(w => { if (w) wrongs.push(w); }); });
+    if (wrongs.length) parts.push('· 近期作业高频错题：' + wrongs.slice(0, 8).join('；'));
+    // 学情台账里得分率低于 70% 的练习
+    const low = [];
+    ((s.entryTests || []).concat(s.homework || [])).forEach(r => {
+      if (typeof r.score === 'number' && typeof r.fullScore === 'number' && r.fullScore > 0 && (r.score / r.fullScore) < 0.7) {
+        low.push((r.topic || r.type || '某次练习') + '（' + r.score + '/' + r.fullScore + '）');
+      }
+    });
+    if (low.length) parts.push('· 成绩偏弱：' + low.slice(0, 6).join('、'));
+    if (!parts.length) return '';
+    return '\n【定向薄弱项要求】请重点围绕下面该生的薄弱项命制题目，先巩固基础、再适度提升，并在题中呼应其易错点：\n' + parts.join('\n') + '\n';
+  }
+
+  // 拍照 / 相册识别题目文字
+  async function handleExPhotos(files) {
+    const arr = Array.from(files || []);
+    if (!arr.length) return;
+    const status = $('#exOcrStatus');
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (!aiUrl) { toast('拍照识别需先配置 AI 接口（个性化设置 → AI 模型）'); if (status) status.textContent = '未配置 AI，无法识别'; return; }
+    if (status) { status.textContent = '识别中…'; status.style.color = ''; }
+    try {
+      const imgs = [];
+      for (const f of arr) { const c = await compressImage(f, 1280, 0.78); if (c) imgs.push(c); }
+      if (!imgs.length) throw new Error('图片读取失败');
+      const prompt = '请仔细识别图片中的语文练习题、课文或知识点文字。尽量保留原题的题号、题干、选项（A/B/C/D）、分值等结构，直接输出识别到的纯文本，不要任何解释、不要 markdown 代码块。如果是题目请保留题号与填空下划线。';
+      const text = await callAIVision(prompt, imgs, '你是 OCR 文字识别助手，只输出识别到的文字，不要解释。');
+      const ta = $('#exSource');
+      if (ta) {
+        const cur = ta.value.trim();
+        ta.value = (cur ? cur + '\n' : '') + text.trim();
+      }
+      if (status) status.textContent = '✓ 已识别 ' + imgs.length + ' 张并填入素材框';
+      toast('题目已识别并填入素材框');
+    } catch (e) {
+      console.error(e);
+      if (status) { status.textContent = '识别失败：' + e.message; status.style.color = 'var(--danger, #e11d48)'; }
+      toast('识别失败：' + e.message);
+    }
+  }
+
+  function bindExPhoto() {
+    const cam = $('#exCamBtn'), pick = $('#exPickBtn');
+    const camIn = $('#exCamInput'), pickIn = $('#exPickInput');
+    if (cam && camIn) cam.onclick = () => camIn.click();
+    if (pick && pickIn) pick.onclick = () => pickIn.click();
+    if (camIn) camIn.onchange = () => { handleExPhotos(camIn.files); camIn.value = ''; };
+    if (pickIn) pickIn.onchange = () => { handleExPhotos(pickIn.files); pickIn.value = ''; };
+    const weakOn = $('#exWeakOn'), weakHint = $('#exWeakHint');
+    const sel0 = $('#exStudent');
+    if (sel0 && weakOn) sel0.disabled = !weakOn.checked;
+    if (weakOn) weakOn.onchange = () => {
+      const on = weakOn.checked;
+      const sel = $('#exStudent');
+      if (sel) sel.disabled = !on;
+      if (!on && weakHint) weakHint.textContent = '';
+    };
+    const sel = $('#exStudent');
+    if (sel) sel.onchange = () => {
+      const s = (state.students || []).find(x => x.id === sel.value);
+      if (weakHint) weakHint.textContent = (s && s.weakness) ? ('薄弱项：' + s.weakness) : (sel.value ? '该生暂无薄弱项记录' : '');
+    };
+  }
+
+  // 我的题库：保存 / 查看 / 载入 / 打印 / 删除
+  let exLibReady = false;
+  async function saveExToLib() {
+    const preview = $('#exPreview');
+    if (!preview || !preview.innerHTML.trim()) { toast('请先生成练习题'); return; }
+    const h3 = preview.querySelector('h3.ex-h');
+    const title = (h3 ? h3.textContent : '练习题') + ' · ' + todayStr();
+    const rec = { id: uid(), title, html: preview.innerHTML, type: (document.querySelector('input[name="exType"]:checked') || {}).value || '', created: Date.now() };
+    await dbPut('exLib', rec);
+    exLibReady = false;
+    toast('已保存到我的题库 ✓');
+  }
+  async function toggleExLib() {
+    const box = $('#exLibBox');
+    if (!box) return;
+    if (box.hidden) { await renderExLib(); box.hidden = false; }
+    else box.hidden = true;
+  }
+  async function renderExLib() {
+    const list = $('#exLibList');
+    if (!list) return;
+    const items = (await dbAll('exLib')).sort((a, b) => (b.created || 0) - (a.created || 0));
+    if (!items.length) { list.innerHTML = '<p class="hint">题库还是空的，生成练习后点「保存到题库」即可复用。</p>'; return; }
+    list.innerHTML = items.map(it => `
+      <div class="ex-lib-item" data-id="${it.id}">
+        <div class="ex-lib-meta">
+          <span class="ex-lib-title">${escapeHtml(it.title || '练习题')}</span>
+          <span class="ex-lib-date">${fmtDate(it.created)}</span>
+        </div>
+        <div class="ex-lib-actions">
+          <button class="chip" data-act="load">载入预览</button>
+          <button class="chip" data-act="print">打印</button>
+          <button class="chip" data-act="del">删除</button>
+        </div>
+      </div>`).join('');
+  }
+  function bindExLib() {
+    const save = $('#exSaveLibBtn'); if (save) save.onclick = saveExToLib;
+    const lib = $('#exLibBtn'); if (lib) lib.onclick = toggleExLib;
+    const close = $('#exLibClose'); if (close) close.onclick = () => { const b = $('#exLibBox'); if (b) b.hidden = true; };
+    const list = $('#exLibList');
+    if (list) list.onclick = async e => {
+      const btn = e.target.closest('button[data-act]'); if (!btn) return;
+      const item = btn.closest('.ex-lib-item'); if (!item) return;
+      const id = item.dataset.id; const act = btn.dataset.act;
+      if (act === 'load') {
+        const rec = await dbGet('exLib', id);
+        const preview = $('#exPreview');
+        if (rec && preview) { preview.innerHTML = rec.html; preview.classList.add('ex-preview-active'); toast('已载入预览'); }
+      } else if (act === 'print') {
+        const rec = await dbGet('exLib', id);
+        if (rec) printExerciseHtml(rec.html, rec.title);
+      } else if (act === 'del') {
+        await dbDel('exLib', id); exLibReady = false; await renderExLib(); toast('已删除');
+      }
+    };
+  }
+  function printExerciseHtml(html, title) {
+    const w = window.open('', '_blank');
+    if (!w) { toast('浏览器拦截了打印窗口，请允许弹窗'); return; }
+    w.document.write(`<html><head><meta charset="utf-8"><title>${escapeHtml(title || '练习题')}</title>
+      <style>
+        body{font-family:"Microsoft YaHei",sans-serif;padding:32px;line-height:2;max-width:800px;margin:0 auto}
+        .ex-h{margin-top:24px;border-left:4px solid #5b6cff;padding-left:10px}
+        .ex-blank{color:#5b6cff;font-weight:600}
+        .ex-dictation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+        .ex-dict-item{text-align:center}
+        .ex-write-line{border-bottom:1px solid #333;height:32px}
+        .ex-word{font-size:12px;color:#666}
+        .ex-dot{border-bottom:2px solid #e74c3c;font-weight:600;padding:0 2px}
+        .ex-dot-note{font-size:12px;color:#666;margin-top:8px}
+        .ex-answer{margin-top:16px}
+        .ex-weak-banner{background:#fff7e6;border-left:4px solid #faad14;padding:8px 12px;margin-bottom:12px;border-radius:6px;font-size:13px}
+        details summary{cursor:pointer;color:#5b6cff}
+        @media print{body{padding:16px}}
+      </style></head><body>${html}<p style="margin-top:32px;color:#999;font-size:12px">Kissgoodbye · 练习生成器 · ${todayStr()}</p>
+      <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`);
+    w.document.close();
+  }
+
   async function generateExercises() {
     const type = (document.querySelector('input[name="exType"]:checked') || {}).value || 'fill';
     const difficulty = $('#exDifficulty').value || 'medium';
@@ -4315,16 +4640,23 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
       if (!source) { toast('未能提取网页文字，请直接粘贴内容'); return; }
       const ta = $('#exSource'); if (ta) ta.value = source.slice(0, 4000);
     }
+    // v3.8.2: 按学员薄弱项定向出题
+    let weakExtra = '';
+    const weakOn = $('#exWeakOn') && $('#exWeakOn').checked;
+    const weakSid = weakOn ? ($('#exStudent') ? $('#exStudent').value : '') : '';
+    if (weakOn && weakSid) weakExtra = buildWeakPromptExtra(weakSid);
+    if (weakOn && !weakSid) toast('已勾选薄弱项出题，但未选择学员，将按普通方式生成');
     const aiUrl = getSetting('aiApiUrl', '').trim();
     if (aiUrl) {
       const btn = $('#exGenBtn');
       if (btn) { btn.disabled = true; btn.textContent = 'AI 生成中…'; }
       try {
-        const json = await generateExercisesByAI(source, type, difficulty);
+        const json = await generateExercisesByAI(source, type, difficulty, weakExtra);
         if (json && json.questions && json.questions.length) {
           preview.innerHTML = renderAIExercise(json);
           preview.classList.add('ex-preview-active');
-          toast('AI 已生成练习题');
+          toast('AI 已生成练习题' + (weakExtra ? '（含薄弱项定向）' : ''));
+          const sb = $('#exSaveLibBtn'); if (sb) sb.disabled = false;
           return;
         }
       } catch (e) {
@@ -4333,6 +4665,8 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '智能生成'; }
       }
+    } else if (weakExtra) {
+      toast('薄弱项定向出题需配置 AI 接口（个性化设置），已按普通方式生成');
     }
     // 本地智能生成
     const words = extractChineseWords(source);
@@ -4345,8 +4679,14 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
     else if (type === 'saq') html = renderSaqExercise(source, words, difficulty);
     else if (type === 'reading') html = renderReadingExercise(source, words, difficulty);
     else if (type === 'paper') html = renderPaperExercise(source, words, difficulty);
+    if (weakExtra) {
+      // 本地生成无法真正理解薄弱点，给出定向说明段落供老师参考
+      const s = (state.students || []).find(x => x.id === weakSid);
+      html = `<div class="ex-weak-banner">📌 已为「${escapeHtml(s ? (s.name || '该生') : '该生')}」开启薄弱项定向：生成后建议补充针对其薄弱点的题目（${escapeHtml((s && s.weakness) || '见学员档案')}）。配置 AI 接口可自动定向出题。</div>` + html;
+    }
     preview.innerHTML = html;
     preview.classList.add('ex-preview-active');
+    const sb = $('#exSaveLibBtn'); if (sb) sb.disabled = false;
   }
 
   // v3.4: 抓取网页正文（best-effort，跨域会失败）
@@ -4361,7 +4701,7 @@ ${plan ? '教学环节安排（教学流程）：' + plan : ''}`;
   }
 
   // v3.4: 调用 AI 模型按内容出题
-  async function generateExercisesByAI(source, type, difficulty) {
+  async function generateExercisesByAI(source, type, difficulty, weakExtra) {
     const aiUrl = getSetting('aiApiUrl', '').trim();
     const aiKey = getSetting('aiApiKey', '').trim();
     const aiModel = getSetting('aiModel', '').trim();
@@ -4400,7 +4740,7 @@ ${typePrompts[type] || typePrompts.paper}
 5. 题目必须100%基于所给内容，不编造课外知识。
 
 【学习内容】
-${source}`;
+${source}${weakExtra ? '\n' + weakExtra : ''}`;
     const headers = { 'Content-Type': 'application/json' };
     if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
     const res = await fetch(aiUrl, {
@@ -6740,16 +7080,51 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
 
   // v3.7.4: 学情台账「快速记录」面板 —— 选学员+类型，一键追加入门测/作业，无需打开编辑框
   window.__lqType = 'entry';
-  function renderLedgerQuick() {
+  // v3.8.1: 补齐历史数据 —— 把「学员档案」里有、但台账里还没有的学员自动建进台账，
+  // 否则之前在档案建的学员，快速记录的下拉永远选不到。
+  async function syncProfilesIntoLedger() {
+    let added = 0;
+    for (const sp of state.students) {
+      const name = (sp.name || '').trim();
+      if (!name || name === '未命名') continue;
+      if (state.ledgerStudents.some(x => (x.name || '').trim() === name)) continue;
+      const clsName = (sp.className || '').trim();
+      let cls = clsName ? state.classes.find(c => (c.name || '').trim() === clsName) : null;
+      if (clsName && !cls) {
+        cls = { id: uid(), name: clsName, type: 'regular', time: '', room: '', studentCount: 0, note: '', ts: Date.now() };
+        state.classes.push(cls);
+        await dbPut('classes', cls);
+      }
+      const item = {
+        id: uid(), classId: cls ? cls.id : '', name: name,
+        entryTests: [], homeworks: [], scores: [], ts: Date.now()
+      };
+      state.ledgerStudents.push(item);
+      await dbPut('ledgerStudents', item);
+      added++;
+    }
+    if (added) { saveLocalCache(); renderLedger(); }
+    return added;
+  }
+
+  async function renderLedgerQuick() {
     const sel = $('#lqStudent');
     if (!sel) return;
+    const added = await syncProfilesIntoLedger();
     const kept = sel.value;
     const clsMap = {};
     state.classes.forEach(c => clsMap[c.id] = c.name);
+    // 按班级 → 姓名排序，长名单也好找人
+    const sorted = state.ledgerStudents.slice().sort((a, b) => {
+      const ca = clsMap[a.classId] || '', cb = clsMap[b.classId] || '';
+      if (ca !== cb) return ca.localeCompare(cb, 'zh');
+      return (a.name || '').localeCompare(b.name || '', 'zh');
+    });
     sel.innerHTML = '<option value="">— 选择学员 —</option>' +
-      state.ledgerStudents.map(s => `<option value="${s.id}">${escapeHtml(s.name || '')}${(clsMap[s.classId] ? '（' + escapeHtml(clsMap[s.classId]) + '）' : '')}</option>`).join('');
+      sorted.map(s => `<option value="${s.id}">${escapeHtml(s.name || '')}${(clsMap[s.classId] ? '（' + escapeHtml(clsMap[s.classId]) + '）' : '')}</option>`).join('');
     if (kept) sel.value = kept;
     resetLqForm();
+    if (added) toast(`已从学员档案补入 ${added} 名学员`);
   }
   function resetLqForm() {
     window.__lqType = 'entry';
@@ -7340,7 +7715,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '53';
+  const CURRENT_JS_VER = '55';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📚</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📩</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="53">
+<meta name="app-version" content="55">
 <script>
   // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
   // 避免出现「页面能打开但点什么都没反应」的静默假死
@@ -71,8 +71,8 @@
     } catch (e) {}
   })();
 </script>
-<title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css?v=53">
+<title>Kissgoodbye</title>
+<link rel="stylesheet" href="./styles.css?v=55">
 </head>
 <body>
 
@@ -81,8 +81,8 @@
 <aside id="sidebar" class="sidebar">
   <div class="sidebar-header">
     <div class="brand">
-      <span class="brand-icon">语</span>
-      <span class="brand-text">语文工作台</span>
+      <span class="brand-icon">K</span>
+      <span class="brand-text">Kissgoodbye</span>
     </div>
     <button class="collapse-btn" id="collapseBtn" title="收起/展开">‹</button>
   </div>
@@ -127,7 +127,7 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.8.0 · 语文教师版</span>
+    <span class="version">v3.8.1 · 语文教师版</span>
   </div>
 </aside>
 
@@ -308,6 +308,7 @@
           <option value="下滑">成绩下滑学员</option>
         </select>
       </div>
+      <p class="swipe-hint">💡 手机上<b>向左滑动</b>学员卡片（电脑上按住鼠标左键向左拖）可显示「置顶 / 编辑 / 删除」；点击班级标题可展开收起该班。</p>
       <div id="studentList" class="card-list"></div>
     </div>
   </section>
@@ -821,14 +822,28 @@
       <div class="panel-header">
         <h2>练习生成器</h2>
         <div class="header-actions">
+          <button class="btn-ghost" id="exSaveLibBtn" disabled>保存到题库</button>
+          <button class="btn-ghost" id="exLibBtn">我的题库</button>
           <button class="btn-ghost" id="exPrintBtn">打印 / 导出PDF</button>
         </div>
       </div>
       <div class="ex-input-area">
         <label>粘贴今天的学习内容（课文段落、词语表、古诗、知识点等）</label>
         <textarea id="exSource" rows="6" placeholder="例：春晓 孟浩然&#10;春眠不觉晓，处处闻啼鸟。&#10;夜来风雨声，花落知多少。"></textarea>
+        <div class="ex-photo-row">
+          <button class="chip" id="exCamBtn" type="button">📷 拍照识别</button>
+          <button class="chip" id="exPickBtn" type="button">🖼 相册识别</button>
+          <span class="ex-ocr-status" id="exOcrStatus"></span>
+          <input id="exCamInput" type="file" accept="image/*" capture="environment" hidden>
+          <input id="exPickInput" type="file" accept="image/*" multiple hidden>
+        </div>
         <label style="margin-top:10px">网页链接（可选，自动提取正文作为素材；跨域受限时请直接粘贴文字）</label>
         <input type="text" id="exUrl" placeholder="https://example.com/lesson-article">
+        <div class="ex-weak-row">
+          <label class="ex-weak-toggle"><input type="checkbox" id="exWeakOn"> 按学员薄弱项定向出题</label>
+          <select id="exStudent"><option value="">选择学员</option></select>
+          <span class="ex-weak-hint" id="exWeakHint"></span>
+        </div>
         <div class="ex-controls">
           <div class="ex-type-group">
             <span>题型：</span>
@@ -851,9 +866,16 @@
           </div>
           <button class="btn-primary" id="exGenBtn">智能生成</button>
         </div>
-        <p class="ex-tip" id="exAiTip">配置了 AI 模型时，将调用你的模型按内容智能出题；未配置则用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。</p>
+        <p class="ex-tip" id="exAiTip">配置了 AI 模型时，将调用你的模型按内容智能出题；未配置则用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。勾选「按学员薄弱项定向出题」并选择学员后，AI 会重点针对该生薄弱点命制题目。</p>
       </div>
       <div class="ex-preview" id="exPreview"></div>
+      <div class="ex-lib" id="exLibBox" hidden>
+        <div class="ex-lib-head">
+          <h3>我的题库</h3>
+          <button class="btn-ghost" id="exLibClose" type="button">收起</button>
+        </div>
+        <div class="ex-lib-list" id="exLibList"></div>
+      </div>
     </div>
   </section>
 
@@ -1308,10 +1330,22 @@
 
 <!-- 底部导航 -->
 <nav id="bottomNav" class="bottom-nav">
-  <a class="bnav-item active" data-page="dashboard"><span>⌂</span><span>首页</span></a>
-  <a class="bnav-item" data-page="life"><span>○</span><span>生活</span></a>
-  <a class="bnav-item" data-page="ledger"><span>☱</span><span>学情</span></a>
-  <a class="bnav-item" data-page="data"><span>⇋</span><span>备份</span></a>
+  <a class="bnav-item active" data-page="dashboard" aria-label="首页">
+    <svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V19.5h13V9.8"/><path d="M9.5 19.5V14h5v5.5"/></svg>
+    <span>首页</span>
+  </a>
+  <a class="bnav-item" data-page="ledger" aria-label="学情">
+    <svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16"/><path d="M7 19.5V11"/><path d="M12 19.5V7"/><path d="M17 19.5V13.5"/><path d="M4 19.5V5"/></svg>
+    <span>学情</span>
+  </a>
+  <a class="bnav-item" data-page="renew" aria-label="续费">
+    <svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6.02"/><path d="M20.5 4v5.2h-5.2"/></svg>
+    <span>续费</span>
+  </a>
+  <a class="bnav-item" data-page="feedback" aria-label="反馈">
+    <svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.4A8 8 0 1 1 12.5 3a7.9 7.9 0 0 1 5.6 2.3"/><path d="M21 4l-5.2 1.2L14.6 10.5"/></svg>
+    <span>反馈</span>
+  </a>
 </nav>
 
 <!-- 悬浮球 -->
@@ -1346,6 +1380,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=53"></script>
+<script src="./app.js?v=55"></script>
 </body>
 </html>

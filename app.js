@@ -1072,12 +1072,12 @@
     if (ledgerStudentFilter) ledgerStudentFilter.oninput = renderLedger;
     const lqAddBtn = $('#lqAddBtn');
     if (lqAddBtn) lqAddBtn.onclick = window.quickLedgerAdd;
+    bindLqPhoto();
     $$('#lqType .lq-type-btn').forEach(btn => {
       btn.onclick = () => {
         window.__lqType = btn.dataset.type;
         $$('#lqType .lq-type-btn').forEach(b => b.classList.toggle('active', b === btn));
         const isEntry = window.__lqType === 'entry';
-        const sw = $('#lqSubjectWrap'); if (sw) sw.hidden = !isEntry;
         const cw = $('#lqContentWrap'); if (cw) cw.hidden = isEntry;
         const stw = $('#lqStatusWrap'); if (stw) stw.hidden = isEntry;
       };
@@ -2045,16 +2045,66 @@
       list.innerHTML = '<div class="info-block">暂无学员，点击右上「＋ 新建学员」开始</div>';
       return;
     }
-    list.innerHTML = students.map(s => `
+    // v3.8.0: 按班级分组折叠显示，不再一锅端全铺出来
+    const groups = new Map();
+    students.forEach(s => {
+      const key = (s.className || '').trim() || '未分班';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    });
+    // 班级顺序跟随班级管理，未分班永远垫底
+    const order = state.classes.map(c => c.name);
+    const keys = Array.from(groups.keys()).sort((a, b) => {
+      if (a === '未分班') return 1;
+      if (b === '未分班') return -1;
+      const ia = order.indexOf(a), ib = order.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b, 'zh');
+    });
+    // 搜索/筛选时自动全展开，方便一眼看到命中结果
+    const forceOpen = !!(filter || tag || weak);
+    const today = todayStr();
+
+    const cardHtml = s => `
       <div class="student-card" onclick="window.__app.openStudent('${s.id}')">
         <h4>${escapeHtml(s.name||'未命名')}</h4>
-        <p>${escapeHtml(s.grade||'')} · ${escapeHtml(s.className||'')}</p>
+        <p>${escapeHtml(s.grade||'')}${(s.grade && s.className) ? ' · ' : ''}${escapeHtml(s.className||'')}</p>
         <p>薄弱项：${escapeHtml(s.weakness||'无')}</p>
         <p>课时：${s.hours||0} · 最近成绩：${s.scores && s.scores.length ? s.scores[s.scores.length-1].score : '-'}</p>
         <div class="student-tags">${(s.tags||[]).map(t => `<span class="student-tag">${escapeHtml(t)}</span>`).join('')}</div>
-      </div>
-    `).join('');
+      </div>`;
+
+    list.innerHTML = keys.map(k => {
+      const arr = groups.get(k);
+      const collapsed = forceOpen ? false : !!studentGroupCollapsed[k];
+      // 今日从台账同步过来的记录条数，做个醒目提示
+      const todayCnt = arr.reduce((a, s) =>
+        a + ((s.entryTests || []).filter(r => r && r.date === today).length)
+          + ((s.homework || []).filter(r => r && r.date === today).length), 0);
+      return `
+      <div class="sg-group${collapsed ? ' collapsed' : ''}">
+        <div class="sg-head" data-group="${escapeHtml(k)}">
+          <span class="sg-arrow">${collapsed ? '▶' : '▼'}</span>
+          <span class="sg-name">${escapeHtml(k)}</span>
+          <span class="sg-count">${arr.length} 人</span>
+          ${todayCnt ? `<span class="sg-today">今日新增 ${todayCnt} 条</span>` : ''}
+        </div>
+        <div class="sg-body card-list"${collapsed ? ' hidden' : ''}>${arr.map(cardHtml).join('')}</div>
+      </div>`;
+    }).join('');
+
+    // 折叠交互（用事件绑定而非内联 onclick，避免班级名含引号时出错）
+    $$('#studentList .sg-head').forEach(h => {
+      h.onclick = () => {
+        const k = h.dataset.group;
+        studentGroupCollapsed[k] = !studentGroupCollapsed[k];
+        renderStudentList();
+      };
+    });
   }
+  const studentGroupCollapsed = {};
 
   window.openStudent = function (id) {
     currentStudentId = id;
@@ -2440,6 +2490,37 @@
       r.onload = () => res(r.result);
       r.onerror = () => res(null);
       r.readAsDataURL(file);
+    });
+  }
+  // v3.8.0: 图片压缩 —— 手机拍照原图常有 3~5MB，直接存会撑爆 IndexedDB / localStorage。
+  // 统一压到长边 maxSide、JPEG 质量 q，一般能降到 100~200KB。
+  function compressImage(file, maxSide, q) {
+    maxSide = maxSide || 1280;
+    q = q || 0.75;
+    return new Promise(async resolve => {
+      try {
+        const raw = await readFileAsDataURL(file);
+        if (!raw) return resolve(null);
+        const im = new Image();
+        im.onload = () => {
+          try {
+            let w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
+            if (!w || !h) return resolve(raw);
+            const ratio = Math.min(1, maxSide / Math.max(w, h));
+            w = Math.round(w * ratio); h = Math.round(h * ratio);
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            const cx = cv.getContext('2d');
+            cx.fillStyle = '#ffffff';
+            cx.fillRect(0, 0, w, h);
+            cx.drawImage(im, 0, 0, w, h);
+            const out = cv.toDataURL('image/jpeg', q);
+            resolve(out && out.length < raw.length ? out : raw);
+          } catch (e) { resolve(raw); }
+        };
+        im.onerror = () => resolve(raw);
+        im.src = raw;
+      } catch (e) { resolve(null); }
     });
   }
   window.openAIGrade = async function (sid) {
@@ -6620,10 +6701,23 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
                   const lastHw = hw[hw.length - 1];
                   const etFull = isFullRec(lastEt);
                   const hwFull = isFullRec(lastHw);
-                  const etScore = (lastEt && lastEt.score != null && lastEt.score !== '') ? lastEt.score + '分' : '';
-                  const hwScore = (lastHw && lastHw.score != null && lastHw.score !== '') ? ' ' + lastHw.score + '分' : '';
-                  const etText = et.length ? `${escapeHtml(lastEt.subject || '')} ${etScore}${etFull ? ' 👍' : ''} (${et.length}次)` : '-';
-                  const hwText = hw.length ? `${escapeHtml(lastHw.status || '')}${hwScore}${hwFull ? ' 👍' : ''} (${hw.length}次)` : '-';
+                  // v3.8.0: 列表也显示「得分/满分」，并带上备注摘要
+                  const fmtSc = r => {
+                    if (!r) return '';
+                    const s1 = (r.score == null || r.score === '') ? null : r.score;
+                    const f1 = (r.fullScore == null || r.fullScore === '') ? null : Number(r.fullScore);
+                    if (s1 == null && f1 == null) return '';
+                    if (f1 != null && f1 !== 0) return `${s1 == null ? '-' : s1}/${f1}分`;
+                    return `${s1}分`;
+                  };
+                  const noteOf = r => {
+                    const t = (r && (r.note || r.comment) || '').trim();
+                    return t ? ' · ' + escapeHtml(t.length > 12 ? t.slice(0, 12) + '…' : t) : '';
+                  };
+                  const etScore = fmtSc(lastEt);
+                  const hwScore = fmtSc(lastHw) ? ' ' + fmtSc(lastHw) : '';
+                  const etText = et.length ? `${etScore || '-'}${etFull ? ' 👍' : ''}${noteOf(lastEt)} (${et.length}次)` : '-';
+                  const hwText = hw.length ? `${escapeHtml(lastHw.status || '')}${hwScore}${hwFull ? ' 👍' : ''}${noteOf(lastHw)} (${hw.length}次)` : '-';
                   const scText = sc.length ? (sc.reduce((a, b) => a + (Number(b.score) || 0), 0)) + ' (累计)' : '-';
                   return `
                   <tr>
@@ -6660,11 +6754,41 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   function resetLqForm() {
     window.__lqType = 'entry';
     $$('#lqType .lq-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'entry'));
-    const sw = $('#lqSubjectWrap'); if (sw) sw.hidden = false;
     const cw = $('#lqContentWrap'); if (cw) cw.hidden = true;
     const stw = $('#lqStatusWrap'); if (stw) stw.hidden = true;
     const dt = $('#lqDate'); if (dt && !dt.value) dt.value = todayStr();
     const ff = $('#lqFull'); if (ff) ff.value = '';
+  }
+
+  // v3.8.0: 快速记录随手拍照 —— 压缩后再存，避免手机原图撑爆本地数据库
+  let lqPhotos = [];
+  function renderLqPhotos() {
+    const el = $('#lqPhotoPreview');
+    if (!el) return;
+    el.innerHTML = lqPhotos.map((d, i) =>
+      `<span class="img-thumb"><img src="${d}"><button type="button" class="img-del" title="删除" onclick="window.__app.delLqPhoto(${i})">×</button></span>`
+    ).join('');
+  }
+  window.__app.delLqPhoto = function (i) {
+    if (i < 0 || i >= lqPhotos.length) return;
+    lqPhotos.splice(i, 1);
+    renderLqPhotos();
+  };
+  async function addLqPhotos(files) {
+    for (const f of (files || [])) {
+      const d = await compressImage(f, 1280, 0.75);
+      if (d) lqPhotos.push(d);
+    }
+    renderLqPhotos();
+    if (lqPhotos.length) toast('已添加 ' + lqPhotos.length + ' 张照片');
+  }
+  function bindLqPhoto() {
+    const cam = $('#lqCamInput'), pick = $('#lqPickInput');
+    const camBtn = $('#lqCamBtn'), pickBtn = $('#lqPickBtn');
+    if (camBtn && cam) camBtn.onclick = () => cam.click();
+    if (pickBtn && pick) pickBtn.onclick = () => pick.click();
+    if (cam) cam.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
+    if (pick) pick.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
   }
   window.quickLedgerAdd = async function () {
     const sel = $('#lqStudent');
@@ -6683,28 +6807,86 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     // 满分自动加 👍（避免重复叠加）
     let noteFinal = note;
     if (isFull && !noteFinal.includes('👍')) noteFinal = noteFinal ? noteFinal + ' 👍' : '👍';
+    // v3.8.0: 照片随记录一起存；多张时第一张进主记录 img，其余存 imgs 数组
+    const photos = lqPhotos.slice();
+    const mainImg = photos[0] || '';
+    let rec;
     if (type === 'entry') {
-      const subject = ($('#lqSubject').value || '').trim();
-      if (!subject) { toast('请输入科目'); return; }
-      s.entryTests.push({ date, subject, score, fullScore, note: noteFinal, img: '' });
+      rec = { date, subject: '', score, fullScore, note: noteFinal, img: mainImg, imgs: photos };
+      s.entryTests.push(rec);
     } else {
       const content = ($('#lqContent').value || '').trim();
       if (!content) { toast('请输入作业内容'); return; }
       const status = $('#lqStatus') ? $('#lqStatus').value : '已完成';
-      s.homeworks.push({ date, content, status, comment: noteFinal, score, fullScore, img: '' });
+      rec = { date, content, status, comment: noteFinal, score, fullScore, img: mainImg, imgs: photos };
+      s.homeworks.push(rec);
     }
     await dbPut('ledgerStudents', s);
+    // v3.8.0: 镜像同步到「学员档案」，档案里也能看到每天的入门测 / 作业
+    const synced = await mirrorToStudentProfile(s, type, rec);
     saveLocalCache();
     renderLedger();
-    // 保留学员与类型，清空内容/分数/备注/满分，方便连续记录
-    if ($('#lqSubject')) $('#lqSubject').value = '';
+    // 保留学员与类型，清空内容/分数/备注/满分/照片，方便连续记录
     if ($('#lqContent')) $('#lqContent').value = '';
     if ($('#lqScore')) $('#lqScore').value = 0;
     if ($('#lqFull')) $('#lqFull').value = '';
     if ($('#lqNote')) $('#lqNote').value = '';
-    if ($('#lqMsg')) $('#lqMsg').textContent = (type === 'entry' ? (isFull ? '已追加入门测 · 满分 👍' : '已追加入门测 ✓') : (isFull ? '已追加作业 · 满分 👍' : '已追加作业 ✓'));
+    lqPhotos = [];
+    renderLqPhotos();
+    const kindTxt = type === 'entry' ? '入门测' : '作业';
+    const photoTxt = photos.length ? ` · ${photos.length}张照片` : '';
+    const syncTxt = synced === 'new' ? ' · 已建档案' : (synced ? ' · 已同步档案' : '');
+    if ($('#lqMsg')) $('#lqMsg').textContent = `已追加${kindTxt}${isFull ? ' · 满分 👍' : ' ✓'}${photoTxt}${syncTxt}`;
     toast(isFull ? '满分！已加 👍' : '已追加 ✓');
   };
+
+  // v3.8.0: 台账 → 学员档案 镜像同步。按姓名匹配（优先同班级），找不到就自动建档。
+  // 返回 'new'（新建档案）/ true（已同步）/ false（未同步）
+  async function mirrorToStudentProfile(ls, type, rec) {
+    try {
+      const name = (ls.name || '').trim();
+      if (!name) return false;
+      const cls = state.classes.find(c => c.id === ls.classId);
+      const clsName = cls ? (cls.name || '') : '';
+      let created = false;
+      // 优先匹配同名且同班；再退化为同名
+      let sp = state.students.find(x => (x.name || '').trim() === name && (x.className || '') === clsName)
+        || state.students.find(x => (x.name || '').trim() === name);
+      if (!sp) {
+        sp = {
+          id: uid(), name: name, grade: '', className: clsName,
+          weakness: '', tags: [], hours: 0,
+          scores: [], entryTests: [], homework: [], reports: [],
+          ts: Date.now()
+        };
+        state.students.push(sp);
+        created = true;
+      }
+      if (!Array.isArray(sp.entryTests)) sp.entryTests = [];
+      if (!Array.isArray(sp.homework)) sp.homework = [];
+      // 档案与台账共用同一条记录内容（档案侧字段名为 homework）
+      if (type === 'entry') {
+        sp.entryTests.push({
+          date: rec.date, subject: rec.subject || '', score: rec.score,
+          fullScore: rec.fullScore, note: rec.note || '', img: rec.img || '',
+          fromLedger: true
+        });
+      } else {
+        sp.homework.push({
+          date: rec.date, content: rec.content || '', status: rec.status || '',
+          score: rec.score, fullScore: rec.fullScore, comment: rec.comment || '',
+          img: rec.img || '', fromLedger: true
+        });
+      }
+      sp.ts = Date.now();
+      await dbPut('students', sp);
+      if (currentStudentId === sp.id) renderStudentDetail();
+      return created ? 'new' : true;
+    } catch (e) {
+      console.warn('镜像同步档案失败', e);
+      return false;
+    }
+  }
 
   window.editLedgerClassModal = function (id) {
     const c = id ? state.classes.find(x => x.id === id) : { type: 'regular' };
@@ -6817,6 +6999,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('学情台账已导出');
   }
 
+  // v3.8.0 重构：汇总图改为「学员区块 + 逐条明细」，完整显示 得分/满分、备注、照片
   window.generateLedgerImage = async function (scope, classId) {
     let title, students;
     if (scope === 'class' && classId) {
@@ -6838,8 +7021,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (students.length === 0) { toast('暂无学员数据'); return; }
 
     const showClass = !classId;
+    toast('正在生成图片…');
 
-    // 预加载所有图片（dataURL）
     const loadImg = (src) => new Promise(res => {
       if (!src) return res(null);
       const im = new Image();
@@ -6847,170 +7030,242 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       im.onerror = () => res(null);
       im.src = src;
     });
-    const dataUrlKB = (d) => {
-      if (!d || !/^data:/.test(d)) return 0;
-      const m = d.match(/^data:.*?;base64,/);
-      const b64 = d.slice(m ? m[0].length : 0);
-      return Math.max(1, Math.round((b64.length * 3 / 4) / 1024));
+
+    // ===== 布局常量 =====
+    const padding = 48;
+    const headerHeight = 90;
+    const nameRowH = 46;          // 学员标题行
+    const detailRowH = 34;        // 明细行
+    const emptyRowH = 30;         // 无记录提示行
+    // 明细列：日期 / 类型 / 得分 / 备注
+    const dCol = [95, 76, 132, 0];
+    const tableWidth = 800;
+    dCol[3] = tableWidth - dCol[0] - dCol[1] - dCol[2];
+    const slotW = 176, slotH = 128, slotPad = 16;
+    const galleryLabelH = 26;
+    const galleryLineH = slotH + galleryLabelH + slotPad;
+    const perLine = Math.max(1, Math.floor((tableWidth - 24 + slotPad) / (slotW + slotPad)));
+
+    const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
+    const fmtMD = (d) => {
+      if (!d) return '—';
+      const m = String(d).match(/(\d{4})-(\d{2})-(\d{2})/);
+      return m ? `${m[2]}-${m[3]}` : String(d).slice(5) || String(d);
+    };
+    // 得分展示：有满分则 95/100，无满分则 95
+    const fmtScore = (r) => {
+      const sc = (r.score === '' || r.score == null) ? null : Number(r.score);
+      const fs = (r.fullScore === '' || r.fullScore == null) ? null : Number(r.fullScore);
+      if (sc == null && fs == null) return '';
+      if (fs != null && fs !== 0) return `${sc == null ? '-' : sc} / ${fs}`;
+      return `${sc == null ? '-' : sc}`;
+    };
+    const isFullMark = (r) => {
+      const sc = Number(r.score), fs = Number(r.fullScore);
+      return r.fullScore != null && r.fullScore !== '' && fs !== 0 && sc === fs;
     };
 
-    const padding = 48;
-    const rowHeight = 56;
-    const headerHeight = 90;
-    const colWidths = [150, 230, 280, 120]; // 姓名 / 入门测 / 作业 / 积分
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-    const slotW = 210, slotH = 150, slotPad = 18;
-    const galleryLineH = slotH + 30 + slotPad;
-    const perLine = Math.max(1, Math.floor((tableWidth + slotPad) / (slotW + slotPad)));
-
-    // 构造每个学员的数据块（含图片）
+    // ===== 汇总每个学员的明细行 =====
     const blocks = [];
     for (const s of students) {
       normalizeLedger(s);
-      const et = s.entryTests || [], hw = s.homeworks || [], sc = s.scores || [];
-      const imgs = [];
-      et.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `入门测` }); });
-      hw.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `作业` }); });
-      sc.forEach((r) => { if (r.img) imgs.push({ src: r.img, label: `积分` }); });
+      const rows = [];
+      (s.entryTests || []).forEach(r => rows.push({
+        date: r.date || '', kind: '入门测', scoreTxt: fmtScore(r),
+        note: (r.note || '').trim(), full: isFullMark(r),
+        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
+      }));
+      (s.homeworks || []).forEach(r => rows.push({
+        date: r.date || '', kind: '作业', scoreTxt: fmtScore(r),
+        note: [(r.status || ''), (r.comment || '').trim(), (r.content || '').trim()].filter(Boolean).join(' · '),
+        full: isFullMark(r),
+        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
+      }));
+      (s.scores || []).forEach(r => rows.push({
+        date: r.date || '', kind: '积分', scoreTxt: fmtScore(r),
+        note: (r.note || '').trim(), full: false,
+        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
+      }));
+      // 按日期升序，无日期的排最后
+      rows.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+
+      // 预加载该学员全部照片
       const loaded = [];
-      for (const m of imgs) {
-        const img = await loadImg(m.src);
-        if (img) loaded.push({ src: m.src, label: m.label, img: img, w: img.naturalWidth, h: img.naturalHeight });
+      for (const r of rows) {
+        for (const src of r.imgs) {
+          const img = await loadImg(src);
+          if (img) loaded.push({
+            img, w: img.naturalWidth, h: img.naturalHeight,
+            label: `${fmtMD(r.date)} ${r.kind}${r.scoreTxt ? ' ' + r.scoreTxt : ''}`
+          });
+        }
       }
       const galleryLines = loaded.length ? Math.ceil(loaded.length / perLine) : 0;
-      blocks.push({ s, et, hw, sc, loaded, galleryLines });
+      const totalPoints = (s.scores || []).reduce((a, c) => a + (Number(c.score) || 0), 0);
+      const h = nameRowH
+        + (rows.length ? rows.length * detailRowH : emptyRowH)
+        + (galleryLines ? galleryLines * galleryLineH + 10 : 0)
+        + 10;
+      blocks.push({ s, rows, loaded, galleryLines, totalPoints, h });
     }
-    const blockHeights = blocks.map(b => rowHeight + (b.galleryLines ? b.galleryLines * galleryLineH + 12 : 0));
-    const totalContentH = blockHeights.reduce((a, b) => a + b, 0);
 
+    const totalContentH = blocks.reduce((a, b) => a + b.h, 0);
     const tableY = padding + headerHeight - 20;
-    const contentBottom = tableY + rowHeight + totalContentH;
+    const contentBottom = tableY + totalContentH;
     const canvasWidth = tableWidth + padding * 2;
-    const canvasHeight = contentBottom + 70;
-    const scale = 2.5;
+    const canvasHeight = contentBottom + 76;
+    const scale = 2;
 
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(canvasWidth * scale);
     canvas.height = Math.round(canvasHeight * scale);
-    canvas.style.width = canvasWidth + 'px';
-    canvas.style.height = canvasHeight + 'px';
     const ctx = canvas.getContext('2d');
     ctx.scale(scale, scale);
+    ctx.textBaseline = 'top';
+
+    // 文本截断（按像素宽度）
+    const clip = (text, maxW) => {
+      text = String(text == null ? '' : text);
+      if (!text) return '';
+      if (ctx.measureText(text).width <= maxW) return text;
+      let lo = 0, hi = text.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (ctx.measureText(text.slice(0, mid) + '…').width <= maxW) lo = mid; else hi = mid - 1;
+      }
+      return text.slice(0, lo) + '…';
+    };
 
     // 背景
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // 标题
+    // 标题 + 日期
     ctx.fillStyle = '#1a1a1a';
-    ctx.font = 'bold 22px "PingFang SC", "Microsoft YaHei", sans-serif';
-    ctx.textBaseline = 'top';
+    ctx.font = 'bold 23px ' + FONT;
     ctx.textAlign = 'left';
     ctx.fillText(title, padding, padding);
-
-    // 日期
     ctx.fillStyle = '#999999';
-    ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
-    ctx.fillText('生成日期：' + todayStr(), padding, padding + 30);
+    ctx.font = '13px ' + FONT;
+    ctx.fillText('生成日期：' + todayStr(), padding, padding + 32);
 
-    // 表头
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(padding, tableY, tableWidth, rowHeight);
-    ctx.fillStyle = '#333333';
-    ctx.font = 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif';
-    const headers = ['姓名', '入门测情况', '作业完成情况', '课堂积分'];
-    let xPos = padding;
-    headers.forEach((h, i) => {
-      ctx.textAlign = i === 3 ? 'center' : 'left';
-      const tx = i === 3 ? xPos + colWidths[i] / 2 : xPos + 12;
-      ctx.fillText(h, tx, tableY + 18);
-      xPos += colWidths[i];
-    });
-
-    // 内容区外边框（左右贯穿）
+    // 外框
     ctx.strokeStyle = '#e0e0e0';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(padding, tableY); ctx.lineTo(padding, contentBottom); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(padding + tableWidth, tableY); ctx.lineTo(padding + tableWidth, contentBottom); ctx.stroke();
-    // 表头底边
-    ctx.beginPath(); ctx.moveTo(padding, tableY + rowHeight); ctx.lineTo(padding + tableWidth, tableY + rowHeight); ctx.stroke();
+    ctx.strokeRect(padding, tableY, tableWidth, totalContentH);
 
-    const colXs = [];
-    let cx = padding;
-    colWidths.forEach(w => { cx += w; colXs.push(cx); });
-
-    // 数据块
-    let y = tableY + rowHeight;
-    blocks.forEach((b, idx) => {
+    let y = tableY;
+    blocks.forEach((b, bi) => {
       const yTop = y;
-      const bh = blockHeights[idx];
-      if (idx % 2 === 1) { ctx.fillStyle = '#fafafa'; ctx.fillRect(padding, yTop, tableWidth, rowHeight); }
-      ctx.fillStyle = '#333333';
-      const cls = state.classes.find(c => c.id === b.s.classId);
-      const nameDisplay = showClass && cls ? `[${cls.name}] ${b.s.name}` : b.s.name;
-      const etText = b.et.length ? `${b.et[b.et.length-1].subject||''} ${b.et[b.et.length-1].score||''}分(${b.et.length}次)` : '-';
-      const hwText = b.hw.length ? `${b.hw[b.hw.length-1].status||''}${b.hw[b.hw.length-1].score!=null&&b.hw[b.hw.length-1].score!==''?' '+b.hw[b.hw.length-1].score+'分':''}(${b.hw.length}次)` : '-';
-      const scText = b.sc.length ? (b.sc.reduce((a,c)=>a+(Number(c.score)||0),0))+`(${b.sc.length}次)` : '-';
-      let xPos2 = padding;
-      const cells = [nameDisplay, etText, hwText, scText];
-      cells.forEach((cell, i) => {
-        ctx.textAlign = i === 3 ? 'center' : 'left';
-        const tx = i === 3 ? xPos2 + colWidths[i] / 2 : xPos2 + 12;
-        ctx.font = i === 3 ? 'bold 15px "PingFang SC", "Microsoft YaHei", sans-serif' : '14px "PingFang SC", "Microsoft YaHei", sans-serif';
-        ctx.fillText(cell, tx, yTop + 19);
-        xPos2 += colWidths[i];
-      });
-      // 行内竖向分隔线
-      ctx.strokeStyle = '#f0f0f0';
-      colXs.slice(0, -1).forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x, yTop + rowHeight); ctx.stroke();
-      });
 
-      const rowBottom = yTop + rowHeight;
-      if (b.loaded.length) {
-        ctx.strokeStyle = '#f0f0f0';
-        ctx.beginPath(); ctx.moveTo(padding, rowBottom); ctx.lineTo(padding + tableWidth, rowBottom); ctx.stroke();
-        const galleryTop = rowBottom + 10;
-        b.loaded.forEach((m, i) => {
-          const col = i % perLine;
-          const line = Math.floor(i / perLine);
-          const ix = padding + col * (slotW + slotPad);
-          const iy = galleryTop + line * galleryLineH;
-          const ratio = Math.min(slotW / m.w, slotH / m.h);
-          const dw = m.w * ratio, dh = m.h * ratio;
-          const dx = ix + (slotW - dw) / 2;
-          const dy = iy + (slotH - dh) / 2;
-          ctx.fillStyle = '#f2f2f2';
-          ctx.fillRect(ix, iy, slotW, slotH);
-          try { ctx.drawImage(m.img, dx, dy, dw, dh); } catch (e) {}
-          ctx.strokeStyle = '#cccccc';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(ix, iy, slotW, slotH);
-          // 尺寸 / 大小标签
-          ctx.fillStyle = '#444444';
-          ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+      // —— 学员标题行 ——
+      ctx.fillStyle = bi % 2 === 0 ? '#eef4ff' : '#f4f6fa';
+      ctx.fillRect(padding, yTop, tableWidth, nameRowH);
+      const cls = state.classes.find(c => c.id === b.s.classId);
+      const nameTxt = (showClass && cls ? `[${cls.name}] ` : '') + (b.s.name || '未命名');
+      ctx.fillStyle = '#1a3a6b';
+      ctx.font = 'bold 17px ' + FONT;
+      ctx.textAlign = 'left';
+      ctx.fillText(clip(nameTxt, tableWidth - 240), padding + 14, yTop + 14);
+      // 右侧汇总
+      ctx.fillStyle = '#5a6a80';
+      ctx.font = '13px ' + FONT;
+      ctx.textAlign = 'right';
+      const etN = (b.s.entryTests || []).length, hwN = (b.s.homeworks || []).length;
+      ctx.fillText(`入门测 ${etN} · 作业 ${hwN} · 积分 ${b.totalPoints}`, padding + tableWidth - 14, yTop + 16);
+
+      let dy = yTop + nameRowH;
+
+      if (!b.rows.length) {
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '13px ' + FONT;
+        ctx.textAlign = 'left';
+        ctx.fillText('暂无记录', padding + 14, dy + 8);
+        dy += emptyRowH;
+      } else {
+        b.rows.forEach((r, ri) => {
+          if (r.full) {                       // 满分整行浅绿高亮
+            ctx.fillStyle = '#e8f8ee';
+            ctx.fillRect(padding + 1, dy, tableWidth - 2, detailRowH);
+          } else if (ri % 2 === 1) {
+            ctx.fillStyle = '#fbfbfc';
+            ctx.fillRect(padding + 1, dy, tableWidth - 2, detailRowH);
+          }
+          let cx2 = padding + 14;
           ctx.textAlign = 'left';
-          const kb = dataUrlKB(m.src);
-          const dimText = `${m.label}  ${m.w}×${m.h}${kb ? ' · ' + kb + 'KB' : ''}`;
-          ctx.fillText(dimText, ix, iy + slotH + 8);
+          // 日期
+          ctx.fillStyle = '#8a8a8a';
+          ctx.font = '13px ' + FONT;
+          ctx.fillText(fmtMD(r.date), cx2, dy + 9);
+          cx2 += dCol[0];
+          // 类型
+          ctx.fillStyle = r.kind === '入门测' ? '#2563eb' : (r.kind === '作业' ? '#7c3aed' : '#0891b2');
+          ctx.font = '13px ' + FONT;
+          ctx.fillText(r.kind, cx2, dy + 9);
+          cx2 += dCol[1];
+          // 得分（含满分）
+          ctx.fillStyle = r.full ? '#0f9d58' : '#222222';
+          ctx.font = 'bold 14px ' + FONT;
+          const scoreShow = (r.scoreTxt || '—') + (r.full ? '  👍' : '');
+          ctx.fillText(clip(scoreShow, dCol[2] - 10), cx2, dy + 8);
+          cx2 += dCol[2];
+          // 备注
+          ctx.fillStyle = '#555555';
+          ctx.font = '13px ' + FONT;
+          ctx.fillText(clip(r.note || '—', dCol[3] - 20), cx2, dy + 9);
+
+          ctx.strokeStyle = '#f0f0f0';
+          ctx.beginPath();
+          ctx.moveTo(padding + 1, dy + detailRowH);
+          ctx.lineTo(padding + tableWidth - 1, dy + detailRowH);
+          ctx.stroke();
+          dy += detailRowH;
         });
       }
-      // 块底分隔线
-      ctx.strokeStyle = '#e0e0e0';
-      ctx.beginPath(); ctx.moveTo(padding, yTop + bh); ctx.lineTo(padding + tableWidth, yTop + bh); ctx.stroke();
-      y = yTop + bh;
+
+      // —— 照片画廊 ——
+      if (b.loaded.length) {
+        const gTop = dy + 8;
+        b.loaded.forEach((m, i) => {
+          const col = i % perLine, line = Math.floor(i / perLine);
+          const ix = padding + 14 + col * (slotW + slotPad);
+          const iy = gTop + line * galleryLineH;
+          ctx.fillStyle = '#f2f2f2';
+          ctx.fillRect(ix, iy, slotW, slotH);
+          const ratio = Math.min(slotW / m.w, slotH / m.h);
+          const dw = m.w * ratio, dh = m.h * ratio;
+          try { ctx.drawImage(m.img, ix + (slotW - dw) / 2, iy + (slotH - dh) / 2, dw, dh); } catch (e) {}
+          ctx.strokeStyle = '#d8d8d8';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(ix, iy, slotW, slotH);
+          ctx.fillStyle = '#666666';
+          ctx.font = '12px ' + FONT;
+          ctx.textAlign = 'left';
+          ctx.fillText(clip(m.label, slotW), ix, iy + slotH + 7);
+        });
+        dy = gTop + b.galleryLines * galleryLineH;
+      }
+
+      // 区块底边
+      ctx.strokeStyle = '#dcdcdc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, yTop + b.h);
+      ctx.lineTo(padding + tableWidth, yTop + b.h);
+      ctx.stroke();
+      y = yTop + b.h;
     });
 
     // 底部统计
-    const summaryY = contentBottom + 16;
-    const totalScore = students.reduce((sum, s) => sum + ((s.scores || []).reduce((a, b) => a + (Number(b.score) || 0), 0)), 0);
+    const totalScore = students.reduce((sum, s) => sum + ((s.scores || []).reduce((a, b2) => a + (Number(b2.score) || 0), 0)), 0);
+    const totalPhotos = blocks.reduce((a, b) => a + b.loaded.length, 0);
     const avgScore = students.length > 0 ? (totalScore / students.length).toFixed(1) : 0;
     ctx.fillStyle = '#666666';
-    ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.font = '13px ' + FONT;
     ctx.textAlign = 'left';
-    ctx.fillText(`共 ${students.length} 人 · 总积分 ${totalScore} · 平均积分 ${avgScore}`, padding, summaryY);
+    ctx.fillText(`共 ${students.length} 人 · 总积分 ${totalScore} · 平均积分 ${avgScore}${totalPhotos ? ' · 照片 ' + totalPhotos + ' 张' : ''}`, padding, contentBottom + 18);
 
-    // 下载图片
+    // 下载
     canvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -7085,7 +7340,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '52';
+  const CURRENT_JS_VER = '53';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

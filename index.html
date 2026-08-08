@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="52">
+<meta name="app-version" content="53">
 <script>
   // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
   // 避免出现「页面能打开但点什么都没反应」的静默假死
@@ -72,7 +72,7 @@
   })();
 </script>
 <title>语文教师专属工作台</title>
-<link rel="stylesheet" href="./styles.css?v=52">
+<link rel="stylesheet" href="./styles.css?v=53">
 </head>
 <body>
 
@@ -127,7 +127,7 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.7.8 · 语文教师版</span>
+    <span class="version">v3.8.0 · 语文教师版</span>
   </div>
 </aside>
 
@@ -1204,7 +1204,6 @@
         </div>
         <div class="lq-row">
           <label>日期<input type="date" id="lqDate"></label>
-          <label id="lqSubjectWrap">科目<input type="text" id="lqSubject" placeholder="如：现代文阅读"></label>
           <label id="lqContentWrap" hidden>内容<input type="text" id="lqContent" placeholder="如：第3课生字词抄写"></label>
           <label class="lq-score">分数<input type="number" id="lqScore" value="0" step="0.5"></label>
           <label class="lq-fullscore">满分<input type="number" id="lqFull" placeholder="选填" step="0.5"></label>
@@ -1212,6 +1211,13 @@
         </div>
         <div class="lq-row">
           <label class="lq-note">备注<input type="text" id="lqNote" placeholder="选填（如：进步明显 / 需重点关注）"></label>
+        </div>
+        <div class="lq-row lq-photo-row">
+          <button type="button" class="btn-ghost" id="lqCamBtn">📷 拍照</button>
+          <button type="button" class="btn-ghost" id="lqPickBtn">🖼 从相册选</button>
+          <input type="file" id="lqCamInput" accept="image/*" capture="environment" hidden>
+          <input type="file" id="lqPickInput" accept="image/*" multiple hidden>
+          <span id="lqPhotoPreview" class="lq-photo-preview"></span>
         </div>
         <div class="lq-actions">
           <button class="btn-primary" id="lqAddBtn">＋ 追加记录</button>
@@ -1340,6 +1346,6 @@
 </div>
 
 <script src="./vendor/xlsx.full.min.js"></script>
-<script src="./app.js?v=52"></script>
+<script src="./app.js?v=53"></script>
 </body>
 </html>

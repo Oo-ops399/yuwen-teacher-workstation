@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-startup-image" href="./icons/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-title" content="Kissgoodbye">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="format-detection" content="telephone=no">
+<meta name="app-version" content="68">
+<script>
+  // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
+  // 避免出现「页面能打开但点什么都没反应」的静默假死
+  (function () {
+    var shown = false;
+    window.addEventListener('error', function (ev) {
+      if (shown) return; shown = true;
+      try {
+        var bar = document.createElement('div');
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#e11d48;color:#fff;padding:10px 14px;font:13px/1.5 system-ui,-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+        bar.textContent = '⚠️ 脚本加载出错，部分功能可能无法点击：' + (ev.message || '未知错误') +
+          (ev.filename ? ' （' + String(ev.filename).split('/').pop() + ':' + ev.lineno + '）' : '') +
+          ' — 请先「强制刷新」（Ctrl/Cmd+Shift+R），仍不行请把这行字截图反馈。';
+        (document.body || document.documentElement).appendChild(bar);
+      } catch (e) {}
+    });
+  })();
+</script>
+<script>
+  // 版本自检：比对 version.txt，版本不符则清缓存并强刷。带会话次数锁（最多 3 次），杜绝无限闪屏
+  (function () {
+    try {
+      var LV = (document.querySelector('meta[name="app-version"]') || {}).content;
+      if (!LV) return;
+      var x = new XMLHttpRequest();
+      x.open('GET', './version.txt?t=' + Date.now(), true);
+      x.onreadystatechange = function () {
+        if (x.readyState === 4 && x.status === 200) {
+          var nv = (x.responseText || '').trim();
+          if (nv && nv !== LV) {
+            var key = '__ver_forced_' + nv;
+            try { if (sessionStorage.getItem(key) === '1') return; } catch (e) {}
+            try { sessionStorage.setItem(key, '1'); } catch (e) {} // 同一版本本次会话只强刷一次，杜绝无限闪屏
+            var done = false;
+            var go = function () {
+              if (done) return; done = true;
+              location.replace(location.pathname + '?v=' + encodeURIComponent(nv) + (location.hash || ''));
+            };
+            // 清掉 Service Worker 注册与所有缓存，确保拿到最新 HTML
+            try {
+              if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  Promise.all((regs || []).map(function (r) { return r.unregister(); })).then(function () {
+                    if (window.caches && caches.keys) {
+                      caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); go(); }).catch(go);
+                    } else go();
+                  }).catch(go);
+                }).catch(go);
+              } else go();
+            } catch (e) { go(); }
+            setTimeout(go, 2000); // 兜底强刷
+          }
+        }
+      };
+      x.send();
+    } catch (e) {}
+  })();
+</script>
+<title>Kissgoodbye</title>
+<link rel="stylesheet" href="./styles.css?v=63">
+</head>
+<body>
+
+<!-- 左侧导航 -->
+<div id="sidebarMask" class="sidebar-mask"></div>
+<aside id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <div class="brand">
+      <span class="brand-icon">K</span>
+      <span class="brand-text">Kissgoodbye</span>
+    </div>
+    <button class="collapse-btn" id="collapseBtn" title="收起/展开">‹</button>
+  </div>
+  <nav class="nav-list">
+    <div class="nav-group">
+      <div class="nav-group-title">总览</div>
+      <a class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span class="nav-label">今日总览</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">备课</div>
+      <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
+      <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
+      <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
+      <a class="nav-item" data-page="exercise"><span class="nav-icon">✎</span><span class="nav-label">练习生成器</span></a>
+      <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">学员</div>
+      <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
+      <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
+      <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
+      <a class="nav-item" data-page="feedback-mat"><span class="nav-icon">📚</span><span class="nav-label">反馈素材</span></a>
+      <a class="nav-item" data-page="diag"><span class="nav-icon">🔍</span><span class="nav-label">AI 学情诊断</span></a>
+      <a class="nav-item" data-page="aigrade"><span class="nav-icon">🤖</span><span class="nav-label">AI 作业批改</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">运营</div>
+      <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
+      <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
+      <a class="nav-item" data-page="renew"><span class="nav-icon">💡</span><span class="nav-label">续费助手</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">工具</div>
+      <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
+      <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
+      <a class="nav-item" data-page="life"><span class="nav-icon">○</span><span class="nav-label">生活助手</span></a>
+      <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
+      <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <span class="version">v3.8.2 · Kissgoodbye</span>
+  </div>
+</aside>
+
+<!-- 主内容 -->
+<main id="mainArea" class="main-area">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger">≡</button>
+    <h1 class="page-title" id="pageTitle">工作台首页</h1>
+    <div class="topbar-right">
+      <div class="global-search">
+        <input type="text" id="globalSearch" placeholder="搜索学生、关键词…" />
+        <div id="searchResult" class="search-result"></div>
+      </div>
+      <div class="font-quick-wrapper">
+        <button class="btn-ghost font-quick-btn" id="fontQuickBtn" title="字号/字体快捷调整">A±</button>
+        <div class="font-quick-panel" id="fontQuickPanel" hidden>
+          <div class="fq-row">
+            <label>字号</label>
+            <input type="range" id="fqFontSize" min="12" max="20" value="14">
+            <span id="fqFontSizeVal">14px</span>
+          </div>
+          <div class="fq-row">
+            <label>字体</label>
+            <select id="fqFontFamily"></select>
+          </div>
+          <div class="fq-row">
+            <button class="btn-ghost fq-import-btn" id="fqImportFontBtn">导入字体</button>
+            <button class="btn-ghost fq-del-btn" id="fqDelFontBtn" hidden>删除自定义</button>
+          </div>
+          <input type="file" id="fqFontFileInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+        </div>
+      </div>
+      <button class="btn-ghost btn-export-all" id="exportAllBtn" title="导出全部数据到WPS">导出WPS</button>
+    </div>
+  </header>
+
+  <section class="page" id="page-dashboard">
+    <!-- 社交资料页风格名片（v3.9 重做） -->
+    <div class="profile-card" id="profileCard">
+      <!-- 顶部导航栏 -->
+      <div class="profile-nav">
+        <button class="profile-nav-btn" id="profileBackBtn" title="返回" aria-label="返回">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="profile-nav-btn" id="profileRefreshBtn" title="刷新" aria-label="刷新">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 12a8 8 0 0 1 14.93-3.5M20 12a8 8 0 0 1-14.93 3.5"/><path d="M20 4v5h-5M4 20v-5h5"/></svg>
+        </button>
+        <div class="profile-search-wrap">
+          <input type="text" class="profile-search" id="profileSearch" placeholder="Search" autocomplete="off">
+        </div>
+        <button class="profile-nav-btn profile-settings-btn" id="profileSettingsBtn" title="外观设置" aria-label="外观设置">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+      <!-- 标签行 -->
+      <div class="profile-tabs" id="profileTabs"></div>
+
+      <!-- 横幅提示条 -->
+      <div class="profile-banner" id="profileBanner" contenteditable="true" data-field="bannerText"></div>
+
+      <!-- 图片画廊 -->
+      <div class="profile-gallery" id="profileGallery">
+        <div class="gallery-item" data-idx="0" title="点击添加图片">
+          <img class="gallery-img" id="galleryImg0" alt="">
+          <div class="gallery-placeholder" id="galleryPh0">
+            <svg viewBox="0 0 24 24" width="32" height="32" stroke="#bbb" stroke-width="1.5" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </div>
+        </div>
+        <div class="gallery-item" data-idx="1" title="点击添加图片">
+          <img class="gallery-img" id="galleryImg1" alt="">
+          <div class="gallery-placeholder" id="galleryPh1">
+            <svg viewBox="0 0 24 24" width="32" height="32" stroke="#bbb" stroke-width="1.5" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </div>
+        </div>
+        <div class="gallery-item gallery-placeholder-item" title="虚拟展示">
+          <div class="gallery-plus">
+            <svg viewBox="0 0 24 24" width="36" height="36" stroke="#999" stroke-width="1.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 隐藏文件输入（用于图片上传） -->
+      <input type="file" id="galleryInput" accept="image/*" hidden>
+    </div>
+
+    <!-- 主页只保留：名片（上方 profileCard） + 备忘录 -->
+    <div class="today-overview" id="todayOverview">
+      <!-- 备忘录（可增删改 / 可加图片） -->
+      <div class="tov-card memo-card" id="memoCard">
+        <div class="memo-head">
+          <h4>📝 备忘录</h4>
+          <button class="btn-primary btn-sm" id="memoAddBtn" type="button">＋ 新增</button>
+        </div>
+        <div id="dashMemoList" class="memo-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 班级课表（UI 2.0 极简风格） -->
+  <section class="page" id="page-schedule" hidden>
+    <div class="sch-page">
+      <!-- 头部 -->
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>班级课表</h2>
+          <span class="stu-count" id="schCount">共 0 个班</span>
+        </div>
+      </div>
+
+      <!-- 类型切换 -->
+      <div class="sch-type-bar">
+        <button class="sch-type-btn active" data-type="regular">常规班</button>
+        <button class="sch-type-btn" data-type="summer">暑假班</button>
+      </div>
+
+      <!-- 班级筛选 -->
+      <div class="sch-filter-wrap">
+        <select id="classFilter" class="sch-select"><option value="">全部班级</option></select>
+      </div>
+
+      <!-- 课表列表 -->
+      <div id="scheduleList" class="sch-list"></div>
+
+      <!-- 浮动操作栏 -->
+      <div class="sch-actions">
+        <button class="btn-primary" id="addClassBtn">＋ 新建</button>
+        <button class="btn-ghost" id="importScheduleBtn">导入</button>
+        <button class="btn-ghost" id="exportClassBtn">导出</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 学员档案（UI 2.0 极简风格） -->
+  <section class="page" id="page-students" hidden>
+    <div class="stu-page">
+      <!-- 头部：返回 + 标题 + 人数 -->
+      <div class="stu-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>学员档案</h2>
+          <span class="stu-count" id="stuCount">共 0 人</span>
+        </div>
+      </div>
+
+      <!-- 搜索栏 -->
+      <div class="stu-search-wrap">
+        <input type="text" id="studentFilter" class="stu-search" placeholder="Search">
+      </div>
+
+      <!-- 学员列表（扁平，JS 填充） -->
+      <div id="studentList" class="stu-list"></div>
+
+      <!-- 隐藏的筛选器（保留功能但默认收起） -->
+      <details class="stu-filters">
+        <summary class="stu-filters-toggle">筛选 ▾</summary>
+        <div class="stu-filters-body">
+          <select id="tagFilter"><option value="">全部标签</option><option value="基础薄弱">基础薄弱</option><option value="阅读理解薄弱">阅读理解薄弱</option><option value="作文薄弱">作文薄弱</option><option value="古诗文薄弱">古诗文薄弱</option><option value="意向续报">意向续报</option></select>
+          <select id="weakFilter"><option value="">学情筛选：全部</option><option value="作文薄弱">作文薄弱学员</option><option value="古诗文薄弱">古诗文丢分严重</option><option value="下滑">成绩下滑学员</option></select>
+        </div>
+      </details>
+
+      <!-- 操作栏（浮动或底部） -->
+      <div class="stu-actions">
+        <button class="btn-ghost" id="importStudentsBtn">导入学员</button>
+        <input type="file" id="importStudentsInput" accept=".xlsx,.xls,.csv,.txt" hidden>
+        <button class="btn-ghost" id="exportAllStudentsBtn">导出WPS</button>
+        <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-student-detail" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2 id="studentDetailTitle">学员档案</h2>
+          <span class="stu-count" id="studentDetailCount">学员详情</span>
+        </div>
+      </div>
+      <div class="own-body">
+        <div class="header-actions">
+          <button class="btn-ghost" id="backStudentList">← 返回</button>
+          <button class="btn-primary" id="exportStudentBtn">导出WPS</button>
+        </div>
+        <div class="student-detail" id="studentDetail"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 家长沟通（UI 2.0 极简风格） -->
+  <section class="page" id="page-communicate" hidden>
+    <div class="com-page">
+      <!-- 头部 -->
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>家长沟通</h2>
+          <span class="stu-count" id="commCount">共 0 条</span>
+        </div>
+      </div>
+
+      <!-- Tab 切换（胶囊式） -->
+      <div class="com-tabs">
+        <button class="com-tab active" data-tab="timeline">时间线</button>
+        <button class="com-tab" data-tab="template">话术库</button>
+        <button class="com-tab" data-tab="callback">待回访</button>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="com-body">
+        <div id="tab-timeline" class="com-panel"></div>
+        <div id="tab-template" class="com-panel" hidden></div>
+        <div id="tab-callback" class="com-panel" hidden></div>
+      </div>
+
+      <!-- 浮动操作栏 -->
+      <div class="sch-actions">
+        <button class="btn-primary" id="addCommBtn">＋ 记录</button>
+        <button class="btn-ghost" id="importTemplateBtn">导入话术</button>
+        <button class="btn-ghost" id="exportCommBtn">导出</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-library" hidden>
+    <div class="lib-page">
+      <!-- 头部 -->
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>教学素材库</h2>
+          <span class="stu-count" id="libCount">共 0 条</span>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="lib-header-actions">
+        <input type="file" id="libFileInput" accept=".zip,.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.ppt,.pptx" hidden>
+        <button class="btn-ghost" id="importLibBtn">导入文件</button>
+        <button class="btn-ghost" id="exportLibBtn">导出WPS</button>
+        <button class="btn-primary" id="addLibBtn">＋ 新增</button>
+      </div>
+
+      <!-- 类型筛选 -->
+      <div class="lib-filter-row">
+        <select id="libTypeFilter" class="sch-select">
+          <option value="">全部类型</option>
+          <option value="试卷">试卷</option>
+          <option value="讲义">讲义</option>
+          <option value="答题模板">答题模板</option>
+          <option value="练习题">练习题</option>
+          <option value="文件">导入文件</option>
+        </select>
+      </div>
+
+      <!-- 素材列表 -->
+      <div id="libList" class="lib-list"></div>
+
+      <!-- 浮动操作栏（备用） -->
+      <div class="sch-actions" id="libActions" style="display:none">
+        <button class="btn-ghost" id="importLibBtnAlt">导入</button>
+        <button class="btn-primary" id="addLibBtnAlt">＋ 新增</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-feedback" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>课后反馈管理</h2>
+          <span class="stu-count" id="feedbackCount">课后反馈</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="fb-tabs" id="fbTabs">
+        <button class="fb-tab active" data-sheet="student">学员反馈</button>
+        <button class="fb-tab" data-sheet="class">课堂整体</button>
+        <button class="fb-tab" data-sheet="mat">素材生成</button>
+        <button class="fb-tab" data-sheet="tpl">模板生成</button>
+      </div>
+
+    <div class="fb-swipe" id="fbSwipe">
+      <div class="fb-sheet" data-sheet="student">
+        <div class="filter-row">
+          <select id="feedbackStudentFilter">
+            <option value="">全部学员</option>
+          </select>
+          <select id="feedbackTypeFilter">
+            <option value="">全部类型</option>
+            <option value="课堂表现">课堂表现</option>
+            <option value="作业反馈">作业反馈</option>
+            <option value="阶段总结">阶段总结</option>
+            <option value="考试分析">考试分析</option>
+          </select>
+        </div>
+        <div id="feedbackList" class="card-list"></div>
+      </div>
+      <div class="fb-sheet" data-sheet="class">
+        <div class="filter-row">
+          <select id="classFeedbackClassFilter">
+            <option value="">全部班级</option>
+          </select>
+          <button class="btn-primary" id="addClassFeedbackBtn">＋ 录入课堂反馈</button>
+        </div>
+        <div id="classFeedbackList" class="card-list"></div>
+      </div>
+      <div class="fb-sheet" data-sheet="mat">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>反馈素材库 · 智能生成</h2>
+          </div>
+          <div class="feedback-gen-area">
+            <div class="feedback-gen-left">
+              <label>选择学员
+                <select id="genFeedbackStudent">
+                  <option value="">选择学员…</option>
+                </select>
+              </label>
+              <label>反馈类型
+                <select id="genFeedbackType">
+                  <option value="课堂表现">课堂表现</option>
+                  <option value="作业反馈">作业反馈</option>
+                  <option value="阶段总结">阶段总结</option>
+                  <option value="考试分析">考试分析</option>
+                </select>
+              </label>
+              <label>补充说明（可选）
+                <textarea id="genFeedbackNote" rows="3" placeholder="如：本周表现积极，作文有进步…"></textarea>
+              </label>
+              <button class="btn-primary" id="generateFeedbackBtn" style="width:100%">智能生成反馈</button>
+            </div>
+            <div class="feedback-gen-right">
+              <label>生成结果
+                <textarea id="genFeedbackResult" rows="8" placeholder="点击「智能生成反馈」，系统将根据该学员的历史反馈和素材库自动生成一段反馈文案，可编辑后保存…"></textarea>
+              </label>
+              <div style="display:flex;gap:8px">
+                <button class="btn-ghost" id="copyFeedbackBtn">复制</button>
+                <button class="btn-primary" id="saveFeedbackBtn">保存为该学员反馈</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fb-sheet" data-sheet="tpl">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>按模板智能生成课堂反馈</h2>
+            <span style="font-size:12px;color:var(--text-muted)">套用你给的模板，一键生成课堂整体反馈</span>
+          </div>
+          <div class="feedback-gen-area">
+            <div class="feedback-gen-left">
+              <label>课程标题（可改）
+                <input type="text" id="genClassFbTitle" value="☀2026学霸益优语文课程反馈">
+              </label>
+              <label>选择班级
+                <select id="genClassFbClass">
+                  <option value="">选择班级…</option>
+                </select>
+              </label>
+              <label>上课日期
+                <input type="date" id="genClassFbDate">
+              </label>
+              <label>科目（如：七年级暑假拔创）
+                <input type="text" id="genClassFbSubject" placeholder="【语文】七年级暑假拔创">
+              </label>
+              <label>教师
+                <input type="text" id="genClassFbTeacher" placeholder="何老师">
+              </label>
+              <label>课次
+                <input type="text" id="genClassFbLesson" placeholder="暑假第4次">
+              </label>
+              <label>学生名单（选班级后自动带出，可改）
+                <textarea id="genClassFbStudents" rows="3" placeholder="熊子骏 高朗绮&#10;蔡诗瑶 李梓轩"></textarea>
+              </label>
+              <label>上课内容（每行一条，自动编号）
+                <textarea id="genClassFbContent" rows="4" placeholder="如：本次作文专项课堂，重点讲解写作核心技巧…"></textarea>
+              </label>
+              <label>学生整体表现
+                <textarea id="genClassFbPerf" rows="3" placeholder="如：整体听课专注，可以理解详略安排的写作知识点…"></textarea>
+              </label>
+              <label>家庭作业
+                <textarea id="genClassFbHw" rows="2" placeholder="如：拔创练习题第2讲"></textarea>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-soft);margin:4px 0 12px">
+                <input type="checkbox" id="genClassFbUseMat" checked> 引用素材库常用表述补充「学生表现」
+              </label>
+              <label>生成格式
+                <select id="genClassFbStyle">
+                  <option value="wechat">标准微信版（带图标分块）</option>
+                  <option value="concise">简洁一行版</option>
+                  <option value="detail">分点详版</option>
+                </select>
+              </label>
+              <button class="btn-primary" id="genClassFbBtn" style="width:100%">智能生成课堂反馈</button>
+            </div>
+            <div class="feedback-gen-right">
+              <details class="fb-custom">
+                <summary>自定义模板（高级）</summary>
+                <p style="font-size:12px;color:var(--text-muted);margin:6px 0 4px">可用占位符：{标题} {科目} {教师} {课次} {名单} {内容} {表现} {作业} {素材}。留空则用上方所选格式，系统会自动替换并清掉残留占位符。</p>
+                <textarea id="genClassFbTemplate" rows="11" placeholder="&#10;{标题}&#10;科目：{科目}&#10;教师：{教师}&#10;课次：{课次}&#10;&#10;学生名单：&#10;{名单}&#10;&#10;🚴‍♀【上课内容】&#10;{内容}&#10;&#10;💛【课堂表现】&#10;{表现}&#10;&#10;家庭作业：{作业}&#10;&#10;☺☺家长收到请回复“1”@所有人"></textarea>
+              </details>
+              <label>生成结果
+                <textarea id="genClassFbResult" rows="11" placeholder="点击「智能生成课堂反馈」，系统将套用上方模板与内容生成课堂反馈，可编辑后保存…"></textarea>
+              </label>
+              <div style="display:flex;gap:8px">
+                <button class="btn-ghost" id="genClassFbCopy">复制</button>
+                <button class="btn-primary" id="genClassFbSave">保存为课堂反馈</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <div class="sch-actions">
+      <button class="btn-ghost" id="importFeedbackBtn">导入反馈</button>
+      <input type="file" id="importFeedbackInput" accept=".xlsx,.xls,.csv,.txt" hidden>
+      <button class="btn-ghost" id="exportFeedbackBtn">导出WPS</button>
+      <button class="btn-primary" id="addFeedbackBtn">＋ 录入反馈</button>
+    </div>
+    </div>
+  </section>
+  <section class="page" id="page-feedback-mat" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>反馈素材片段库</h2>
+          <span class="stu-count" id="fbMatCount">共 0 条</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="clip-input">
+        <input type="text" id="feedbackMaterialInput" placeholder="录入一句话素材，如：该生课堂专注力有明显提升…">
+        <button class="btn-primary" id="addFeedbackMaterialBtn">添加素材</button>
+      </div>
+      <ul class="record-list" id="feedbackMaterialList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-diag" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>AI 学情诊断 · 一键发家长</h2>
+          <span class="stu-count" id="diagCount">一键发家长</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="cf-template-area">
+        <div class="feedback-gen-left">
+          <label>关联学员（可选，便于存进档案）
+            <select id="diagStudent">
+              <option value="">不关联 / 仅生成文案</option>
+            </select>
+          </label>
+          <label>沟通口吻
+            <select id="diagTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
+          <label>上传图片（可多张：作业/入门测/试卷，有问题的那页）
+            <input type="file" id="diagImages" accept="image/*" multiple>
+          </label>
+          <div id="diagPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px"></div>
+          <label>补充说明（可选，如：这是周三的作业，张小明基础较弱）
+            <textarea id="diagNote" rows="2" placeholder="补充背景，帮助 AI 更准确定位问题"></textarea>
+          </label>
+          <label>家长性格 / 看重方面（选填，帮 AI 打动痛点）
+            <textarea id="diagParentProfile" rows="2" placeholder="如：家长雷厉风行、最看重提分与效率；或：家长容易焦虑、最看重孩子开心自信"></textarea>
+          </label>
+          <button class="btn-primary" id="diagBtn" style="width:100%">AI 诊断并生成家长文案</button>
+        </div>
+        <div class="feedback-gen-right">
+          <label>诊断结果（主要问题 + 怎么做）
+            <textarea id="diagResult" rows="7" placeholder="点击上方按钮，AI 将分析图片并指出主要问题、针对性改进建议…"></textarea>
+          </label>
+          <label>给家长的沟通文案（可直接发微信）
+            <textarea id="diagParent" rows="6" placeholder="温和、具体、可一键复制发给家长…"></textarea>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" id="diagCopyParent">复制家长文案</button>
+            <button class="btn-ghost" id="diagCopyAll">复制全部</button>
+            <button class="btn-ghost" id="diagClear">清空</button>
+            <button class="btn-primary" id="diagSave">存入学员档案</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+  <section class="page" id="page-aigrade" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>🤖 AI 作业批改（存档 + 生成作业情况）</h2>
+          <span class="stu-count" id="aigradeCount">存档+生成作业情况</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="cf-template-area">
+        <div class="feedback-gen-left">
+          <label>选择学员
+            <select id="pgAgStudent"><option value="">请选择学员</option></select>
+          </label>
+          <label>沟通口吻
+            <select id="pgAgTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
+          <label>上传作业图片（可多张，逐题批改）
+            <input type="file" id="pgAgImages" accept="image/*" multiple>
+          </label>
+          <div id="pgAgPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px"></div>
+          <label>补充说明（可选）
+            <textarea id="pgAgNote" rows="2" placeholder="如：本次第三单元默写，要求全对"></textarea>
+          </label>
+          <button class="btn-primary" id="pgAgRun" style="width:100%">开始批改</button>
+        </div>
+        <div class="feedback-gen-right">
+          <div id="pgAgResult" style="display:none;margin-top:8px">
+            <p style="font-size:14px">得分：<b id="pgAgScore"></b> / <b id="pgAgFull"></b></p>
+            <p id="pgAgSummary" style="font-size:13px;white-space:pre-wrap;color:var(--text-soft)"></p>
+            <div id="pgAgProblems"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn-ghost" id="pgAgClear">清空结果</button>
+            <button class="btn-ghost" id="pgAgSave">存入批改记录</button>
+            <button class="btn-primary" id="pgAgImport">生成作业情况并导入档案</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+  <section class="page" id="page-renew" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>💡 续费助手 · 应对不续费理由</h2>
+          <span class="stu-count" id="renewCount">应对不续费理由</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="cf-template-area">
+        <div class="feedback-gen-left">
+          <label>选择学员
+            <select id="renewStudent"><option value="">请选择学员</option></select>
+          </label>
+          <label>沟通口吻
+            <select id="renewTone">
+              <option value="">默认（温和专业）</option>
+              <option value="专业严谨">专业严谨</option>
+              <option value="温和亲切">温和亲切</option>
+              <option value="鼓励肯定">鼓励肯定</option>
+              <option value="简洁直接">简洁直接</option>
+              <option value="幽默轻松">幽默轻松</option>
+              <option value="正式客气">正式客气</option>
+            </select>
+          </label>
+          <label>家长不续费的理由（可多选，针对性给方案）
+            <div class="reason-chips" id="renewReasons"></div>
+          </label>
+          <label>家长性格 / 看重方面（选填，帮话术打动痛点）
+            <textarea id="renewProfile" rows="2" placeholder="如：家长精打细算、最看重性价比与提分；或：家长重视习惯养成、怕孩子厌学"></textarea>
+          </label>
+          <label>补充说明（选填）
+            <textarea id="renewNote" rows="2" placeholder="如：该生刚有起色，或家长最近提过想停"></textarea>
+          </label>
+          <button class="btn-primary" id="renewGen" style="width:100%">生成应对方案与话术</button>
+        </div>
+        <div class="feedback-gen-right">
+          <div id="renewBasisWrap" style="display:none;margin-bottom:10px">
+            <div class="renew-basis" id="renewBasis"></div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">快捷话术（点一下插入到结果里）</div>
+            <div class="reason-chips" id="renewQuick">
+              <span class="reason-chip" data-snip="✅ 试听兜底：下阶段前 2 节按试听价，看到效果再决定，零风险。">试听体验</span>
+              <span class="reason-chip" data-snip="💰 老生优惠：续报可享老生价 / 分期付款，降低一次性支出压力。">优惠/分期</span>
+              <span class="reason-chip" data-snip="⏸ 冻结保留：课程可暂停保留名额与优惠，等安顿好再续。">冻结保留</span>
+              <span class="reason-chip" data-snip="🕒 弹性排课：按孩子节奏减量提质、调整时段，不占精力。">弹性排课</span>
+              <span class="reason-chip" data-snip="📊 量化目标：约定 4 周内可见的小目标（如默写全对），给确定性。">量化目标</span>
+            </div>
+          </div>
+          <label>生成结果（逐条方案 + 微信话术，可编辑）
+            <textarea id="renewResult" rows="12" placeholder="点击「生成应对方案与话术」…"></textarea>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" id="renewCopy">复制话术</button>
+            <button class="btn-ghost" id="renewClear">清空</button>
+            <button class="btn-primary" id="renewSave">存入沟通档案</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+  <section class="page" id="page-mindmap" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>AI 思维导图备课</h2>
+          <span class="stu-count" id="mindmapCount">AI 备课导图</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="mindmap-wrap">
+        <div class="mindmap-input">
+          <div class="mm-field-title">📷 拍照识别（目录 / 课文页）</div>
+          <span class="mm-ocr-status" id="mmOcrStatus">拍下课本目录或课文页，AI 自动识别并填入下方内容</span>
+          <div class="mm-photo-row">
+            <button class="btn-ghost" id="mmCamBtn" type="button">📷 拍照</button>
+            <button class="btn-ghost" id="mmAlbumBtn" type="button">🖼 相册</button>
+            <button class="btn-primary" id="mmOcrBtn" type="button">✨ 识别并填入</button>
+          </div>
+          <input type="file" id="mmCamInput" accept="image/*" capture="environment" hidden>
+          <input type="file" id="mmAlbumInput" accept="image/*" multiple hidden>
+          <div class="mm-thumbs" id="mmThumbs"></div>
+
+          <div class="mm-field-title">🧭 生成什么类型的思维导图</div>
+          <div class="mm-type-chips" id="mmTypeChips"></div>
+
+          <label>课文 / 诗词内容
+            <textarea id="mmContent" rows="3" placeholder="例：《行路难》《岳阳楼记》等文言文 / 现代文 / 古诗词，也可拍照自动填入"></textarea>
+          </label>
+          <label>课时目标与教学重难点
+            <textarea id="mmFocus" rows="3" placeholder="例：1. 理解诗意 2. 体会诗人情感 3. 背诵默写 4. 赏析写作手法"></textarea>
+          </label>
+          <label>教学环节安排（教学流程）
+            <textarea id="mmPlan" rows="3" placeholder="例：第 1 课时：导入+朗读；第 2 课时：讲解+练习"></textarea>
+          </label>
+          <label>补充要求（可选）
+            <textarea id="mmReq" rows="2" placeholder="例：面向初二学生 / 每个分支不超过 4 个要点 / 突出中考考点 / 附答题模板"></textarea>
+          </label>
+          <button class="btn-ghost" id="loadHistoryBtn">载入历史备课</button>
+        </div>
+        <div class="mindmap-output">
+          <div class="mm-toolbar">
+            <span class="mm-tip">双击节点编辑 · 拖拽调整 · 选中节点后点「＋ 添加子节点」 · 已配置 AI 模型时自动调用 AI 生成多级结构（教学流程 / 考点 / 习题 / 答题模板）</span>
+            <button class="btn-ghost" id="addRootNode">＋ 新增主节点</button>
+            <button class="btn-ghost" id="addChildNodeBtn">＋ 添加子节点</button>
+            <button class="btn-ghost" id="editNodeBtn">✎ 编辑节点</button>
+            <button class="btn-ghost" id="checkMindmapBtn">🔍 导图自检</button>
+            <button class="btn-ghost" id="saveMindmapLibBtn">📥 存素材库</button>
+            <button class="btn-ghost" id="saveMindmapBtn">保存到本地</button>
+          </div>
+          <div id="mmCheckResult" class="mm-check-result" hidden></div>
+          <div class="mm-canvas-wrap">
+            <svg id="mindmapSvg"></svg>
+          </div>
+          <ul class="mm-history" id="mmHistory"></ul>
+        </div>
+      </div>
+      </div>
+      <div class="sch-actions">
+        <button class="btn-ghost" id="importMindmapBtn">导入导图</button>
+        <input type="file" id="mindmapFileInput" accept=".json,.mm,.xmind" hidden>
+        <button class="btn-ghost" id="exportMindmapJsonBtn">导出JSON</button>
+        <button class="btn-ghost" id="exportMindmapBtn">导出PNG</button>
+        <button class="btn-primary" id="generateMindmapBtn">生成思维导图</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-prep" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>备课助手</h2>
+          <span class="stu-count" id="prepCount">备课助手</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="tabs">
+        <button class="tab active" data-ptab="primary">小学段（6年级）</button>
+        <button class="tab" data-ptab="junior">初中段（7-9年级）</button>
+      </div>
+      <!-- 小学段 -->
+      <div class="tab-content" id="ptab-primary">
+        <div class="prep-section">
+          <h3 class="prep-section-title">预置资料包 · 六年级</h3>
+          <div class="prep-pack-grid" id="prepPackGridPrimary"></div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">在线搜索资料</h3>
+          <div class="prep-search-row">
+            <input type="text" id="prepSearchInputPrimary" placeholder="搜索六年级语文复习资料…">
+            <select id="prepSearchPlatformPrimary">
+              <option value="baidu">百度</option>
+              <option value="docin">豆丁网</option>
+              <option value="doc88">道客巴巴</option>
+              <option value="cnki">知网基础</option>
+            </select>
+            <button class="btn-primary" id="prepSearchBtnPrimary">搜索</button>
+          </div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">我的资料 · 小学段</h3>
+          <div class="prep-myfiles-toolbar">
+            <input type="file" id="prepFileInputPrimary" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.zip" hidden>
+            <button class="btn-ghost" id="prepUploadBtnPrimary">＋ 上传文件</button>
+            <button class="btn-ghost" id="prepExportBtnPrimary">导出全部</button>
+            <button class="btn-ghost" id="prepImportBtnPrimary">导入资料包</button>
+            <input type="file" id="prepImportInputPrimary" accept=".json" hidden>
+          </div>
+          <div class="prep-file-grid" id="prepFileGridPrimary"></div>
+        </div>
+      </div>
+      <!-- 初中段 -->
+      <div class="tab-content" id="ptab-junior" hidden>
+        <div class="prep-section">
+          <h3 class="prep-section-title">预置资料包 · 初中</h3>
+          <div class="prep-pack-grid" id="prepPackGridJunior"></div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">在线搜索资料</h3>
+          <div class="prep-search-row">
+            <input type="text" id="prepSearchInputJunior" placeholder="搜索初中语文复习资料…">
+            <select id="prepSearchPlatformJunior">
+              <option value="baidu">百度</option>
+              <option value="docin">豆丁网</option>
+              <option value="doc88">道客巴巴</option>
+              <option value="cnki">知网基础</option>
+            </select>
+            <button class="btn-primary" id="prepSearchBtnJunior">搜索</button>
+          </div>
+        </div>
+        <div class="prep-section">
+          <h3 class="prep-section-title">我的资料 · 初中段</h3>
+          <div class="prep-myfiles-toolbar">
+            <input type="file" id="prepFileInputJunior" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.zip" hidden>
+            <button class="btn-ghost" id="prepUploadBtnJunior">＋ 上传文件</button>
+            <button class="btn-ghost" id="prepExportBtnJunior">导出全部</button>
+            <button class="btn-ghost" id="prepImportBtnJunior">导入资料包</button>
+            <input type="file" id="prepImportInputJunior" accept=".json" hidden>
+          </div>
+          <div class="prep-file-grid" id="prepFileGridJunior"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 练习生成器 -->
+  <section class="page" id="page-exercise" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>练习生成器</h2>
+          <span class="stu-count" id="exerciseCount">练习生成器</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="ex-input-area">
+        <label>粘贴今天的学习内容（课文段落、词语表、古诗、知识点等）</label>
+        <textarea id="exSource" rows="6" placeholder="例：春晓 孟浩然&#10;春眠不觉晓，处处闻啼鸟。&#10;夜来风雨声，花落知多少。"></textarea>
+        <div class="ex-photo-row">
+          <button class="chip" id="exCamBtn" type="button">📷 拍照识别</button>
+          <button class="chip" id="exPickBtn" type="button">🖼 相册识别</button>
+          <span class="ex-ocr-status" id="exOcrStatus"></span>
+          <input id="exCamInput" type="file" accept="image/*" capture="environment" hidden>
+          <input id="exPickInput" type="file" accept="image/*" multiple hidden>
+        </div>
+        <label style="margin-top:10px">网页链接（可选，自动提取正文作为素材；跨域受限时请直接粘贴文字）</label>
+        <input type="text" id="exUrl" placeholder="https://example.com/lesson-article">
+        <div class="ex-weak-row">
+          <label class="ex-weak-toggle"><input type="checkbox" id="exWeakOn"> 按学员薄弱项定向出题</label>
+          <select id="exStudent"><option value="">选择学员</option></select>
+          <span class="ex-weak-hint" id="exWeakHint"></span>
+        </div>
+        <div class="ex-controls">
+          <div class="ex-type-group">
+            <span>题型：</span>
+            <label><input type="radio" name="exType" value="fill" checked> 填空</label>
+            <label><input type="radio" name="exType" value="choice"> 选择题</label>
+            <label><input type="radio" name="exType" value="judge"> 判断题</label>
+            <label><input type="radio" name="exType" value="saq"> 简答题</label>
+            <label><input type="radio" name="exType" value="reading"> 阅读理解</label>
+            <label><input type="radio" name="exType" value="dictation"> 听写</label>
+            <label><input type="radio" name="exType" value="dot"> 加点字</label>
+            <label><input type="radio" name="exType" value="paper"> 综合试卷</label>
+          </div>
+          <div class="ex-diff-group">
+            <span>难度：</span>
+            <select id="exDifficulty">
+              <option value="easy">简单</option>
+              <option value="medium" selected>中等</option>
+              <option value="hard">困难</option>
+            </select>
+          </div>
+          <button class="btn-primary" id="exGenBtn">智能生成</button>
+        </div>
+        <p class="ex-tip" id="exAiTip">配置了 AI 模型时，将调用你的模型按内容智能出题；未配置则用本地智能生成（自动组选择题干扰项、把陈述转成问句等）。勾选「按学员薄弱项定向出题」并选择学员后，AI 会重点针对该生薄弱点命制题目。</p>
+      </div>
+      <div class="ex-preview" id="exPreview"></div>
+      <div class="ex-lib" id="exLibBox" hidden>
+        <div class="ex-lib-head">
+          <h3>我的题库</h3>
+          <button class="btn-ghost" id="exLibClose" type="button">收起</button>
+        </div>
+        <div class="ex-lib-list" id="exLibList"></div>
+      </div>
+      </div>
+      <div class="sch-actions">
+        <button class="btn-ghost" id="exSaveLibBtn" disabled>保存到题库</button>
+        <button class="btn-ghost" id="exLibBtn">我的题库</button>
+        <button class="btn-ghost" id="exPrintBtn">打印 / 导出PDF</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-kanban" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>工作看板</h2>
+          <span class="stu-count" id="kanbanCount">工作看板</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="quick-chips">
+        <span>快速添加：</span>
+        <button class="chip" onclick="window.__app.quickAddTodo('打印试卷')">🖨 打印试卷</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('整理打卡资料')">📁 整理打卡资料</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('和教务对接')">💬 和教务对接</button>
+        <button class="chip" onclick="window.__app.quickAddTodo('采购教辅')">🛒 采购教辅</button>
+      </div>
+      <div class="kanban-board">
+        <div class="kanban-col" data-status="todo">
+          <h3>待办</h3>
+          <div class="kanban-items" data-status="todo"></div>
+        </div>
+        <div class="kanban-col" data-status="doing">
+          <h3>进行中</h3>
+          <div class="kanban-items" data-status="doing"></div>
+        </div>
+        <div class="kanban-col" data-status="done">
+          <h3>已完成</h3>
+          <div class="kanban-items" data-status="done"></div>
+        </div>
+      </div>
+      </div>
+      <div class="sch-actions">
+        <button class="btn-ghost" id="exportKanbanBtn">导出WPS</button>
+        <button class="btn-primary" id="addTodoBtn">＋ 新增任务</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-tools" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>工具中心</h2>
+          <span class="stu-count" id="toolsCount">工具中心</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="tools-grid">
+        <div class="tool-card">
+          <h3>课堂计时器</h3>
+          <div class="timer" id="timer">00:00</div>
+          <div class="timer-controls">
+            <button class="btn-primary" id="timerStart">开始</button>
+            <button class="btn-ghost" id="timerPause">暂停</button>
+            <button class="btn-ghost" id="timerReset">重置</button>
+          </div>
+          <div class="timer-presets">
+            <button data-sec="300">5 分钟</button>
+            <button data-sec="600">10 分钟</button>
+            <button data-sec="900">15 分钟</button>
+            <button data-sec="1800">30 分钟</button>
+          </div>
+        </div>
+        <div class="tool-card">
+          <h3>快捷剪贴板</h3>
+          <div class="clip-input">
+            <input type="text" id="clipInput" placeholder="高频家长沟通文案…">
+            <button class="btn-primary" id="clipAdd">保存</button>
+          </div>
+          <ul class="clip-list" id="clipList"></ul>
+        </div>
+        <div class="tool-card">
+          <h3>桌面便签</h3>
+          <textarea id="stickyNote" rows="6" placeholder="随手记录…"></textarea>
+          <p class="hint">自动保存</p>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-settings" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>全局个性化设置</h2>
+          <span class="stu-count" id="settingsCount">个性化设置</span>
+        </div>
+      </div>
+      <div class="own-body" id="settingsBody">
+      <!-- 液态玻璃 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>🌊 液态玻璃效果</h3></div>
+        <div class="set-group-body">
+          <div class="setting-item">
+            <h3>液态效果开关</h3>
+            <p>开启后面板呈毛玻璃半透明质感，配合背景图效果更佳</p>
+            <button class="btn-primary" id="toggleGlassBtn">一键切换液态效果</button>
+            <span class="setting-status" id="glassStatus">当前：关闭</span>
+          </div>
+          <div class="setting-item">
+            <h3>液态浓度（透明度）</h3>
+            <p>向左更朦胧，向右更通透</p>
+            <div class="setting-row-control">
+              <input type="range" id="liquidOpacity" min="0" max="100" value="60">
+              <span id="liquidOpacityVal">60%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 背景 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>🎨 背景</h3></div>
+        <div class="set-group-body">
+          <div class="setting-item">
+            <h3>预设背景图</h3>
+            <p>点击选择喜欢的渐变背景</p>
+            <div class="bg-preset-grid" id="bgPresetGrid">
+              <button class="bg-preset-btn" data-preset="1" style="background:linear-gradient(135deg,#f5f7fa,#c3cfe2)"></button>
+              <button class="bg-preset-btn" data-preset="2" style="background:linear-gradient(135deg,#e0c3fc,#8ec5fc)"></button>
+              <button class="bg-preset-btn" data-preset="3" style="background:linear-gradient(135deg,#f093fb,#f5576c)"></button>
+              <button class="bg-preset-btn" data-preset="4" style="background:linear-gradient(135deg,#a1c4fd,#c2e9fb)"></button>
+              <button class="bg-preset-btn" data-preset="5" style="background:linear-gradient(135deg,#d4fc79,#96e6a1)"></button>
+              <button class="bg-preset-btn" data-preset="6" style="background:linear-gradient(135deg,#f9f7f3,#e8e2d8)"></button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <h3>自定义背景颜色</h3>
+            <input type="color" id="bgColor">
+            <button class="btn-ghost" id="resetBgColor">恢复默认</button>
+          </div>
+          <div class="setting-item">
+            <h3>自定义背景图片</h3>
+            <input type="file" id="bgImageInput" accept="image/*">
+            <button class="btn-ghost" id="clearBgImage">清除背景图</button>
+          </div>
+        </div>
+      </div>
+      <!-- 字体与文字 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>🔤 字体与文字</h3></div>
+        <div class="set-group-body">
+          <div class="setting-item">
+            <h3>字体大小</h3>
+            <div class="setting-row-control">
+              <input type="range" id="fontSize" min="12" max="20" value="14">
+              <span id="fontSizeVal">14px</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <h3>更换字体</h3>
+            <select id="fontFamily"><option value="default">系统默认</option></select>
+            <div style="margin-top:8px">
+              <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+              <button class="btn-ghost" id="importFontBtn">导入字体 (.ttf/.otf)</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <h3>面板透明度</h3>
+            <div class="setting-row-control">
+              <input type="range" id="panelOpacity" min="0" max="100" value="100">
+              <span id="panelOpacityVal">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 外观细节（颜色/圆角/底栏尺寸，JS 注入） -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>🎛️ 外观细节（颜色 / 圆角 / 底栏）</h3></div>
+        <div class="set-group-body">
+          <div class="panel-body" style="padding:0" id="appearanceControls"></div>
+        </div>
+      </div>
+      <!-- 底栏自定义 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>📱 底栏自定义</h3></div>
+        <div class="set-group-body">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">勾选要显示在底部导航的页面（最多 5 个），调整后立即生效。</p>
+          <div id="bnavChips" class="bnav-chips"></div>
+          <div style="margin-top:12px;"><button class="btn-ghost" id="bnavResetBtn">恢复默认（今日/备课/学员/运营）</button></div>
+        </div>
+      </div>
+      <!-- 顶栏与状态栏 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>📲 顶栏与状态栏</h3></div>
+        <div class="set-group-body">
+          <div class="setting-item">
+            <h3>顶部安全距离</h3>
+            <p>如果页面标题被手机状态栏（时间/信号）压住，往右拉直到刚好露出来</p>
+            <div class="setting-row-control">
+              <input type="range" id="topInset" min="0" max="80" value="0">
+              <span id="topInsetVal">自动</span>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-ghost" id="topInsetAutoBtn" type="button">恢复自动识别</button>
+            </div>
+            <span class="setting-status" id="topInsetStatus"></span>
+          </div>
+        </div>
+      </div>
+      <!-- 显示模式 -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>⚙️ 显示模式</h3></div>
+        <div class="set-group-body">
+          <div class="setting-item">
+            <h3>紧凑模式</h3>
+            <p>减小间距，一屏显示更多内容</p>
+            <button class="btn-primary" id="toggleCompactBtn">一键切换紧凑模式</button>
+            <span class="setting-status" id="compactStatus">当前：关闭</span>
+          </div>
+          <div class="setting-item">
+            <h3>动画开关</h3>
+            <p>关闭过渡动画以提升性能</p>
+            <button class="btn-primary" id="toggleAnimationBtn">一键切换动画</button>
+            <span class="setting-status" id="animationStatus">当前：开启</span>
+          </div>
+        </div>
+      </div>
+      <!-- AI -->
+      <div class="set-group open">
+        <div class="set-group-head"><span class="set-arrow">▾</span><h3>🤖 AI 模型配置（可选）</h3></div>
+        <div class="set-group-body">
+          <p>配置后，<b>练习生成器</b>和<b>备课导图</b>将调用你的模型智能出题/生成导图（支持 OpenAI / 豆包 / DeepSeek 等兼容接口）；未配置则用本地模板。</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn-ghost ai-preset-btn" data-preset="doubao">🫘 一键填入豆包(火山引擎)</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="deepseek">🔷 一键填入DeepSeek</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="openai">🤖 一键填入OpenAI</button>
+            <button class="btn-ghost ai-preset-btn" data-preset="clear">✕ 清空</button>
+          </div>
+          <label class="setting-label">API 地址（Endpoint）</label>
+          <input type="text" id="aiApiUrl" placeholder="https://ark.cn-beijing.volces.com/api/v3/chat/completions">
+          <label class="setting-label">API Key（在对应平台获取）</label>
+          <input type="password" id="aiApiKey" placeholder="粘贴你的 API Key">
+          <label class="setting-label">模型名称</label>
+          <input type="text" id="aiModel" placeholder="ep-2024xxxxx / deepseek-chat / gpt-4o">
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-primary" id="saveAiConfigBtn">保存配置</button>
+            <button class="btn-ghost" id="testAiConfigBtn">测试连接</button>
+          </div>
+          <span class="setting-status" id="aiConfigStatus"></span>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">
+            💡 <b>豆包推荐</b>：去 <a href="https://console.volcengine.com/ark" target="_blank">火山引擎控制台</a> 创建应用 → 获取 Endpoint ID 和 API Key → 填入上方即可。<br>
+            💡 <b>DeepSeek</b>：去 <a href="https://platform.deepseek.com/" target="_blank">DeepSeek平台</a> 获取 API Key → 地址填 https://api.deepseek.com/chat/completions
+          </p>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-life" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>生活助手</h2>
+          <span class="stu-count" id="lifeCount">生活助手</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="life-tabs">
+        <button class="life-tab active" data-ltab="express">快递查询</button>
+        <button class="life-tab" data-ltab="weather">天气</button>
+        <button class="life-tab" data-ltab="memo">备忘记事</button>
+        <button class="life-tab" data-ltab="countdown">倒计时</button>
+      </div>
+
+      <!-- 快递查询 -->
+      <div class="life-content" id="ltab-express">
+        <div class="life-section">
+          <h3>取件码记录</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">收到驿站取件码短信后，记录在这里方便随时查看</p>
+          <div class="clip-input">
+            <input type="text" id="expressNo" placeholder="取件码 / 单号（号码）">
+            <input type="text" id="expressLocation" placeholder="取件地点（地方，如：菜鸟驿站南门）">
+            <button class="btn-primary" id="addExpressBtn">记录</button>
+          </div>
+          <ul class="record-list" id="expressList"></ul>
+        </div>
+        <div class="life-section" style="margin-top:20px">
+          <h3>按取件码查询</h3>
+          <div class="clip-input">
+            <input type="text" id="expressPhoneQuery" placeholder="输入取件码查对应地点">
+            <button class="btn-primary" id="queryExpressByPhoneBtn">查询</button>
+          </div>
+          <div id="phoneExpressResult" style="margin-top:12px"></div>
+        </div>
+        <div class="life-section" style="margin-top:20px">
+          <h3>一键查快递（外部平台）</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">点击下方按钮跳转到各平台官方查件页面</p>
+          <div class="express-quick-grid">
+            <a class="express-quick-btn" href="https://www.kuaidi100.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">📦</span>
+              <span class="eq-name">快递100</span>
+              <span class="eq-desc">综合查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://m.cainiao.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🐝</span>
+              <span class="eq-name">菜鸟裹裹</span>
+              <span class="eq-desc">淘宝件查询</span>
+            </a>
+            <a class="express-quick-btn" href="https://m.sf-express.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">✈</span>
+              <span class="eq-name">顺丰速运</span>
+              <span class="eq-desc">顺丰查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://www.jd.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🚚</span>
+              <span class="eq-name">京东物流</span>
+              <span class="eq-desc">京东查件</span>
+            </a>
+            <a class="express-quick-btn" href="https://mobile.yangkeduo.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🛒</span>
+              <span class="eq-name">拼多多</span>
+              <span class="eq-desc">订单物流</span>
+            </a>
+            <a class="express-quick-btn" href="https://h5.m.taobao.com/" target="_blank" rel="noopener">
+              <span class="eq-icon">🛍</span>
+              <span class="eq-name">淘宝</span>
+              <span class="eq-desc">订单物流</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 天气 -->
+      <div class="life-content" id="ltab-weather" hidden>
+        <div class="life-section">
+          <h3>今日天气</h3>
+          <div class="weather-card" id="weatherCard">
+            <p class="hint">输入城市名查看天气</p>
+            <div class="clip-input">
+              <input type="text" id="weatherCity" placeholder="如：北京">
+              <button class="btn-primary" id="weatherBtn">查询</button>
+            </div>
+            <div id="weatherResult"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 备忘记事 -->
+      <div class="life-content" id="ltab-memo" hidden>
+        <div class="life-section">
+          <h3>随手记事</h3>
+          <div class="clip-input">
+            <input type="text" id="memoInput" placeholder="记一件事…">
+            <button class="btn-primary" id="addMemoBtn">添加</button>
+          </div>
+          <ul class="record-list" id="memoList"></ul>
+        </div>
+      </div>
+
+      <!-- 倒计时 -->
+      <div class="life-content" id="ltab-countdown" hidden>
+        <div class="life-section">
+          <h3>重要日期倒计时</h3>
+          <div class="clip-input">
+            <input type="text" id="cdName" placeholder="事件名称（如：期末考试）">
+            <input type="date" id="cdDate">
+            <button class="btn-primary" id="addCdBtn">添加</button>
+          </div>
+          <ul class="record-list" id="cdList"></ul>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-accounting" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>个人记账本</h2>
+          <span class="stu-count" id="accountingCount">个人记账</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="filter-row">
+        <select id="accountingCatFilter">
+          <option value="">全部分类</option>
+          <option value="早餐">早餐</option>
+          <option value="中餐">中餐</option>
+          <option value="晚餐">晚餐</option>
+          <option value="衣物">衣物</option>
+          <option value="家具">家具</option>
+          <option value="油费">油费</option>
+          <option value="保险费">保险费</option>
+          <option value="其他支出">其他支出</option>
+        </select>
+        <div class="accounting-summary" id="accountingSummary"></div>
+        <div class="view-toggle">
+          <button class="btn-ghost active" id="acctViewTable" data-view="table">表格</button>
+          <button class="btn-ghost" id="acctViewCard" data-view="card">便签</button>
+        </div>
+      </div>
+      <div id="accountingList"></div>
+      </div>
+      <div class="sch-actions">
+        <button class="btn-ghost" id="exportAccountingBtn">导出WPS</button>
+        <button class="btn-ghost" id="genReceiptBtn">生成月度小票</button>
+        <button class="btn-primary" id="addAccountingBtn">＋ 记一笔</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 电子小票预览 -->
+  <div id="receiptPreview" class="receipt-preview" hidden>
+    <div class="receipt-preview-header">
+      <h3>月度消费小票</h3>
+      <button class="modal-close" id="receiptClose">×</button>
+    </div>
+    <div class="receipt-preview-body">
+      <canvas id="receiptCanvas"></canvas>
+    </div>
+    <div class="receipt-preview-footer">
+      <button class="btn-primary" id="saveReceiptBtn">保存到手机</button>
+      <button class="btn-ghost" id="shareReceiptBtn">分享图片</button>
+    </div>
+  </div>
+
+  <section class="page" id="page-ledger" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>学情台账</h2>
+          <span class="stu-count" id="ledgerCount">学情台账</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="panel">
+      <div class="panel-header">
+        <h2>⚡ 快速记录</h2>
+        <span class="hint" style="font-size:12px;color:var(--text-muted)">选学员 → 选类型 → 一键追加，无需打开编辑框</span>
+      </div>
+      <div class="ledger-quick-form">
+        <div class="lq-row">
+          <label class="lq-student">学员<select id="lqStudent"></select></label>
+          <div class="lq-type" id="lqType">
+            <button type="button" class="lq-type-btn active" data-type="entry">入门测</button>
+            <button type="button" class="lq-type-btn" data-type="hw">作业</button>
+          </div>
+        </div>
+        <div class="lq-row">
+          <label>日期<input type="date" id="lqDate"></label>
+          <label id="lqContentWrap" hidden>内容<input type="text" id="lqContent" placeholder="如：第3课生字词抄写"></label>
+          <label class="lq-score">分数<input type="number" id="lqScore" value="0" step="0.5"></label>
+          <label class="lq-fullscore">满分<input type="number" id="lqFull" placeholder="选填" step="0.5"></label>
+          <label id="lqStatusWrap" hidden>状态<select id="lqStatus"><option>已完成</option><option>未完成</option><option>订正中</option><option>部分完成</option></select></label>
+        </div>
+        <div class="lq-row">
+          <label class="lq-note">备注<input type="text" id="lqNote" placeholder="选填（如：进步明显 / 需重点关注）"></label>
+        </div>
+        <div class="lq-row lq-photo-row">
+          <button type="button" class="btn-ghost" id="lqCamBtn">📷 拍照</button>
+          <button type="button" class="btn-ghost" id="lqPickBtn">🖼 从相册选</button>
+          <input type="file" id="lqCamInput" accept="image/*" capture="environment" hidden>
+          <input type="file" id="lqPickInput" accept="image/*" multiple hidden>
+          <span id="lqPhotoPreview" class="lq-photo-preview"></span>
+        </div>
+        <div class="lq-actions">
+          <button class="btn-primary" id="lqAddBtn">＋ 追加记录</button>
+          <span id="lqMsg" class="hint" style="color:var(--text-muted)"></span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>班级学员学情台账</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="ledgerImportBtn">导入学员</button>
+          <input type="file" id="ledgerImportInput" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn-ghost" id="exportLedgerBtn">导出WPS</button>
+          <button class="btn-primary" id="addLedgerClassBtn">＋ 新建班级</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="ledgerClassFilter">
+          <option value="">全部班级</option>
+        </select>
+        <input type="text" id="ledgerStudentFilter" placeholder="按学员姓名筛选…">
+      </div>
+      <div id="ledgerClassList" class="ledger-class-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>学情汇总</h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="ledgerSummaryClassBtn">生成班级汇总图</button>
+          <button class="btn-ghost" id="ledgerSummaryAllBtn">生成全量汇总图</button>
+        </div>
+      </div>
+      <div id="ledgerSummary" class="ledger-summary-area"></div>
+    </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-data" hidden>
+    <div class="own-page">
+      <div class="sch-header">
+        <button class="stu-back" type="button" data-page="dashboard">‹</button>
+        <div class="stu-title-row">
+          <h2>数据备份与恢复</h2>
+          <span class="stu-count" id="dataCount">数据备份</span>
+        </div>
+      </div>
+      <div class="own-body">
+      <div class="data-block">
+        <h3>本地备份</h3>
+        <p>导出全部数据为 JSON 文件，保存到本地或云盘长期保存。</p>
+        <button class="btn-primary" id="backupBtn">一键备份（下载 JSON）</button>
+      </div>
+      <div class="data-block">
+        <h3>本地恢复</h3>
+        <p>选择此前导出的 JSON 文件，恢复全部数据。</p>
+        <input type="file" id="restoreInput" accept=".json">
+      </div>
+      <div class="data-block">
+        <h3>导出全部到 WPS / Excel</h3>
+        <p>一键导出全部学员、成绩、沟通、课时记录为 Excel 表格。</p>
+        <button class="btn-primary" id="exportAllDataBtn">导出全部 WPS 表格</button>
+      </div>
+      <div class="data-block">
+        <h3>GitMind 同步</h3>
+        <p>GitMind API 需要 OAuth 授权。点击下方尝试连接：</p>
+        <button class="btn-ghost" id="gitmindSync">连接 GitMind</button>
+        <span class="status" id="gitmindStatus">未连接</span>
+        <p class="hint">若提示失败，请改用夸克网盘备份。</p>
+      </div>
+      <div class="data-block">
+        <h3>夸克网盘永久备份（备选方案）</h3>
+        <p>请将「一键备份」生成的 JSON 文件上传至夸克网盘保存。</p>
+        <a class="btn-link" href="https://pan.quark.cn/" target="_blank" rel="noopener">→ 打开夸克网盘</a>
+        <a class="btn-link" href="https://pan.quark.cn/list#/list/share" target="_blank" rel="noopener">→ 我的夸克分享</a>
+      </div>
+      <div class="data-block">
+        <h3>存储说明</h3>
+        <p>本系统使用浏览器 <strong>IndexedDB</strong> 持久化存储：</p>
+        <ul class="info-list">
+          <li>清除浏览器缓存 / Cookie 不会丢失数据</li>
+          <li>隔天打开仍可访问（数据在本地数据库）</li>
+          <li>建议每周一次 JSON 备份到云盘</li>
+        </ul>
+      </div>
+      <div class="data-block danger">
+        <h3>危险操作</h3>
+        <button class="btn-danger" id="clearAllBtn">清空所有数据</button>
+        <p class="hint">请先备份再操作，此操作不可恢复。</p>
+      </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 底部导航（由 JS 按用户配置渲染） -->
+<nav id="bottomNav" class="bottom-nav"></nav>
+
+<!-- 悬浮球 -->
+<div id="floatBall" class="float-ball">＋</div>
+<div id="floatMenu" class="float-menu" hidden>
+  <button data-fm="student">新建学员</button>
+  <button data-fm="comm">新建沟通</button>
+  <button data-fm="schedule">打开课表</button>
+  <button data-fm="template">调取话术</button>
+  <button data-fm="mindmap">新建备课导图</button>
+</div>
+
+<!-- 通用弹窗 -->
+<div id="modalMask" class="modal-mask" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">弹窗</h3>
+      <button class="modal-close" id="modalClose" type="button">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast" hidden></div>
+
+<!-- 持久运行指示器 -->
+<div id="keepAliveIndicator" class="keep-alive-indicator" title="应用常驻运行中">
+  <span class="dot"></span>
+  <span class="label">运行中</span>
+</div>
+
+<script src="./vendor/xlsx.full.min.js"></script>
+<script src="./app.js?v=63"></script>
+</body>
+</html>

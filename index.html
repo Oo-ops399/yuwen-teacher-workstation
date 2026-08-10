@@ -13,7 +13,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="75">
+<meta name="app-version" content="76">
 <script>
   // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
   // 避免出现「页面能打开但点什么都没反应」的静默假死
@@ -39,7 +39,7 @@
       var LV = (document.querySelector('meta[name="app-version"]') || {}).content;
       if (!LV) return;
       var x = new XMLHttpRequest();
-      x.open('GET', 'data:text/plain;charset=utf-8,75', true);
+      x.open('GET', 'data:text/plain;charset=utf-8,76', true);
       x.onreadystatechange = function () {
         if (x.readyState === 4 && x.status === 200) {
           var nv = (x.responseText || '').trim();
@@ -2254,6 +2254,45 @@ label input, label select, label textarea { margin-top: 4px; }
 .bnav-item.active .bnav-ico { stroke: #fff; }
 .bnav-item.active .bnav-label { color: rgba(255,255,255,0.88); font-weight: 600; }
 
+/* ================= 全局搜索浮层 ================= */
+.search-overlay { position: fixed; inset: 0; z-index: 200; background: #fff; display: flex; flex-direction: column; }
+.search-bar { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top, 0)) 12px 10px; border-bottom: 1px solid #eee; background: #fff; }
+.search-bar svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.search-bar input { flex: 1; border: none; outline: none; font-size: 16px; padding: 8px 4px; background: transparent; }
+.search-close { border: none; background: none; color: #888; font-size: 15px; padding: 6px 8px; }
+.search-results { flex: 1; overflow: auto; padding: 8px 12px; }
+.search-results .sr-item { padding: 14px 10px; border-bottom: 1px solid #f2f2f2; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.search-results .sr-item:active { background: #f6f6f6; }
+.search-results .badge { flex: 0 0 auto; }
+
+/* ================= 速记收件箱 FAB（左下角） ================= */
+.qc-ball { position: fixed; bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom, 0)); left: 16px; width: 50px; height: 50px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 95; cursor: pointer; transition: transform .15s; }
+.qc-ball:active { transform: scale(.92); }
+@media (max-width: 768px) { .qc-ball { width: 46px; height: 46px; font-size: 22px; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0)); left: 12px; } }
+
+/* 底部导航搜索按钮 */
+.bnav-search { color: var(--bnav-inactive-ico); }
+.bnav-search .bnav-ico { stroke: var(--bnav-inactive-ico); }
+
+/* ================= 速记收件箱卡片 ================= */
+.qc-inbox-card .qc-item, .qc-all .qc-item { display: flex; align-items: center; gap: 8px; padding: 10px 4px; border-bottom: 1px solid #f2f2f2; font-size: 14px; cursor: pointer; }
+.qc-inbox-card .qc-item:active, .qc-all .qc-item:active { background: #f6f6f6; }
+.qc-cat { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; border-radius: 8px; color: #fff; }
+.qc-cat-auto { background: #9aa0b5; } .qc-cat-note { background: #5b6cff; } .qc-cat-todo { background: #fa8c16; }
+.qc-cat-fee { background: #52c41a; } .qc-cat-comm { background: #eb2f96; } .qc-cat-other { background: #8c8c8c; }
+.qc-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qc-stu { flex: 0 0 auto; font-size: 11px; color: #5b6cff; }
+.qc-del { flex: 0 0 auto; border: none; background: none; color: #bbb; font-size: 18px; padding: 0 4px; line-height: 1; }
+.qc-del:active { color: #f5222d; }
+.qc-detect { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.qc-chip { font-size: 12px; padding: 3px 8px; border-radius: 8px; }
+.qc-chip-stu { background: #eef1ff; color: #3a4bd8; }
+.qc-chip-cat { background: #fff3e6; color: #d4690a; }
+.qc-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.qc-cats button { border: 1px solid #ddd; background: #fff; border-radius: 16px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.qc-cats button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+#qcText { width: 100%; border: 1px solid #e3e6ec; border-radius: 10px; padding: 10px; font-size: 15px; resize: vertical; box-sizing: border-box; }
+
 /* ================= 悬浮球 ================= */
 .float-ball {
   position: fixed;
@@ -4344,7 +4383,7 @@ label input, label select, label textarea { margin-top: 4px; }
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.8.2 · Kissgoodbye</span>
+    <span class="version">v3.24 · Kissgoodbye</span>
   </div>
 </aside>
 
@@ -4440,6 +4479,13 @@ label input, label select, label textarea { margin-top: 4px; }
           <button class="btn-primary btn-sm" id="memoAddBtn" type="button">＋ 新增</button>
         </div>
         <div id="dashMemoList" class="memo-list"></div>
+      </div>
+      <div class="tov-card qc-inbox-card" id="qcInboxCard">
+        <div class="memo-head">
+          <h4>⚡ 速记收件箱</h4>
+          <button class="btn-primary btn-sm" id="qcViewAllBtn" type="button">查看全部</button>
+        </div>
+        <div id="qcInboxList" class="memo-list"></div>
       </div>
     </div>
   </section>
@@ -5755,7 +5801,19 @@ label input, label select, label textarea { margin-top: 4px; }
 <!-- 底部导航（由 JS 按用户配置渲染） -->
 <nav id="bottomNav" class="bottom-nav"></nav>
 
+<!-- 全局搜索浮层（任意页可呼出） -->
+<div id="searchOverlay" class="search-overlay" hidden>
+  <div class="search-bar">
+    <svg viewBox="0 0 24 24" width="20" height="20" stroke="#888" stroke-width="2" fill="none"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round"/></svg>
+    <input type="text" id="searchInput" placeholder="搜索学员、关键词、备课、话术…" autocomplete="off">
+    <button id="searchClose" class="search-close" type="button">取消</button>
+  </div>
+  <div id="searchResults" class="search-results"></div>
+</div>
+
 <!-- 悬浮球 -->
+<!-- 速记收件箱 FAB（左下角，随手记） -->
+<div id="quickCapBall" class="qc-ball" title="随手记">✎</div>
 <div id="floatBall" class="float-ball">＋</div>
 <div id="floatMenu" class="float-menu" hidden>
   <button data-fm="student">新建学员</button>
@@ -5948,7 +6006,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory', 'quickCapture'];
 
   // ===== 底栏可配置项（方案B 圆形胶囊）=====
   const DEFAULT_BNAV = ['dashboard', 'schedule', 'students', 'renew'];
@@ -6101,7 +6159,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     classFeedbacks: [],
     accounting: [],
     ledgerStudents: [],
-    attendance: []
+    attendance: [],
+    quickCapture: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -6368,7 +6427,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       return `<a class="bnav-item${active}" data-page="${k}" aria-label="${label}">` +
         `<svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true">${ico}</svg>` +
         `<span class="bnav-label">${label}</span></a>`;
-    }).join('');
+    }).join('') +
+      `<button type="button" class="bnav-item bnav-search" id="bnavSearch" aria-label="搜索">` +
+      `<svg class="bnav-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>` +
+      `<span class="bnav-label">搜索</span></button>`;
   }
 
   // ================= 页面切换 =================
@@ -6499,11 +6561,26 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // 导航点击（含动态渲染的底栏：用容器委托）
     $('#bottomNav').addEventListener('click', e => {
       const item = e.target.closest('.bnav-item');
-      if (item) { e.preventDefault(); const page = item.dataset.page; if (page) showPage(page); }
+      if (!item) return;
+      e.preventDefault();
+      if (item.id === 'bnavSearch' || item.classList.contains('bnav-search')) { openSearch(); return; }
+      const page = item.dataset.page; if (page) showPage(page);
     });
     // 备忘录：新增
     const memoAddBtn = $('#memoAddBtn');
     if (memoAddBtn) memoAddBtn.onclick = () => openMemoModal();
+    // 速记收件箱：FAB + 查看全部
+    const qcBall = $('#quickCapBall');
+    if (qcBall) qcBall.onclick = () => openQuickCapture();
+    const qcViewAll = $('#qcViewAllBtn');
+    if (qcViewAll) qcViewAll.onclick = () => renderQuickCapAll();
+    // 全局搜索浮层：输入 / 关闭
+    const sInput = $('#searchInput');
+    if (sInput) sInput.addEventListener('input', e => doSearch(e.target.value, '#searchResults', true));
+    const sClose = $('#searchClose');
+    if (sClose) sClose.onclick = closeSearch;
+    const sOverlay = $('#searchOverlay');
+    if (sOverlay) sOverlay.addEventListener('click', e => { if (e.target === sOverlay) closeSearch(); });
     // 学员页返回按钮
     document.addEventListener('click', e => {
       const back = e.target.closest('.stu-back');
@@ -7734,6 +7811,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function renderDashboard() {
     renderProfileCard();   // 名片（社交资料页风格）
     renderDashboardMemos(); // 备忘录（主页仅名片 + 备忘录）
+    renderQuickCapInbox();  // 速记收件箱
   }
 
   // 备忘录渲染（今日总览）：读取 state.memos，支持图片/编辑/删除
@@ -12399,8 +12477,10 @@ ${source}${weakExtra ? '\n' + weakExtra : ''}`;
   }
 
   // ================= 全局搜索 =================
-  function doSearch(q) {
-    if (!q) { $('#searchResult').classList.remove('active'); return; }
+  function doSearch(q, targetSel, overlay) {
+    const el = $(targetSel || '#searchResult');
+    if (!el) return;
+    if (!q) { el.classList.remove('active'); return; }
     q = q.toLowerCase();
     const results = [];
     state.students.forEach(s => {
@@ -12440,12 +12520,14 @@ ${source}${weakExtra ? '\n' + weakExtra : ''}`;
       }
     });
 
-    const el = $('#searchResult');
+    const closePart = overlay
+      ? "window.__app.closeSearch&&window.__app.closeSearch();"
+      : "document.getElementById('searchResult').classList.remove('active');document.getElementById('globalSearch').value='';";
     if (results.length === 0) {
       el.innerHTML = '<div class="sr-item">无匹配结果</div>';
     } else {
       el.innerHTML = results.slice(0, 20).map(r => `
-        <div class="sr-item" onclick="${r.action}; document.getElementById('searchResult').classList.remove('active'); document.getElementById('globalSearch').value=''">
+        <div class="sr-item" onclick="${r.action}; ${closePart}">
           <span class="badge" style="background:var(--primary);color:#fff;padding:1px 6px;border-radius:8px;font-size:10px">${r.type}</span>
           ${escapeHtml(r.text)}
         </div>
@@ -12453,6 +12535,130 @@ ${source}${weakExtra ? '\n' + weakExtra : ''}`;
     }
     el.classList.add('active');
   }
+
+  // ================= 全局搜索浮层（常驻，任意页可呼出） =================
+  function openSearch() {
+    const ov = $('#searchOverlay'); if (!ov) return;
+    ov.hidden = false;
+    const inp = $('#searchInput');
+    if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 60); }
+    const res = $('#searchResults'); if (res) { res.innerHTML = ''; res.classList.remove('active'); }
+  }
+  function closeSearch() {
+    const ov = $('#searchOverlay'); if (ov) ov.hidden = true;
+    const res = $('#searchResults'); if (res) res.classList.remove('active');
+  }
+
+  // ================= 速记收件箱（随手记，一键入库自动归类） =================
+  function catLabel(c) {
+    return ({ auto: '自动', note: '备注', todo: '待办', fee: '收费', comm: '沟通', other: '其他' })[c] || '自动';
+  }
+  function detectStudent(text) {
+    const t = (text || '').toLowerCase();
+    for (const s of state.students) {
+      if (s.name && t.includes(s.name.toLowerCase())) return s;
+    }
+    return null;
+  }
+  function detectCat(text) {
+    const t = text || '';
+    if (/收费|续费|续报|缴费|交费|费用|学费|收款|收钱|交钱|欠费/.test(t)) return 'fee';
+    if (/沟通|回访|微信|电话|家长|话术|催/.test(t)) return 'comm';
+    if (/待办|提醒|记得|下周|明天|今天|约|计划|别忘/.test(t)) return 'todo';
+    if (/备注|情况|观察|注意|笔记|意见|亮点/.test(t)) return 'note';
+    return 'other';
+  }
+  function openQuickCapture() {
+    const body = `
+      <textarea id="qcText" rows="4" placeholder="随手记一句：&#10;张三 作文没交&#10;给李四家长发续费话术&#10;记得买粉笔、周三教研"></textarea>
+      <div id="qcDetect" class="qc-detect"></div>
+      <div class="qc-cats" id="qcCats">
+        ${['auto', 'note', 'todo', 'fee', 'comm', 'other'].map(c => `<button type="button" data-cat="${c}" class="${c === 'auto' ? 'on' : ''}">${catLabel(c)}</button>`).join('')}
+      </div>`;
+    openModal('⚡ 速记收件箱', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="qcSaveBtn">保存</button>`);
+    let curCat = 'auto';
+    const text = $('#qcText'), detect = $('#qcDetect'), cats = $('#qcCats');
+    const update = () => {
+      const v = text.value;
+      const stu = detectStudent(v);
+      let cat = curCat; if (cat === 'auto') cat = detectCat(v);
+      let html = '';
+      if (stu) html += `<span class="qc-chip qc-chip-stu">→ ${escapeHtml(stu.name)}</span>`;
+      if (v.trim()) html += `<span class="qc-chip qc-chip-cat">归类：${catLabel(cat)}</span>`;
+      detect.innerHTML = html;
+    };
+    text.addEventListener('input', update); update();
+    cats.querySelectorAll('button').forEach(b => b.onclick = () => {
+      curCat = b.dataset.cat;
+      cats.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      update();
+    });
+    $('#qcSaveBtn').onclick = () => {
+      const v = text.value.trim();
+      if (!v) { toast('先写点什么'); return; }
+      const stu = detectStudent(v);
+      let cat = curCat; if (cat === 'auto') cat = detectCat(v);
+      const item = { id: uid(), ts: Date.now(), text: v, studentId: stu ? stu.id : null, studentName: stu ? stu.name : null, cat, done: false };
+      state.quickCapture.push(item);
+      dbPut('quickCapture', item);
+      saveLocalCache();
+      window.__app.closeModal();
+      toast('已收入速记收件箱');
+      renderQuickCapInbox();
+    };
+  }
+  function renderQuickCapInbox() {
+    const box = $('#qcInboxList'); if (!box) return;
+    const list = (state.quickCapture || []).slice().sort((a, b) => b.ts - a.ts);
+    if (!list.length) { box.innerHTML = '<div class="memo-empty">速记收件箱为空，点左下角 ✎ 随手记一笔</div>'; return; }
+    box.innerHTML = list.slice(0, 5).map(c => `
+      <div class="qc-item" data-id="${c.id}">
+        <span class="qc-cat qc-cat-${c.cat}">${catLabel(c.cat)}</span>
+        <span class="qc-text">${escapeHtml(c.text)}</span>
+        ${c.studentName ? `<span class="qc-stu">@${escapeHtml(c.studentName)}</span>` : ''}
+        <button class="qc-del" data-id="${c.id}" type="button">×</button>
+      </div>`).join('');
+    box.querySelectorAll('.qc-del').forEach(b => b.onclick = e => { e.stopPropagation(); delQuickCap(b.dataset.id); });
+    box.querySelectorAll('.qc-item').forEach(it => it.onclick = () => openQuickCapItem(it.dataset.id));
+  }
+  function openQuickCapItem(id) {
+    const c = (state.quickCapture || []).find(x => x.id === id); if (!c) return;
+    let acts = `<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button><button class="btn-ghost" id="qcDel2">删除</button>`;
+    if (c.studentId) acts = `<button class="btn-primary" id="qcOpenStu">打开 @${escapeHtml(c.studentName || '学员')}</button>` + acts;
+    else if (c.cat === 'fee') acts = `<button class="btn-primary" id="qcOpenAcc">去记账</button>` + acts;
+    else if (c.cat === 'todo') acts = `<button class="btn-primary" id="qcOpenTodo">去工作看板</button>` + acts;
+    openModal('速记详情', `<p style="white-space:pre-wrap;line-height:1.6;margin:0 0 10px">${escapeHtml(c.text)}</p><div class="qc-detect"><span class="qc-chip qc-chip-cat">${catLabel(c.cat)}</span>${c.studentName ? `<span class="qc-chip qc-chip-stu">@${escapeHtml(c.studentName)}</span>` : ''}</div>`, acts);
+    if (c.studentId) { const b = $('#qcOpenStu'); if (b) b.onclick = () => { window.__app.closeModal(); window.__app.openStudent(c.studentId); }; }
+    if (c.cat === 'fee') { const b = $('#qcOpenAcc'); if (b) b.onclick = () => { window.__app.closeModal(); showPage('accounting'); }; }
+    if (c.cat === 'todo') { const b = $('#qcOpenTodo'); if (b) b.onclick = () => { window.__app.closeModal(); showPage('kanban'); }; }
+    const d = $('#qcDel2'); if (d) d.onclick = () => delQuickCap(id);
+  }
+  function delQuickCap(id) {
+    if (!confirm('删除这条速记？')) return;
+    state.quickCapture = (state.quickCapture || []).filter(x => x.id !== id);
+    dbDel('quickCapture', id).catch(() => {});
+    saveLocalCache();
+    toast('已删除');
+    renderQuickCapInbox();
+  }
+  function renderQuickCapAll() {
+    const list = (state.quickCapture || []).slice().sort((a, b) => b.ts - a.ts);
+    const body = list.length ? `<div class="qc-all">` + list.map(c => `
+      <div class="qc-item" data-id="${c.id}">
+        <span class="qc-cat qc-cat-${c.cat}">${catLabel(c.cat)}</span>
+        <span class="qc-text">${escapeHtml(c.text)}</span>
+        ${c.studentName ? `<span class="qc-stu">@${escapeHtml(c.studentName)}</span>` : ''}
+        <button class="qc-del" data-id="${c.id}" type="button">×</button>
+      </div>`).join('') + `</div>` : '<div class="memo-empty">还没有速记</div>';
+    openModal('全部速记（' + list.length + '）', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>`);
+    document.querySelectorAll('#modalBody .qc-del').forEach(b => b.onclick = e => { e.stopPropagation(); delQuickCap(b.dataset.id); setTimeout(renderQuickCapAll, 60); });
+    document.querySelectorAll('#modalBody .qc-item').forEach(it => it.onclick = () => openQuickCapItem(it.dataset.id));
+  }
+  window.__app = window.__app || {};
+  window.__app.closeSearch = closeSearch;
+  window.__app.openSearch = openSearch;
+  window.__app.openQuickCapture = openQuickCapture;
+  window.__app.renderQuickCapAll = renderQuickCapAll;
 
   // ================= 通用工具函数 =================
   function escapeHtml(s) {
@@ -16278,7 +16484,7 @@ ${body}
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '75';
+  const CURRENT_JS_VER = '76';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

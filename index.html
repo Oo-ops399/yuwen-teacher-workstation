@@ -2,10 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-
-
-
-
+<link rel="icon" href="./icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-title" content="Kissgoodbye">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +13,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="68">
+<meta name="app-version" content="75">
 <script>
   // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
   // 避免出现「页面能打开但点什么都没反应」的静默假死
@@ -42,7 +39,7 @@
       var LV = (document.querySelector('meta[name="app-version"]') || {}).content;
       if (!LV) return;
       var x = new XMLHttpRequest();
-      x.open('GET', 'data:text/plain;charset=utf-8,68', true);
+      x.open('GET', 'data:text/plain;charset=utf-8,75', true);
       x.onreadystatechange = function () {
         if (x.readyState === 4 && x.status === 200) {
           var nv = (x.responseText || '').trim();
@@ -2303,6 +2300,349 @@ label input, label select, label textarea { margin-top: 4px; }
 }
 .float-menu button:hover { background: var(--bg); }
 
+/* ================= v3.20 悬浮 AI 对话框（类微信/Telegram 聊天风格） ================= */
+/* 悬浮球 — 黑色 */
+.ai-ball {
+  position: fixed;
+  bottom: calc(var(--bottomnav-h) + 76px + env(safe-area-inset-bottom, 0));
+  right: 16px;
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  z-index: 96;
+  border: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: none;
+}
+.ai-ball:active { transform: scale(0.94); }
+.ai-ball.on { box-shadow: 0 0 0 3px rgba(26,26,26,0.18), 0 4px 14px rgba(0,0,0,0.35); }
+
+/* 遮罩层 */
+.ai-chat-mask {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: 198;
+}
+
+/* 聊天面板主体 */
+.ai-chat {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom, 0));
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  height: 600px;
+  max-height: 78vh;
+  background: #efeff4;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 199;
+}
+
+/* ===== 顶栏（可自定义标题/副标题） ===== */
+.ai-chat-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px;
+  background: #f7f7f7;
+  border-bottom: 0.5px solid #dcdcdc;
+  flex: 0 0 auto;
+  user-select: none;
+}
+.ai-chat-head-left {
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer;
+}
+.ai-chat-menu-btn {
+  background: none; border: none;
+  font-size: 19px; line-height: 1;
+  color: #333; padding: 0 2px;
+  cursor: pointer;
+}
+.ai-chat-title-group { display: flex; flex-direction: column; }
+.ai-chat-name {
+  font-size: 16px; font-weight: 600; color: #111;
+  line-height: 1.2;
+}
+.ai-chat-status {
+  font-size: 11px; color: #888;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+.ai-chat-head-right {
+  display: flex; align-items: center; gap: 6px;
+}
+.ai-chat-tool-btn {
+  background: none; border: none;
+  font-size: 17px; line-height: 1;
+  color: #333; padding: 4px 5px;
+  cursor: pointer;
+}
+
+/* ===== 消息区域 ===== */
+.ai-chat-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 10px;
+  background: #efeff4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 日期分隔线 */
+.ai-date-divider {
+  text-align: center;
+  margin: 8px 0 4px;
+}
+.ai-date-divider span {
+  display: inline-block;
+  background: rgba(160,160,170,0.22);
+  color: #666;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* 单条消息行（带头像） */
+.ai-msg { display: flex; align-items: flex-start; gap: 6px; max-width: 100%; }
+.ai-msg.me { flex-direction: row-reverse; }
+
+/* 头像 */
+.ai-avatar {
+  width: 38px; height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #ddd;
+  display: block;
+  overflow: hidden;
+}
+.ai-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+}
+.ai-avatar-placeholder {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 600;
+  color: #fff;
+  background: #bbb;
+  border-radius: 50%;
+}
+.ai-avatar-placeholder.ai { background: #4a90d9; }
+.ai-avatar-placeholder.me { background: #5cb85c; }
+
+/* 昵称标签 */
+.ai-nick {
+  font-size: 11px; color: #888;
+  margin-bottom: 2px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  max-width: 44px;
+}
+.ai-msg.me .ai-nick { text-align: right; }
+
+/* 消息体容器 */
+.ai-msg-col { display: flex; flex-direction: column; max-width: 72%; min-width: 0; }
+
+/* 气泡 */
+.ai-bubble {
+  padding: 8px 11px;
+  border-radius: 6px 12px 12px 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fff;
+  color: #222;
+  position: relative;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+}
+.ai-msg.me .ai-bubble {
+  border-radius: 12px 6px 12px 12px;
+  background: #ffffff;
+  color: #111;
+  border: 1px solid #d9dde3;
+}
+.ai-bubble.sys {
+  background: #fffbdc;
+  border: none;
+  color: #8a7510;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.ai-bubble.err {
+  background: #fce8e8;
+  border: none;
+  color: #a52222;
+  border-radius: 8px;
+}
+.ai-bubble.ok {
+  border-left: 3px solid #22a06b;
+}
+
+/* 时间戳 + 已读标记 */
+.ai-ts {
+  font-size: 10px; color: #aaa;
+  text-align: right;
+  margin-top: 2px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.ai-ts .read { color: #4a90d9; font-size: 10px; margin-left: 2px; }
+
+/* 操作按钮组 */
+.ai-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ai-acts button {
+  background: rgba(255,255,255,0.85);
+  border: 0.5px solid #d0d0d0;
+  color: #333;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ai-acts button:active { background: #e8e8e8; }
+
+/* 打字动画 */
+.ai-typing {
+  display: inline-flex; gap: 3px; padding: 8px 12px;
+}
+.ai-typing span {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: #999;
+  animation: aiDot 1s infinite ease-in-out;
+}
+.ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes aiDot { 0%,60%,100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+/* 快捷短语条 */
+.ai-chat-chips {
+  flex: 0 0 auto;
+  display: flex; gap: 5px;
+  padding: 6px 10px 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+.ai-chat-chips::-webkit-scrollbar { display: none; }
+.ai-chat-chips button {
+  flex: 0 0 auto;
+  background: #fff;
+  border: 0.5px solid #ccc;
+  color: #666;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ===== 底栏输入区 ===== */
+.ai-chat-input {
+  flex: 0 0 auto;
+  display: flex; align-items: flex-end; gap: 6px;
+  padding: 8px 10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
+  background: #f7f7f7;
+  border-top: 0.5px solid #dcdcdc;
+}
+.ai-input-plus {
+  flex: 0 0 auto;
+  background: none; border: none;
+  font-size: 22px; line-height: 1;
+  color: #333; padding: 0 2px;
+  cursor: pointer;
+}
+.ai-chat-input textarea {
+  flex: 1 1 auto;
+  resize: none;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.45;
+  max-height: 100px;
+  color: #222;
+  background: #fff;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+.ai-chat-input textarea:focus { outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.08), 0 0 0 2px rgba(74,144,217,0.3); }
+.ai-chat-send {
+  flex: 0 0 auto;
+  background: none; border: none;
+  color: #4a90d9;
+  font-size: 21px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.ai-chat-send:disabled { opacity: 0.3; }
+
+/* ===== 设置面板（头像/标题编辑） ===== */
+.ai-settings-panel {
+  position: absolute; inset: 0;
+  background: #efeff4;
+  z-index: 210;
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.ai-settings-panel.hidden { display: none; }
+.ai-set-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  background: #f7f7f7;
+  border-bottom: 0.5px solid #dcdcdc;
+  font-size: 16px; font-weight: 600; color: #111;
+  flex: 0 0 auto;
+}
+.ai-set-back { background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0 2px; }
+.ai-set-body { padding: 14px; flex: 1; }
+.ai-set-group { margin-bottom: 18px; }
+.ai-set-label { font-size: 13px; color: #666; margin-bottom: 6px; }
+.ai-set-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.ai-set-avatar-box {
+  width: 52px; height: 52px; border-radius: 50%;
+  overflow: hidden; cursor: pointer;
+  background: #ddd; display: grid; place-items: center;
+  border: 2px solid transparent; transition: border-color 0.15s;
+}
+.ai-set-avatar-box:hover { border-color: #4a90d9; }
+.ai-set-avatar-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ai-set-field { flex: 1; }
+.ai-set-field input[type="text"] {
+  width: 100%; padding: 8px 10px;
+  border: 0.5px solid #ccc; border-radius: 8px;
+  font-size: 14px; font-family: inherit;
+  background: #fff; color: #222;
+  box-sizing: border-box;
+}
+.ai-set-field input[type="text"]:focus { outline: none; border-color: #4a90d9; }
+.ai-set-btn {
+  background: #4a90d9; color: #fff; border: none;
+  border-radius: 8px; padding: 8px 16px;
+  font-size: 13px; font-family: inherit; cursor: pointer;
+}
+
 /* ================= 弹窗 ================= */
 [hidden] { display: none !important; }
 .modal-mask {
@@ -2519,6 +2859,17 @@ label input, label select, label textarea { margin-top: 4px; }
   .settings-grid { padding: 12px; }
   .float-ball { width: 44px; height: 44px; font-size: 22px; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0)); right: 12px; }
   .float-menu { bottom: calc(var(--bottomnav-h) + 64px + env(safe-area-inset-bottom, 0)); right: 12px; min-width: 140px; }
+  /* v3.20 悬浮 AI：手机上占满宽度、贴底，键盘弹出也不挡 */
+  .ai-ball { width: 46px; height: 46px; font-size: 13px; bottom: calc(var(--bottomnav-h) + 64px + env(safe-area-inset-bottom, 0)); right: 12px; }
+  .ai-chat {
+    right: 0; left: 0; bottom: 0;
+    width: 100%; max-width: 100%;
+    height: 86vh; max-height: 86vh;
+    border-radius: 14px 14px 0 0;
+  }
+  .ai-avatar { width: 36px; height: 36px; min-width: 36px; }
+  .ai-bubble { font-size: 15px; }
+  .ai-bubble { font-size: 13.5px; max-width: 88%; }
   .float-menu button { padding: 8px 12px; font-size: 12px; }
   .modal-mask { padding: 8px; align-items: flex-end; }
   .modal { max-height: 85vh; }
@@ -3796,6 +4147,28 @@ label input, label select, label textarea { margin-top: 4px; }
   color: #fff;
 }
 .mm-ocr-status { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+/* v3.21: 拍照 / 图片 OCR 批量导入学员 */
+.ocr-wrap { font-size: 14px; }
+.ocr-tip { font-size: 12.5px; color: var(--text-muted); margin: 0 0 12px; line-height: 1.6; }
+.ocr-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.ocr-toolbar .btn-ghost, .ocr-toolbar .btn-primary { flex: 0 0 auto; }
+.ocr-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.ocr-thumb { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border, #e5e7eb); background: #f3f4f6; }
+.ocr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ocr-thumb-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: none; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; }
+.ocr-status { font-size: 12.5px; min-height: 18px; margin: 4px 0 10px; }
+.ocr-results { max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.ocr-hint { font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 18px 0; }
+.ocr-row { border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 10px; margin-bottom: 10px; background: var(--card, #fff); }
+.ocr-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.ocr-idx { font-size: 12px; font-weight: 600; color: var(--primary, #1a1a1a); }
+.ocr-row-del { border: none; background: transparent; color: var(--danger, #e11d48); font-size: 12.5px; cursor: pointer; padding: 2px 4px; }
+.ocr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ocr-grid label { display: flex; flex-direction: column; font-size: 11.5px; color: var(--text-muted); gap: 3px; }
+.ocr-grid label.ocr-full { grid-column: 1 / -1; }
+.ocr-grid input { font-size: 14px; padding: 7px 8px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; background: var(--bg, #fff); color: var(--text, #111); }
+
 :root.glass-mode .mm-type-chip,
 :root.glass-mode .mm-thumb,
 :root.glass-mode .mm-canvas-wrap {
@@ -4140,6 +4513,7 @@ label input, label select, label textarea { margin-top: 4px; }
         <button class="btn-ghost" id="importStudentsBtn">导入学员</button>
         <input type="file" id="importStudentsInput" accept=".xlsx,.xls,.csv,.txt" hidden>
         <button class="btn-ghost" id="exportAllStudentsBtn">导出WPS</button>
+        <button class="btn-ghost" id="ocrImportBtn">📷 拍照/相册导入</button>
         <button class="btn-primary" id="addStudentBtn">＋ 新建学员</button>
       </div>
     </div>
@@ -4799,10 +5173,19 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
         <div class="ex-lib-list" id="exLibList"></div>
       </div>
+      <!-- v3.23: 往期生成记录（自动留存） -->
+      <div class="ex-lib" id="exHistoryBox" hidden>
+        <div class="ex-lib-head">
+          <h3>📋 往期生成</h3>
+          <button class="btn-ghost" id="exHistoryClose" type="button">收起</button>
+        </div>
+        <div class="ex-lib-list" id="exHistoryList"></div>
+      </div>
       </div>
       <div class="sch-actions">
         <button class="btn-ghost" id="exSaveLibBtn" disabled>保存到题库</button>
         <button class="btn-ghost" id="exLibBtn">我的题库</button>
+        <button class="btn-ghost" id="exHistoryBtn">📋 往期记录</button>
         <button class="btn-ghost" id="exPrintBtn">打印 / 导出PDF</button>
       </div>
     </div>
@@ -5257,7 +5640,7 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
         <div class="lq-row">
           <label>日期<input type="date" id="lqDate"></label>
-          <label id="lqContentWrap" hidden>内容<input type="text" id="lqContent" placeholder="如：第3课生字词抄写"></label>
+          <label id="lqContentWrap" hidden>内容<input type="text" id="lqContent" placeholder="选填（如：第3课生字词抄写）"></label>
           <label class="lq-score">分数<input type="number" id="lqScore" value="0" step="0.5"></label>
           <label class="lq-fullscore">满分<input type="number" id="lqFull" placeholder="选填" step="0.5"></label>
           <label id="lqStatusWrap" hidden>状态<select id="lqStatus"><option>已完成</option><option>未完成</option><option>订正中</option><option>部分完成</option></select></label>
@@ -5284,6 +5667,8 @@ label input, label select, label textarea { margin-top: 4px; }
         <div class="header-actions">
           <button class="btn-ghost" id="ledgerImportBtn">导入学员</button>
           <input type="file" id="ledgerImportInput" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn-ghost" id="ledgerOcrCamBtn">📷 拍照识图</button>
+          <button class="btn-ghost" id="ledgerOcrAlbumBtn">🖼 相册导入</button>
           <button class="btn-ghost" id="exportLedgerBtn">导出WPS</button>
           <button class="btn-primary" id="addLedgerClassBtn">＋ 新建班级</button>
         </div>
@@ -5379,6 +5764,80 @@ label input, label select, label textarea { margin-top: 4px; }
   <button data-fm="template">调取话术</button>
   <button data-fm="mindmap">新建备课导图</button>
 </div>
+
+<!-- v3.20 悬浮 AI 对话框（类微信聊天风格，可自定义头像/标题） -->
+<div id="aiBall" class="ai-ball" title="AI 助手">AI</div>
+<div id="aiChatMask" class="ai-chat-mask" hidden></div>
+<section id="aiChatPanel" class="ai-chat" hidden aria-label="AI 助手">
+  <!-- 顶栏：可自定义标题 / 副标题 -->
+  <header class="ai-chat-head">
+    <div class="ai-chat-head-left" id="aiHeadLeft">
+      <button type="button" class="ai-chat-menu-btn" id="aiMenuBtn" title="设置">☰</button>
+      <div class="ai-chat-title-group">
+        <div class="ai-chat-name" id="aiChatName">AI 助手</div>
+        <div class="ai-chat-status" id="aiChatStatus">说人话就能干活</div>
+      </div>
+    </div>
+    <div class="ai-chat-head-right">
+      <button type="button" class="ai-chat-tool-btn" id="aiChatClear" title="清空对话">🗑</button>
+      <button type="button" class="ai-chat-tool-btn ai-chat-x" id="aiChatClose" title="关闭">×</button>
+    </div>
+  </header>
+
+  <!-- 消息区 -->
+  <div id="aiChatBody" class="ai-chat-body"></div>
+
+  <!-- 快捷短语 -->
+  <div id="aiChatChips" class="ai-chat-chips"></div>
+
+  <!-- 底栏输入区 -->
+  <form id="aiChatForm" class="ai-chat-input" autocomplete="off">
+    <button type="button" class="ai-input-plus" id="aiInputPlus" title="更多">＋</button>
+    <textarea id="aiChatText" rows="1" placeholder="输入消息…"></textarea>
+    <button type="submit" id="aiChatSend" class="ai-chat-send" title="发送">➤</button>
+  </form>
+
+  <!-- 设置面板（换头像、改标题） -->
+  <div id="aiSettingsPanel" class="ai-settings-panel hidden">
+    <div class="ai-set-header">
+      <button type="button" class="ai-set-back" id="aiSetBack">←</button>
+      对话设置
+    </div>
+    <div class="ai-set-body">
+      <div class="ai-set-group">
+        <div class="ai-set-label">AI 头像（点击更换）</div>
+        <div class="ai-set-row">
+          <label class="ai-set-avatar-box" id="aiSetAiAvatar" title="点击选择图片">
+            <div class="ai-avatar-placeholder ai">AI</div>
+          </label>
+          <input type="file" id="aiAvatarInput" accept="image/*" hidden>
+          <div class="ai-set-field">
+            <input type="text" id="aiSetName" placeholder="AI 名称" value="AI 助手">
+          </div>
+        </div>
+      </div>
+      <div class="ai-set-group">
+        <div class="ai-set-label">你的头像（点击更换）</div>
+        <div class="ai-set-row">
+          <label class="ai-set-avatar-box" id="aiSetMeAvatar" title="点击选择图片">
+            <div class="ai-avatar-placeholder me">我</div>
+          </label>
+          <input type="file" id="meAvatarInput" accept="image/*" hidden>
+          <div class="ai-set-field">
+            <input type="text" id="aiSetStatus" placeholder="状态文字" value="说人话就能干活">
+          </div>
+        </div>
+      </div>
+      <div class="ai-set-group">
+        <button type="button" class="ai-set-btn" id="aiSaveSettings">保存设置</button>
+      </div>
+      <!-- v3.23: 清空聊天记录 -->
+      <div class="ai-set-group">
+        <button type="button" class="btn-ghost" id="aiClearChatBtn" style="color:var(--danger,#e11d48);font-size:12px">🗑 清空聊天记录</button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- 通用弹窗 -->
 <div id="modalMask" class="modal-mask" hidden>
@@ -5489,7 +5948,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory'];
 
   // ===== 底栏可配置项（方案B 圆形胶囊）=====
   const DEFAULT_BNAV = ['dashboard', 'schedule', 'students', 'renew'];
@@ -5747,7 +6206,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       if ('caches' in window) {
         caches.keys().then(ks => ks.filter(k => k !== 'yuwen-teacher-v2').forEach(k => caches.delete(k)));
       }
-      Promise.resolve().catch(() => {});
+      void 0;
     }
   }
 
@@ -6164,6 +6623,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // 学员
     const addStudentBtn = $('#addStudentBtn');
     if (addStudentBtn) addStudentBtn.onclick = () => editStudentModal();
+    // v3.21: 拍照 / 图片 OCR 批量导入学员
+    const ocrImportBtn = $('#ocrImportBtn');
+    if (ocrImportBtn) ocrImportBtn.onclick = openOCRImport;
+    // v3.22: 学情台账页 —— 拍照识图 / 从相册导入学员（直接调相机或相册选择器）
+    const ledgerOcrCamBtn = $('#ledgerOcrCamBtn');
+    if (ledgerOcrCamBtn) ledgerOcrCamBtn.onclick = () => openOCRImportFrom('camera');
+    const ledgerOcrAlbumBtn = $('#ledgerOcrAlbumBtn');
+    if (ledgerOcrAlbumBtn) ledgerOcrAlbumBtn.onclick = () => openOCRImportFrom('album');
     const studentFilter = $('#studentFilter');
     if (studentFilter) studentFilter.oninput = renderStudentList;
     const tagFilter = $('#tagFilter');
@@ -6269,6 +6736,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // v3.8.2: 练习生成器增强（拍照识别 / 薄弱项 / 题库复用）
     bindExPhoto();
     bindExLib();
+    bindExHistory();  // v3.23: 往期生成记录
     renderExStudentOptions();
 
     // 看板
@@ -6655,6 +7123,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         else if (fm === 'mindmap') showPage('mindmap');
       };
     });
+
+    // v3.19 悬浮 AI 对话框（纯文字指令）
+    bindAIChat();
 
     // 全局搜索
     $('#globalSearch').oninput = e => doSearch(e.target.value);
@@ -10302,10 +10773,15 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
     };
     const headers = { 'Content-Type': 'application/json' };
     if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
-    const res = await fetch(aiUrl, {
-      method: 'POST', headers, body: JSON.stringify(body),
-      signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(90000) : undefined
-    });
+    let res;
+    try {
+      res = await fetch(aiUrl, {
+        method: 'POST', headers, body: JSON.stringify(body),
+        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(90000) : undefined
+      });
+    } catch (netErr) {
+      throw new Error('无法连接到 AI 接口（请检查网址是否正确、网络是否通畅、是否有 CORS 限制）：' + (netErr.message || String(netErr)));
+    }
     if (!res.ok) {
       let msg = 'HTTP ' + res.status;
       try { const t = await res.text(); if (t) msg += ' ' + t.slice(0, 200); } catch (e) {}
@@ -11045,6 +11521,86 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
       }
     };
   }
+
+  // v3.23: 练习生成往期记录（每次自动留存，可回看/转存/删除）
+  let exHistoryReady = false;
+  async function saveExHistory() {
+    const preview = $('#exPreview');
+    if (!preview || !preview.innerHTML.trim()) return;
+    const type = (document.querySelector('input[name="exType"]:checked') || {}).value || '';
+    const difficulty = ($('#exDifficulty') || {}).value || 'medium';
+    const source = ($('#exSource') || {}).value || '';
+    const weakOn = $('#exWeakOn') && $('#exWeakOn').checked;
+    const weakSid = weakOn ? (($('#exStudent') || {}).value || '') : '';
+    const s = weakSid ? (state.students || []).find(x => x.id === weakSid) : null;
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    const h3 = preview.querySelector('h3.ex-h');
+    const title = (h3 ? h3.textContent : '练习题') + ' · ' + todayStr();
+    const rec = {
+      id: uid(), title, type, difficulty,
+      sourceBrief: source.slice(0, 200),
+      studentId: weakSid || '', studentName: (s && s.name) || '',
+      aiUsed: !!aiUrl, html: preview.innerHTML, created: Date.now()
+    };
+    await dbPut('exHistory', rec);
+    exHistoryReady = false;
+  }
+  async function toggleExHistory() {
+    const box = $('#exHistoryBox');
+    if (!box) return;
+    if (box.hidden) { await renderExHistory(); box.hidden = false; }
+    else box.hidden = true;
+  }
+  async function renderExHistory() {
+    if (exHistoryReady) return;
+    const list = $('#exHistoryList');
+    if (!list) return;
+    const items = (await dbAll('exHistory')).sort((a, b) => (b.created || 0) - (a.created || 0));
+    if (!items.length) { list.innerHTML = '<p class="hint">还没有往期记录，生成练习后会自动保存到这里。</p>'; exHistoryReady = true; return; }
+    const typeLabel = { fill:'填空', choice:'选择', judge:'判断', saq:'简答', reading:'阅读', dictation:'听写', dot:'标点', paper:'试卷' };
+    const diffLabel = { easy:'简单', medium:'中等', hard:'困难' };
+    list.innerHTML = items.map(it => `
+      <div class="ex-lib-item" data-id="${it.id}">
+        <div class="ex-lib-meta">
+          <span class="ex-lib-title">${escapeHtml(it.title || '练习题')}</span>
+          <span class="chip" style="font-size:10px">${typeLabel[it.type]||it.type||'练习'}</span>
+          <span class="chip" style="font-size:10px">${diffLabel[it.difficulty]||it.difficulty||''}</span>
+          ${it.studentName ? `<span class="chip" style="font-size:10px">${escapeHtml(it.studentName)}</span>` : ''}
+          <span class="ex-lib-date">${fmtDate(it.created)}</span>
+        </div>
+        <div class="ex-lib-actions">
+          <button class="chip" data-act="load">预览</button>
+          <button class="chip" data-act="print">打印</button>
+          <button class="chip" data-act="saveLib">转存题库</button>
+          <button class="chip" data-act="del">删除</button>
+        </div>
+      </div>`).join('');
+    exHistoryReady = true;
+  }
+  function bindExHistory() {
+    const btn = $('#exHistoryBtn'); if (btn) btn.onclick = toggleExHistory;
+    const close = $('#exHistoryClose'); if (close) close.onclick = () => { const b = $('#exHistoryBox'); if (b) b.hidden = true; };
+    const list = $('#exHistoryList');
+    if (list) list.onclick = async e => {
+      const btn2 = e.target.closest('button[data-act]'); if (!btn2) return;
+      const item = btn2.closest('.ex-lib-item'); if (!item) return;
+      const id = item.dataset.id; const act = btn2.dataset.act;
+      if (act === 'load') {
+        const rec = await dbGet('exHistory', id);
+        const preview = $('#exPreview');
+        if (rec && preview) { preview.innerHTML = rec.html; preview.classList.add('ex-preview-active'); toast('已载入预览'); }
+      } else if (act === 'print') {
+        const rec = await dbGet('exHistory', id);
+        if (rec) printExerciseHtml(rec.html, rec.title);
+      } else if (act === 'saveLib') {
+        const rec = await dbGet('exHistory', id);
+        if (rec) { await dbPut('exLib', { id:uid(), title:rec.title, html:rec.html, type:rec.type, created:Date.now() }); toast('已转存到题库 ✓'); }
+      } else if (act === 'del') {
+        await dbDel('exHistory', id); exHistoryReady = false; await renderExHistory(); toast('已删除');
+      }
+    };
+  }
+
   function printExerciseHtml(html, title) {
     const w = window.open('', '_blank');
     if (!w) { toast('浏览器拦截了打印窗口，请允许弹窗'); return; }
@@ -11098,6 +11654,7 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
           preview.classList.add('ex-preview-active');
           toast('AI 已生成练习题' + (weakExtra ? '（含薄弱项定向）' : ''));
           const sb = $('#exSaveLibBtn'); if (sb) sb.disabled = false;
+          await saveExHistory(); // v3.23: 自动留存往期记录
           return;
         }
       } catch (e) {
@@ -11128,6 +11685,7 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
     preview.innerHTML = html;
     preview.classList.add('ex-preview-active');
     const sb = $('#exSaveLibBtn'); if (sb) sb.disabled = false;
+    await saveExHistory(); // v3.23: 自动留存往期记录
   }
 
   // v3.4: 抓取网页正文（best-effort，跨域会失败）
@@ -12386,7 +12944,17 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('已存入' + (s.name || '学员') + '的专属档案');
   }
 
-  // 导入学员（Excel/CSV）
+  // 导入学员（Excel/CSV）—— 表头兼容更宽松，0 人时给出明确提示
+  function pickCell(row, aliases) {
+    const norm = k => (k == null ? '' : String(k).trim().toLowerCase().replace(/\s+/g, ''));
+    const map = {};
+    Object.keys(row).forEach(k => { map[norm(k)] = row[k]; });
+    for (const a of aliases) {
+      const v = map[norm(a)];
+      if (v != null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
   function handleImportStudents(file) {
     if (!file) return;
     const reader = new FileReader();
@@ -12396,34 +12964,35 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         if (file.name.match(/\.(xlsx|xls)$/i)) {
           const wb = XLSX.read(e.target.result, { type: 'array' });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json(ws);
+          rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
         } else {
-          // CSV
-          const text = e.target.result;
-          const lines = text.split('\n').filter(l => l.trim());
-          if (lines.length < 2) { toast('文件内容为空'); return; }
-          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          // CSV：去 BOM、兼容引号包裹
+          const text = String(e.target.result).replace(/﻿/g, '');
+          const lines = text.split(/\r?\n/).filter(l => l.trim());
+          if (lines.length < 2) { toast('文件内容为空或只有表头'); return; }
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
           rows = lines.slice(1).map(line => {
-            const vals = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const vals = line.match(/(".*?"|[^,]+)/g) || [];
             const obj = {};
-            headers.forEach((h, i) => obj[h] = vals[i]);
+            headers.forEach((h, i) => obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim());
             return obj;
           });
         }
+        const NAME_ALIASES = ['姓名','name','学生姓名','学员姓名','学员','学生名','名字','学员名','孩子姓名','学生'];
         let count = 0;
         for (const r of rows) {
-          // 兼容各种列名
-          const name = r['姓名'] || r['name'] || r['学生姓名'] || '';
+          // 兼容各种列名（大小写/空格不敏感）
+          const name = pickCell(r, NAME_ALIASES);
           if (!name) continue;
           const item = {
             id: uid(),
             name,
-            grade: r['年级'] || r['grade'] || '',
-            className: r['班次'] || r['班级'] || r['className'] || r['上课时间'] || '',
-            weakness: r['薄弱项'] || r['weakness'] || '',
-            phone: r['家长电话'] || r['电话'] || r['phone'] || r['联系电话'] || '',
-            school: r['学校'] || r['school'] || '',
-            tags: (r['标签'] || '').split(/[,，、]/).filter(Boolean),
+            grade: pickCell(r, ['年级','grade','年纪']),
+            className: pickCell(r, ['班次','班级','className','上课时间','班级名称']),
+            weakness: pickCell(r, ['薄弱项','薄弱点','weakness','易错点']),
+            phone: pickCell(r, ['家长电话','电话','phone','联系电话','手机']),
+            school: pickCell(r, ['学校','school','就读学校']),
+            tags: pickCell(r, ['标签','tags']).split(/[,，、]/).filter(Boolean),
             scores: [],
             entryTests: [],
             homework: [],
@@ -12436,13 +13005,244 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         }
         saveLocalCache();
         renderStudentList();
-        toast(`成功导入 ${count} 名学员`);
+        if (count === 0) toast('未识别到「姓名」列，请确认表头含 姓名/学生姓名 等列');
+        else toast(`成功导入 ${count} 名学员，去「学员档案」查看`);
       } catch (err) {
         toast('导入失败：' + err.message);
       }
     };
     if (file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
     else reader.readAsText(file);
+  }
+
+  // ================= v3.21: 拍照 / 图片 OCR 批量导入学员 =================
+  // 照片 / 相册图片 → AI 视觉识别 → 结构化学员记录 → 可编辑表格 → 一键建档
+  let ocrImages = [];   // [{id, dataUrl, name}]
+  let ocrResults = [];  // 识别出的学员记录数组
+
+  function openOCRImport() {
+    ocrImages = [];
+    ocrResults = [];
+    const body = `
+      <div class="ocr-wrap">
+        <p class="ocr-tip">拍下学员名单 / 报名表，或从相册选择图片，AI 会自动识别姓名、班级、家长电话等，生成可编辑表格；确认后一键建档并同步学情台账。</p>
+        <div class="ocr-toolbar">
+          <button class="btn-ghost" id="ocrCamBtn" type="button">📷 拍照识图</button>
+          <input type="file" id="ocrCamInput" accept="image/*" capture="environment" hidden>
+          <button class="btn-ghost" id="ocrAlbumBtn" type="button">🖼 从相册导入</button>
+          <input type="file" id="ocrAlbumInput" accept="image/*" multiple hidden>
+          <button class="btn-primary" id="ocrRecognizeBtn" type="button" disabled>识别</button>
+        </div>
+        <div class="ocr-preview" id="ocrPreview"></div>
+        <div class="ocr-status" id="ocrStatus"></div>
+        <div class="ocr-results" id="ocrResults">
+          <p class="ocr-hint">拍好或选好图片后点「识别」。</p>
+        </div>
+      </div>`;
+    openModal('拍照 / 相册批量导入学员', body, `
+      <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
+      <button class="btn-primary" id="ocrConfirmBtn" type="button" disabled>确认导入</button>
+    `);
+    bindOCRImport();
+  }
+
+  // v3.22: 从指定入口打开 OCR 导入（camera=直接调相机，album=直接调相册选择器）
+  function openOCRImportFrom(mode) {
+    openOCRImport();
+    if (mode === 'camera' || mode === 'album') {
+      setTimeout(() => {
+        const inp = mode === 'camera' ? $('#ocrCamInput') : $('#ocrAlbumInput');
+        if (inp) inp.click();
+      }, 60);
+    }
+  }
+
+  function bindOCRImport() {
+    const camBtn = $('#ocrCamBtn'), camInput = $('#ocrCamInput');
+    const albumBtn = $('#ocrAlbumBtn'), albumInput = $('#ocrAlbumInput');
+    const recBtn = $('#ocrRecognizeBtn');
+    const confirmBtn = $('#ocrConfirmBtn');
+    if (camBtn && camInput) camBtn.onclick = () => camInput.click();
+    if (albumBtn && albumInput) albumBtn.onclick = () => albumInput.click();
+    if (camInput) camInput.onchange = e => ocrHandleFiles(e.target.files);
+    if (albumInput) albumInput.onchange = e => ocrHandleFiles(e.target.files);
+    if (recBtn) recBtn.onclick = ocrRecognize;
+    if (confirmBtn) confirmBtn.onclick = ocrConfirmImport;
+  }
+
+  function ocrHandleFiles(files) {
+    const preview = $('#ocrPreview');
+    const recBtn = $('#ocrRecognizeBtn');
+    Array.from(files || []).forEach(f => {
+      if (!f.type || f.type.indexOf('image/') !== 0) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const item = { id: uid(), dataUrl: ev.target.result, name: f.name || 'image' };
+        ocrImages.push(item);
+        const thumb = document.createElement('div');
+        thumb.className = 'ocr-thumb';
+        thumb.dataset.oid = item.id;
+        thumb.innerHTML = `<img src="${item.dataUrl}"><button class="ocr-thumb-del" type="button" title="移除">×</button>`;
+        thumb.querySelector('.ocr-thumb-del').onclick = () => {
+          ocrImages = ocrImages.filter(x => x.id !== item.id);
+          thumb.remove();
+          if (recBtn) recBtn.disabled = ocrImages.length === 0;
+        };
+        preview.appendChild(thumb);
+        if (recBtn) recBtn.disabled = ocrImages.length === 0;
+      };
+      reader.readAsDataURL(f);
+    });
+    const fi = $('#ocrFileInput'); // 允许重复选择同一文件
+    if (fi) fi.value = '';
+  }
+
+  async function ocrRecognize() {
+    const status = $('#ocrStatus');
+    const recBtn = $('#ocrRecognizeBtn');
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (!aiUrl) {
+      if (status) { status.textContent = '❌ 未配置 AI 接口，请先到「个性化设置 → AI 模型配置」填写'; status.style.color = 'var(--danger,#e11d48)'; }
+      toast('识别需先配置 AI 视觉接口');
+      return;
+    }
+    if (!ocrImages.length) { toast('请先拍照或选图'); return; }
+    if (recBtn) { recBtn.disabled = true; recBtn.textContent = '识别中…'; }
+    if (status) { status.textContent = `AI 正在识别 ${ocrImages.length} 张图片…`; status.style.color = ''; }
+    const images = ocrImages.map(x => x.dataUrl);
+    const prompt = `请识别这些图片中的学员名单或报名表信息（可能是手写或打印的报名表、点名册、通讯录、学员信息表）。
+请尽量为每一位学员提取以下字段，并组织为 JSON 数组返回：
+- name：姓名（必填，识别不到则留空字符串）
+- grade：年级（如 初一 / 七年级 / 高二，识别不到留空）
+- className：班级或班次（如 3班 / 周六上午班 / 初二(5)班，识别不到留空）
+- school：学校（识别不到留空）
+- phone：家长联系电话（11位手机号或固话数字，识别不到留空）
+- parentName：家长姓名（识别不到留空）
+- weakness：薄弱项 / 基础情况（识别不到留空）
+- note：其他备注（如缴费、来源渠道等，识别不到留空）
+要求：
+1. 只返回 JSON 数组，不要任何解释、不要 markdown 代码块标记。
+2. 若一张图有多位学员，每位都是数组中的一个对象。
+3. 若整批只有一条记录，也返回数组（长度为 1）。
+4. 完全无法识别时返回空数组 []。
+5. 不要编造信息，识别不到的字段就留空。`;
+    try {
+      const text = await callAIVision(prompt, images, '你是 OCR 与表单信息提取助手，只输出结构化 JSON 数组，不要解释。');
+      let arr = extractJSON(text);
+      if (!Array.isArray(arr)) arr = [];
+      arr = arr.map(r => ({
+        name: String(r.name || '').trim(),
+        grade: String(r.grade || '').trim(),
+        className: String(r.className || '').trim(),
+        school: String(r.school || '').trim(),
+        phone: String(r.phone || '').replace(/[^\d]/g, '').replace(/^0+/, '').slice(-11),
+        parentName: String(r.parentName || '').trim(),
+        weakness: String(r.weakness || '').trim(),
+        note: String(r.note || '').trim()
+      })).filter(r => r.name);
+      if (!arr.length) {
+        if (status) { status.textContent = '⚠️ 未识别到任何学员姓名，可尝试更清晰的照片或手动新建'; status.style.color = 'var(--text-muted,#6b7280)'; }
+        toast('未识别到学员');
+        return;
+      }
+      const seen = new Set(ocrResults.map(r => (r.name + '|' + r.phone).toLowerCase()));
+      let added = 0;
+      arr.forEach(r => {
+        const k = (r.name + '|' + r.phone).toLowerCase();
+        if (seen.has(k)) return;
+        seen.add(k);
+        ocrResults.push(r);
+        added++;
+      });
+      ocrRenderResults();
+      if (status) { status.textContent = `✅ 本次识别 ${arr.length} 条，累计 ${ocrResults.length} 条可导入`; status.style.color = 'var(--success,#16a34a)'; }
+      toast(`识别到 ${added} 条新学员`);
+    } catch (err) {
+      if (status) { status.textContent = '❌ 识别失败：' + (err && err.message ? err.message : '请检查 AI 配置是否支持图片输入'); status.style.color = 'var(--danger,#e11d48)'; }
+      toast('识别失败：' + (err && err.message ? err.message : '未知错误'));
+    } finally {
+      if (recBtn) { recBtn.disabled = ocrImages.length === 0; recBtn.textContent = '识别'; }
+    }
+  }
+
+  function ocrRenderResults() {
+    const wrap = $('#ocrResults');
+    const confirmBtn = $('#ocrConfirmBtn');
+    if (!wrap) return;
+    if (!ocrResults.length) {
+      wrap.innerHTML = '<p class="ocr-hint">拍好或选好图片后点「识别」。</p>';
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
+    const row = (r, i) => `
+      <div class="ocr-row" data-ri="${i}">
+        <div class="ocr-row-head">
+          <span class="ocr-idx">#${i + 1}</span>
+          <button class="ocr-row-del" type="button" data-ri="${i}" title="删除此条">删除</button>
+        </div>
+        <div class="ocr-grid">
+          <label>姓名<input type="text" data-f="name" value="${escapeHtml(r.name)}"></label>
+          <label>年级<input type="text" data-f="grade" value="${escapeHtml(r.grade)}"></label>
+          <label>班级/班次<input type="text" data-f="className" value="${escapeHtml(r.className)}"></label>
+          <label>学校<input type="text" data-f="school" value="${escapeHtml(r.school)}"></label>
+          <label>家长电话<input type="text" data-f="phone" value="${escapeHtml(r.phone)}"></label>
+          <label>家长姓名<input type="text" data-f="parentName" value="${escapeHtml(r.parentName)}"></label>
+          <label class="ocr-full">薄弱项 / 基础情况<input type="text" data-f="weakness" value="${escapeHtml(r.weakness)}"></label>
+          <label class="ocr-full">备注<input type="text" data-f="note" value="${escapeHtml(r.note)}"></label>
+        </div>
+      </div>`;
+    wrap.innerHTML = ocrResults.map(row).join('');
+    wrap.querySelectorAll('.ocr-row-del').forEach(btn => {
+      btn.onclick = () => {
+        const i = +btn.dataset.ri;
+        ocrResults.splice(i, 1);
+        ocrRenderResults();
+      };
+    });
+    if (confirmBtn) confirmBtn.disabled = ocrResults.length === 0;
+  }
+
+  async function ocrConfirmImport() {
+    if (!ocrResults.length) { toast('没有可导入的学员'); return; }
+    // 读取用户在表格中可能修改过的值
+    const wrap = $('#ocrResults');
+    if (wrap) wrap.querySelectorAll('.ocr-row').forEach(el => {
+      const i = +el.dataset.ri;
+      if (ocrResults[i]) {
+        el.querySelectorAll('[data-f]').forEach(inp => { ocrResults[i][inp.dataset.f] = inp.value.trim(); });
+      }
+    });
+    ocrResults = ocrResults.filter(r => r.name);
+    let count = 0;
+    for (const r of ocrResults) {
+      const item = {
+        id: uid(),
+        name: r.name,
+        grade: r.grade || '',
+        className: r.className || '',
+        weakness: r.weakness || '',
+        phone: (r.phone || '').replace(/[^\d]/g, '').slice(-11),
+        school: r.school || '',
+        parent: r.parentName || '',
+        note: r.note || '',
+        tags: [],
+        scores: [],
+        entryTests: [],
+        homework: [],
+        reports: [],
+        ts: Date.now()
+      };
+      await dbPut('students', item);
+      state.students.push(item);
+      await mirrorToLedger(item, '');
+      count++;
+    }
+    saveLocalCache();
+    renderStudentList();
+    if (typeof renderLedgerQuick === 'function') renderLedgerQuick();
+    if (typeof renderLedger === 'function') renderLedger();
+    closeModal();
+    toast(`成功导入 ${count} 名学员，去「学员档案」查看`);
   }
 
   // 导入话术模板（Excel/CSV/TXT）
@@ -13791,9 +14591,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       rec = { date, subject: '', score, fullScore, note: noteFinal, img: mainImg, imgs: photos };
       s.entryTests.push(rec);
     } else {
-      const content = ($('#lqContent').value || '').trim();
-      if (!content) { toast('请输入作业内容'); return; }
+      // v3.19: 作业内容改为「选填」，不填时按完成度自动补一句，避免记录空白
+      let content = ($('#lqContent').value || '').trim();
       const status = $('#lqStatus') ? $('#lqStatus').value : '已完成';
+      if (!content) content = '课堂作业（' + (status || '已完成') + '）';
       rec = { date, content, status, comment: noteFinal, score, fullScore, img: mainImg, imgs: photos };
       s.homeworks.push(rec);
     }
@@ -14278,6 +15079,1160 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('已删除');
   };
 
+  /* =====================================================================
+   * v3.19 悬浮 AI 对话框（纯文字版）
+   * 老师用口语就能干活：① 台账速记 ② 调取学情 ③ 加回访待办 ④ 生成课堂反馈
+   * 原则：只做快捷入口，不改动任何既有页面结构与数据结构
+   * ===================================================================== */
+  const AI_CHAT = { busy: false, greeted: false };
+  const AI_CHIPS = [
+    '录入熊子骏，今天入门测82分，作业全部完成',
+    '李芊诺本次课堂积分+5',
+    '调取高朗绮的学情台账',
+    '查看蔡诗瑶最近30天全部记录',
+    '提醒我后天和龚姿羽家长沟通续费',
+    '给熊子骏生成今天一对一课堂反馈'
+  ];
+
+  // ---------- 小工具 ----------
+  const aiPad = n => String(n).padStart(2, '0');
+  const aiYmd = d => `${d.getFullYear()}-${aiPad(d.getMonth() + 1)}-${aiPad(d.getDate())}`;
+  function aiShiftDay(n) { const t = new Date(); t.setDate(t.getDate() + n); return aiYmd(t); }
+  function aiCleanNum(v) { const n = Number(v); return isFinite(n) ? n : 0; }
+
+  // 口语日期 → YYYY-MM-DD
+  function aiParseDate(t) {
+    if (/前天/.test(t)) return aiShiftDay(-2);
+    if (/昨天|昨日/.test(t)) return aiShiftDay(-1);
+    if (/大后天/.test(t)) return aiShiftDay(3);
+    if (/后天/.test(t)) return aiShiftDay(2);
+    if (/明天|明日/.test(t)) return aiShiftDay(1);
+    let m = t.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (m) return `${m[1]}-${aiPad(+m[2])}-${aiPad(+m[3])}`;
+    m = t.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/);
+    if (m) return `${new Date().getFullYear()}-${aiPad(+m[1])}-${aiPad(+m[2])}`;
+    m = t.match(/(\d+)\s*天[后後]/);
+    if (m) return aiShiftDay(+m[1]);
+    m = t.match(/(\d+)\s*天前/);
+    if (m) return aiShiftDay(-(+m[1]));
+    return todayStr();
+  }
+  // 口语月份 → YYYY-MM（用于「按月筛选学习数据」）
+  function aiParseMonth(t) {
+    let m = t.match(/(\d{4})\s*年\s*(\d{1,2})\s*月/);
+    if (m) return `${m[1]}-${aiPad(+m[2])}`;
+    if (/本月|这个月|当月/.test(t)) return todayStr().slice(0, 7);
+    if (/上个月|上月/.test(t)) { const d = new Date(); d.setMonth(d.getMonth() - 1); return aiYmd(d).slice(0, 7); }
+    m = t.match(/(\d{1,2})\s*月/);
+    if (m && !/\d{1,2}\s*月\s*\d{1,2}\s*[日号]/.test(t)) return `${new Date().getFullYear()}-${aiPad(+m[1])}`;
+    return '';
+  }
+  function aiParseDays(t) {
+    const m = t.match(/最近\s*(\d+)\s*天/) || t.match(/近\s*(\d+)\s*天/);
+    if (m) return +m[1];
+    if (/最近一周|近一周|本周/.test(t)) return 7;
+    if (/最近一个月|近一个月/.test(t)) return 30;
+    return 0;
+  }
+
+  // ---------- 学员匹配 ----------
+  function aiStudentIndex() {
+    const map = new Map();
+    const put = (n, key, obj) => {
+      n = (n || '').trim();
+      if (!n) return;
+      if (!map.has(n)) map.set(n, { name: n, ledger: null, profile: null });
+      if (!map.get(n)[key]) map.get(n)[key] = obj;
+    };
+    (state.ledgerStudents || []).forEach(s => put(s.name, 'ledger', s));
+    (state.students || []).forEach(s => put(s.name, 'profile', s));
+    return map;
+  }
+  function aiMatchStudent(text) {
+    const map = aiStudentIndex();
+    let best = null;
+    map.forEach((v, n) => {
+      if (n.length >= 2 && text.indexOf(n) >= 0 && (!best || n.length > best.name.length)) best = v;
+    });
+    return best;
+  }
+  function aiGuessName(text) {
+    const pats = [
+      /(?:录入|记录|记一下|记一笔|给|帮|把|让|调取|查看|查一下|看下|看看|查询)\s*([\u4e00-\u9fa5]{2,4})(?:的|同学|本次|这次|今天|今日|最近|，|,|\s|$)/,
+      /和\s*([\u4e00-\u9fa5]{2,4})\s*(?:的)?家长/,
+      /^([\u4e00-\u9fa5]{2,4})(?:本次|这次|今天|今日|同学|的)/
+    ];
+    const stop = /^(提醒我|同学|家长|今天|明天|后天|老师|学生|全部|课堂|作业|入门|积分)$/;
+    for (const p of pats) {
+      const m = text.match(p);
+      if (m && !stop.test(m[1])) return m[1];
+    }
+    return '';
+  }
+  // v3.22: 口语解析学员字段（年级 / 班级 / 学校 / 家长电话 / 家长 / 薄弱项 / 标签）
+  function aiParseStudentFields(text) {
+    const out = {};
+    const g1 = text.match(/(?:年级|就读|上)[是为：: ]*([一二三四五六七八九十]+[年级]|初[一二三]|高[一二三]|幼小?衔接)/);
+    const g2 = text.match(/(初一|初二|初三|高一|高二|高三|七年级|八年级|九年级|一年级|二年级|三年级|四年级|五年级|六年级)/);
+    if (g1) out.grade = g1[1]; else if (g2) out.grade = g2[1];
+    const cm = text.match(/(?:班级|班次|班)[是为：: ]*([^，,。；;]{1,12}?(?:班|组))/)
+            || text.match(/([\d一二三四五六七八九十]+班)/);
+    if (cm) out.className = cm[1].replace(/^的/, '').trim();
+    const sm = text.match(/(?:学校|就读于|在)[是为：: ]*([\u4e00-\u9fa5]{2,12}?(?:小学|中学|高中|学校|学院|大学))/);
+    if (sm) out.school = sm[1];
+    const pm = text.match(/(?:家长电话|电话|手机|联系电话)[是为：: ]*([\d\-]{7,15})/) || text.match(/(?<![\d])1[3-9]\d{9}(?![\d])/);
+    if (pm) out.phone = (pm[1] || pm[0]).replace(/[^\d]/g, '').slice(-11);
+    const parm = text.match(/(?:家长|爸爸|妈妈|父亲|母亲)[是为：: ]*([\u4e00-\u9fa5]{2,4})/);
+    if (parm) out.parent = parm[1];
+    const wm = text.match(/(?:薄弱|易错|弱项|短板)[是为：: ]*([^，,。；;]{2,20})/);
+    if (wm) out.weakness = wm[1].trim();
+    const tm = text.match(/(?:标签)[是为：: ]*([^，,。；;]{1,20})/);
+    if (tm) out.tags = tm[1].split(/[,，、]/).map(s => s.trim()).filter(Boolean);
+    return out;
+  }
+  // v3.22: 直接建档（含班级归属），并同步到学情台账
+  async function aiCreateStudent(text) {
+    const nm = text.match(/(?:新建|录入|添加|登记|建档|开个?|建立|加个?)(?:新)?(?:学员|学生|档案|同学)?\s*[:：]?\s*([\u4e00-\u9fa5]{2,4})/);
+    const name = (nm && nm[1]) || aiGuessName(text) || '';
+    if (!name) return null;
+    const f = aiParseStudentFields(text);
+    const sp = {
+      id: uid(), name,
+      grade: f.grade || '', className: f.className || '',
+      school: f.school || '', phone: f.phone || '',
+      parent: f.parent || '', weakness: f.weakness || '',
+      tags: f.tags || [], hours: 0,
+      scores: [], entryTests: [], homework: [], reports: [], ts: Date.now()
+    };
+    await dbPut('students', sp);
+    state.students.push(sp);
+    await mirrorToLedger(sp, '');   // 自动建班级 + 写入学情台账
+    saveLocalCache();
+    try { renderStudentList(); } catch (e) {}
+    try { if (typeof renderLedgerQuick === 'function') renderLedgerQuick(); } catch (e) {}
+    try { if (typeof renderLedger === 'function') renderLedger(); } catch (e) {}
+    return { name, sp };
+  }
+
+  async function aiEnsureLedgerStudent(stu) {    if (stu.ledger) return stu.ledger;
+    const cls = stu.profile && stu.profile.className
+      ? state.classes.find(c => (c.name || '') === stu.profile.className) : null;
+    const ls = {
+      id: uid(), name: stu.name, classId: cls ? cls.id : '',
+      entryTests: [], homeworks: [], scores: [], ts: Date.now()
+    };
+    state.ledgerStudents.push(ls);
+    await dbPut('ledgerStudents', ls);
+    stu.ledger = ls;
+    return ls;
+  }
+  async function aiEnsureProfile(stu, text) {
+    const fill = sp => {
+      if (!text) return false;
+      const f = aiParseStudentFields(text);
+      let ch = false;
+      ['grade', 'className', 'school', 'phone', 'weakness'].forEach(k => {
+        if (f[k] && !sp[k]) { sp[k] = f[k]; ch = true; }
+      });
+      if (f.parent && !sp.parent) { sp.parent = f.parent; ch = true; }
+      return ch;
+    };
+    if (stu.profile) {
+      if (fill(stu.profile)) await dbPut('students', stu.profile);
+      return stu.profile;
+    }
+    const cls = stu.ledger ? state.classes.find(c => c.id === stu.ledger.classId) : null;
+    const sp = {
+      id: uid(), name: stu.name, grade: '', className: cls ? (cls.name || '') : '',
+      weakness: '', tags: [], hours: 0,
+      scores: [], entryTests: [], homework: [], reports: [], ts: Date.now()
+    };
+    fill(sp);
+    state.students.push(sp);
+    await dbPut('students', sp);
+    stu.profile = sp;
+    return sp;
+  }
+
+  // ---------- 意图识别 ----------
+  function aiHasLedgerSignal(t) {
+    return /(入门测|入门|小测|测验|测试|考了)[^\u4e00-\u9fa5]{0,6}\d/.test(t)
+      || /作业/.test(t) || /积分|加分|扣分/.test(t)
+      || /^(录入|记一下|记一笔|记录一下)/.test(t);
+  }
+  function aiDetectIntent(t) {
+    const ledger = aiHasLedgerSignal(t);
+    if (/提醒我|加个提醒|待办|回访|别忘了|记得(和|跟|给|要)|需要(联系|沟通|回访)|加入清单/.test(t) && !ledger) return 'callback';
+    if (/(生成|写|来一份|出一份|拟一份|帮.{0,3}写).{0,10}(反馈|小结|评语|总结)|课堂反馈|一对一反馈|课后反馈/.test(t)) return 'feedback';
+    // v3.22: 新建 / 建档（带班级 + 同步台账）；v3.23: 扩展覆盖"动词+名字"格式（如"添加高朗绮"、"新建李小明"）
+    if (/(新建(新)?学员|录入(新)?学员|添加(新)?学员|登记(新)?学员|建档|开个档案|建立档案|开个学员|加个学员|新建学生|添加学生|新建[\u4e00-\u9fa5]{2,5}|录入[\u4e00-\u9fa5]{2,5}|添加[\u4e00-\u9fa5]{2,5}|登记[\u4e00-\u9fa5]{2,5})/.test(t) && !ledger) return 'create';
+    // v3.22: 工作台功能型意图（批改/拍照/OCR/续费/练习/导出/备课）优先于普通台账信号，
+    // 避免"作业""积分"等台账触发词与功能动词叠加时被误判为 ledger
+    if (/批改|作业.{0,3}(批改|订正)|AI批改|批改作业/.test(t)) return 'grade';
+    if (/拍照(导入|识别|建档)|OCR|图片导入|相册导入|批量导入学员|拍照建档/.test(t)) return 'ocr';
+    if (/(续费|续报|续课)(方案|计划|话术|助手)?/.test(t) && !/提醒|待办|回访/.test(t)) return 'renew';
+    if (/(生成|出|来|写|做|布置|组|拟).{0,6}(练习|题|试卷|作业题|测验)|练习题|出道题|组卷|出题/.test(t)) return 'exercise';
+    if (/导出.{0,6}(反馈|汇总|学情)|导出反馈|导出学员反馈/.test(t)) return 'export';
+    if (/备课|教案|课件|教学计划|写教案/.test(t)) return 'prep';
+    if (ledger) return 'ledger';
+    // v3.22: 「打开/进入/跳到 + 页面名」是明确的开页指令，必须优先于 query（避免"打开学情台账"被台账/学情关键词抢成查询）
+    if (/打开|去(看|打开)?|进入|切换到|跳到/.test(t)) return 'page';
+    if (/调取|查看|查一下|看下|看看|查询|学情|台账|档案|最近\s*\d+\s*天|全部记录|历史记录|表现(怎么样|如何)|情况(怎么样|如何)/.test(t)) return 'query';
+    return 'chat';
+  }
+
+  // ---------- ① 台账速记 ----------
+  function aiParseLedger(t) {
+    const out = { entry: null, hw: null, points: null };
+    const em = t.match(/(?:入门测|入门|小测|测验|测试|考了?)[^\d]{0,6}(\d+(?:\.\d+)?)\s*分?/);
+    if (em) {
+      const full = t.match(/(?:满分|总分)\s*[^\d]{0,3}(\d+(?:\.\d+)?)/) || t.match(/(\d+(?:\.\d+)?)\s*[\/／]\s*(\d+(?:\.\d+)?)/);
+      let fs = null;
+      if (full) fs = parseFloat(full[2] !== undefined ? full[2] : full[1]);
+      out.entry = { score: parseFloat(em[1]), fullScore: fs };
+    }
+    if (/作业/.test(t)) {
+      let status = '已完成';
+      if (/(没做|未做|没写|没交|未交|未完成|空着|没完成|没有做)/.test(t)) status = '未完成';
+      else if (/订正/.test(t)) status = '订正中';
+      else if (/部分|一半|大部分|少部分/.test(t)) status = '部分完成';
+      const cm = t.match(/作业[是为：:]?\s*([^，,。；;！!]{2,30})/);
+      let content = '';
+      if (cm && !/^(全部完成|都完成|完成|做完|写完|已交|未完成|没做|没写|没交|订正|部分|一半|\d)/.test(cm[1].trim())) {
+        content = cm[1].trim();
+      }
+      const hs = t.match(/作业[^\d]{0,6}(\d+(?:\.\d+)?)\s*分/);
+      out.hw = { status, content, score: hs ? parseFloat(hs[1]) : 0 };
+    }
+    let pm = t.match(/(?:积分|加分|课堂分)\s*[+＋加]\s*(\d+(?:\.\d+)?)/);
+    if (pm) out.points = parseFloat(pm[1]);
+    if (out.points == null) {
+      pm = t.match(/(?:扣分|积分\s*[-－减]\s*)(\d+(?:\.\d+)?)/);
+      if (pm) out.points = -parseFloat(pm[1]);
+    }
+    if (out.points == null) {
+      pm = t.match(/(?:课堂)?积分[^\d+\-]{0,4}(\d+(?:\.\d+)?)\s*分?/);
+      if (pm) out.points = parseFloat(pm[1]);
+    }
+    return out;
+  }
+  async function aiExecLedger(text, stu, date) {
+    const p = aiParseLedger(text);
+    if (!p.entry && !p.hw && p.points == null) return null;
+    // v3.22: 先补全档案字段（年级/班级/电话/薄弱项），再建台账条目时即可带上班级归属
+    await aiEnsureProfile(stu, text);
+    const ls = await aiEnsureLedgerStudent(stu);
+    normalizeLedger(ls);
+    if (stu.profile) await mirrorToLedger(stu.profile, stu.profile.name);  // 确保班级 + 台账同步
+    const done = [];
+    if (p.entry) {
+      const isFull = p.entry.fullScore && p.entry.score === p.entry.fullScore;
+      const rec = {
+        date, subject: '', score: p.entry.score, fullScore: p.entry.fullScore,
+        note: isFull ? '👍' : '', img: '', imgs: []
+      };
+      ls.entryTests.push(rec);
+      await mirrorToStudentProfile(ls, 'entry', rec);
+      done.push(`入门测 ${rec.score}${rec.fullScore ? ' / ' + rec.fullScore : ''} 分${isFull ? ' · 满分 👍' : ''}`);
+    }
+    if (p.hw) {
+      const rec = {
+        date, content: p.hw.content || `课堂作业（${p.hw.status}）`, status: p.hw.status,
+        comment: '', score: p.hw.score || 0, fullScore: null, img: '', imgs: []
+      };
+      ls.homeworks.push(rec);
+      await mirrorToStudentProfile(ls, 'hw', rec);
+      done.push(`作业 ${p.hw.status}${p.hw.content ? '（' + p.hw.content + '）' : ''}${p.hw.score ? ' · ' + p.hw.score + ' 分' : ''}`);
+    }
+    if (p.points != null) {
+      ls.scores.push({ date, score: p.points, note: '', img: '' });
+      const total = (ls.scores || []).reduce((a, c) => a + aiCleanNum(c.score), 0);
+      done.push(`课堂积分 ${p.points > 0 ? '+' : ''}${p.points}（累计 ${total}）`);
+    }
+    await dbPut('ledgerStudents', ls);
+    saveLocalCache();
+    try { renderLedger(); } catch (e) {}
+    try { renderStudentList(); } catch (e) {}
+    return done;
+  }
+
+  // ---------- ② 调取学情 ----------
+  function aiScoreTxt(r) {
+    const sc = r.score == null || r.score === '' ? null : Number(r.score);
+    const fs = r.fullScore == null || r.fullScore === '' ? null : Number(r.fullScore);
+    if (sc == null) return '';
+    return fs ? `${sc}/${fs}` : `${sc}`;
+  }
+  function aiCollectRecords(stu, opt) {
+    opt = opt || {};
+    const rows = [];
+    const ls = stu.ledger;
+    if (ls) {
+      normalizeLedger(ls);
+      (ls.entryTests || []).forEach(r => rows.push({
+        date: r.date || '', kind: '入门测',
+        txt: [aiScoreTxt(r) ? aiScoreTxt(r) + ' 分' : '', (r.note || '').trim()].filter(Boolean).join(' · ')
+      }));
+      (ls.homeworks || []).forEach(r => {
+        const c = (r.content || '').trim();
+        const isAuto = /^课堂作业（.*）$/.test(c);   // 内容留空时自动补的占位，不必重复展示
+        const sc = aiScoreTxt(r);
+        rows.push({
+          date: r.date || '', kind: '作业',
+          txt: [r.status || '', isAuto ? '' : c, (sc && sc !== '0') ? sc + ' 分' : '', (r.comment || '').trim()].filter(Boolean).join(' · ')
+        });
+      });
+      (ls.scores || []).forEach(r => rows.push({
+        date: r.date || '', kind: '积分',
+        txt: `${aiCleanNum(r.score) > 0 ? '+' : ''}${aiCleanNum(r.score)}${r.note ? ' · ' + r.note : ''}`
+      }));
+    }
+    const pid = stu.profile ? stu.profile.id : '';
+    if (pid) {
+      (state.feedbacks || []).filter(f => f.studentId === pid).forEach(f => rows.push({
+        date: f.date || aiYmd(new Date(f.ts || Date.now())), kind: '反馈',
+        txt: `${f.type || ''}：${(f.content || '').replace(/\s+/g, ' ').slice(0, 36)}…`
+      }));
+      (state.communications || []).filter(c => c.studentId === pid).forEach(c => rows.push({
+        date: c.date || aiYmd(new Date(c.ts || Date.now())), kind: '沟通',
+        txt: `${c.type || ''}：${(c.content || '').replace(/\s+/g, ' ').slice(0, 36)}…`
+      }));
+    }
+    let list = rows;
+    if (opt.month) list = list.filter(r => (r.date || '').slice(0, 7) === opt.month);
+    else if (opt.days) { const from = aiShiftDay(-opt.days); list = list.filter(r => r.date && r.date >= from); }
+    list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    return list;
+  }
+  function aiBuildProfileText(stu, opt) {
+    const rows = aiCollectRecords(stu, opt);
+    const ls = stu.ledger;
+    const scope = opt.month ? `${opt.month} 月` : (opt.days ? `最近 ${opt.days} 天` : '全部记录');
+    if (!rows.length) return `📋 ${stu.name} · ${scope}\n\n这段时间还没有任何记录。要现在补录一条吗？直接说「录入${stu.name}，今天入门测XX分」就行。`;
+    const ets = rows.filter(r => r.kind === '入门测');
+    const hws = rows.filter(r => r.kind === '作业');
+    const scs = rows.filter(r => r.kind === '积分');
+    const lines = [`📋 ${stu.name} · ${scope} · 共 ${rows.length} 条`];
+    const p = stu.profile;
+    if (p && (p.grade || p.className || p.weakness)) {
+      lines.push(`档案：${[p.grade, p.className].filter(Boolean).join(' ') || '—'}${p.weakness ? ' ｜ 薄弱项：' + p.weakness : ''}`);
+    }
+    const stat = [];
+    if (ets.length) {
+      const nums = ets.map(r => parseFloat(r.txt)).filter(n => isFinite(n));
+      const avg = nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : '-';
+      let trend = '';
+      if (nums.length >= 2) {
+        const diff = nums[0] - nums[nums.length - 1];
+        trend = diff > 2 ? ' ↗进步' : (diff < -2 ? ' ↘下滑' : ' →平稳');
+      }
+      stat.push(`入门测 ${ets.length} 次 · 均分 ${avg}${trend}`);
+    }
+    if (hws.length) {
+      const okN = hws.filter(r => /已完成/.test(r.txt)).length;
+      stat.push(`作业 ${hws.length} 次 · 完成率 ${Math.round(okN / hws.length * 100)}%`);
+    }
+    if (scs.length) {
+      const total = ls ? (ls.scores || []).reduce((a, c) => a + aiCleanNum(c.score), 0) : 0;
+      stat.push(`积分 ${scs.length} 次 · 累计 ${total}`);
+    }
+    if (stat.length) lines.push('小结：' + stat.join(' ｜ '));
+    lines.push('');
+    lines.push('时间轴（近 → 远）：');
+    rows.slice(0, 20).forEach(r => lines.push(`· ${r.date || '未填日期'} ${r.kind} ${r.txt}`));
+    if (rows.length > 20) lines.push(`…… 还有 ${rows.length - 20} 条，点「打开档案」查看全部`);
+    return lines.join('\n');
+  }
+
+  // ---------- ③ 回访 / 续费待办 ----------
+  async function aiExecCallback(text, stu, date) {
+    const name = stu ? stu.name : (aiGuessName(text) || '未指定学员');
+    let reason = text
+      .replace(/^(提醒我|帮我提醒|麻烦提醒我?|记得|别忘了|请提醒)\s*/, '')
+      .replace(/(大后天|后天|明天|明日|今天|今日|昨天|前天|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}\s*月\s*\d{1,2}\s*[日号]|\d+\s*天[后後前])/g, '')
+      .trim();
+    if (name && name !== '未指定学员') reason = reason.split(name).join('').trim();
+    reason = reason.replace(/^[和跟与给对的，,、\s]+/, '').replace(/[，,。\s]+$/, '').trim();
+    if (!reason) reason = '家长沟通';
+    const overdue = date && date !== todayStr() ? `【${date.slice(5)} 前】` : '';
+    const item = { id: uid(), student: name, reason: overdue + reason, due: date || todayStr(), ts: Date.now(), done: false };
+    await dbPut('callbacks', item);
+    state.callbacks.push(item);
+    saveLocalCache();
+    try { renderCallbacks(); } catch (e) {}
+    return item;
+  }
+
+  // ---------- ④ 生成一对一课堂反馈 ----------
+  const AI_FB_TPL = `{姓名}同学 · 一对一课堂反馈
+日期：{日期}
+
+🚴‍♀【上课内容】
+{内容}
+
+💛【课堂表现】
+{表现}
+
+家庭作业：{作业}
+
+☺☺家长收到请回复"1"（您的回复是我们反馈的最大动力）[玫瑰][玫瑰]`;
+
+  function aiExtractTopic(text, name) {
+    let t = text;
+    if (name) t = t.split(name).join('');
+    t = t.replace(/^.*?(一对一|课堂|课后)?\s*(反馈|小结|评语|总结)\s*[，,：:、]?\s*/, '');
+    t = t.replace(/^(给|帮|请|麻烦|生成|写|来一份|出一份|拟一份)+\s*/, '');
+    t = t.replace(/(今天|今日|本次|这次|大后天|后天|明天)/g, '');
+    return t.trim();
+  }
+  function aiTodayLedgerBrief(stu, date) {
+    const ls = stu.ledger;
+    if (!ls) return '';
+    normalizeLedger(ls);
+    const bits = [];
+    (ls.entryTests || []).filter(r => r.date === date).forEach(r => bits.push(`入门测 ${aiScoreTxt(r)} 分`));
+    (ls.homeworks || []).filter(r => r.date === date).forEach(r => {
+      const c = (r.content || '').trim();
+      const show = /^课堂作业（.*）$/.test(c) ? '' : c;   // 过滤自动占位内容
+      bits.push(`作业 ${r.status || ''}${show ? '（' + show + '）' : ''}`);
+    });
+    (ls.scores || []).filter(r => r.date === date).forEach(r => bits.push(`课堂积分 ${aiCleanNum(r.score) > 0 ? '+' : ''}${aiCleanNum(r.score)}`));
+    return bits.join('；');
+  }
+  // 没配 AI 时的本地兜底：把老师一句话拆成「上课内容」和「课堂表现」两部分
+  const AI_PERF_HINT = /(表现|发言|专注|积极|认真|走神|开小差|配合|状态|态度|举手|回答|安静|坐不住|进步|退步|情绪|主动)/;
+  function aiSplitTopic(topic) {
+    const parts = (topic || '').split(/[，,。；;\n]/).map(s => s.trim()).filter(Boolean);
+    const content = [], perf = [];
+    parts.forEach(p => {
+      if (AI_PERF_HINT.test(p)) perf.push(p.replace(/^(孩子|该生|这孩子|小朋友|学生|他|她)\s*/, ''));
+      else content.push(p);
+    });
+    return { content, perf };
+  }
+  function aiFallbackFeedback(stu, date, topic, brief) {
+    const name = stu.name;
+    const weak = stu.profile && stu.profile.weakness ? stu.profile.weakness : '';
+    const sp = aiSplitTopic(topic);
+    const content = sp.content.length
+      ? numberLines(sp.content.join('\n'))
+      : '1、本节课重点内容讲解与练习\n2、课堂随堂检测与订正';
+    let perf = sp.perf.length
+      ? `${name}同学本节课${sp.perf.join('，')}。`
+      : `${name}同学本节课听讲专注，能跟上老师节奏完成各项任务。`;
+    if (brief) perf += `\n本次课记录：${brief}。`;
+    if (weak) perf += `\n${weak}方面仍需加强，课后建议每天固定 15 分钟针对性练习。`;
+    else perf += `\n个别知识点还需课后巩固，建议家长督促复习。`;
+    let hw = '见课堂布置';
+    const hwm = topic ? topic.match(/作业[：:是为]?\s*([^，,。；;]{2,40})/) : null;
+    if (hwm && hwm[1]) hw = hwm[1].trim();
+    return AI_FB_TPL
+      .replace('{姓名}', name).replace('{日期}', date)
+      .replace('{内容}', content).replace('{表现}', perf).replace('{作业}', hw);
+  }
+  async function aiExecFeedback(text, stu, date) {
+    const topic = aiExtractTopic(text, stu.name);
+    const brief = aiTodayLedgerBrief(stu, date);
+    const weak = stu.profile && stu.profile.weakness ? stu.profile.weakness : '';
+    const grade = stu.profile ? [stu.profile.grade, stu.profile.className].filter(Boolean).join(' ') : '';
+    let result = '';
+    let byAI = false;
+    if (getSetting('aiApiUrl', '').trim()) {
+      const prompt = `你是资深中小学语文老师，正在给家长写「一对一课后反馈」。
+学员：${stu.name}${grade ? '（' + grade + '）' : ''}
+日期：${date}
+老师口述本次课情况：${topic || '（未特别说明，按常规课处理）'}
+系统台账记录：${brief || '（无）'}
+该生薄弱项：${weak || '（未登记）'}
+严格只输出下面这个 JSON，不要任何解释、不要代码块：
+{"content":"本节课上课内容，2-4条，每条一句话，用\\n分隔，不要自己加序号","perf":"课堂表现，2-3句，先具体肯定再点出待提升处，语气像老师日常发微信","hw":"家庭作业，一句话"}`;
+      try {
+        const raw = await callAIText(prompt);
+        const j = extractJSON(raw);
+        if (j && (j.content || j.perf)) {
+          result = AI_FB_TPL
+            .replace('{姓名}', stu.name).replace('{日期}', date)
+            .replace('{内容}', numberLines(j.content || ''))
+            .replace('{表现}', (j.perf || '').trim())
+            .replace('{作业}', (j.hw || '见课堂布置').trim());
+          byAI = true;
+        }
+      } catch (e) { /* 静默降级到本地模板 */ }
+    }
+    if (!result) result = aiFallbackFeedback(stu, date, topic, brief);
+    result = result.replace(/\{[^{}]*\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+    // 自动绑定学员 + 日期，归档到该生个人时间轴
+    const profile = await aiEnsureProfile(stu);
+    const item = { id: uid(), studentId: profile.id, type: '课堂表现', content: result, date, ts: Date.now(), source: 'ai-chat' };
+    state.feedbacks.push(item);
+    await dbPut('feedbacks', item);
+    saveLocalCache();
+    try { renderFeedbackList(); } catch (e) {}
+    return { text: result, byAI, item };
+  }
+
+  // ---------- 单个学员：全部历史反馈一键导出（WPS 可打开）----------
+  function aiExportStudentFeedback(name) {
+    const stu = aiStudentIndex().get(name);
+    if (!stu || !stu.profile) { toast('该学员暂无档案'); return; }
+    const list = (state.feedbacks || [])
+      .filter(f => f.studentId === stu.profile.id)
+      .sort((a, b) => (a.date || aiYmd(new Date(a.ts || 0))).localeCompare(b.date || aiYmd(new Date(b.ts || 0))));
+    if (!list.length) { toast(`${name} 还没有反馈记录`); return; }
+    const esc = s => escapeHtml(String(s == null ? '' : s));
+    const body = list.map((f, i) => `
+      <h3 style="margin:22px 0 6px;font-size:15px;color:#1f2937">${i + 1}. ${esc(f.date || aiYmd(new Date(f.ts || Date.now())))} · ${esc(f.type || '课堂表现')}</h3>
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.9;color:#374151;border-left:3px solid #7c5cff;padding-left:12px">${esc(f.content || '')}</div>
+    `).join('');
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>${esc(name)}课后反馈汇总</title></head>
+<body style="font-family:'Microsoft YaHei',SimSun,sans-serif;padding:24px">
+<h1 style="font-size:20px;color:#111827;margin:0 0 4px">${esc(name)} · 课后反馈汇总</h1>
+<p style="font-size:12px;color:#6b7280;margin:0 0 4px">共 ${list.length} 条 ｜ 导出时间：${esc(todayStr())}</p>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:14px 0">
+${body}
+</body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}_课后反馈汇总_${todayStr()}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    toast(`已导出 ${list.length} 条反馈，可用 WPS 打开`);
+  }
+
+  // ---------- 对话界面（v3.20 类微信聊天风格） ----------
+  // 设置持久化 key
+  const AI_CFG_KEY = 'yuwen_ai_chat_cfg';
+  // v3.23: 聊天记录持久化 key 与容量限制
+  const AI_CHAT_HISTORY_KEY = 'yuwen_ai_chat_history';
+  const AI_CHAT_MAX_HISTORY = 200;
+  let aiCfg = {};   // { aiAvatar, meAvatar, name, status }
+
+  function aiLoadCfg() {
+    try { aiCfg = JSON.parse(localStorage.getItem(AI_CFG_KEY) || '{}'); } catch(e) { aiCfg = {}; }
+    return aiCfg;
+  }
+  function aiSaveCfg() {
+    localStorage.setItem(AI_CFG_KEY, JSON.stringify(aiCfg || {}));
+  }
+  function aiApplyCfg() {
+    aiLoadCfg();
+    // 顶栏文字
+    const nameEl = $('#aiChatName'), stEl = $('#aiChatStatus');
+    if (nameEl) nameEl.textContent = aiCfg.name || 'AI 助手';
+    if (stEl) stEl.textContent = aiCfg.status || '说人话就能干活';
+    // 头像预览
+    ['aiSetAiAvatar', 'aiSetMeAvatar'].forEach(id => {
+      const box = $('#' + id); if (!box) return;
+      const isAi = id === 'aiSetAiAvatar';
+      const url = isAi ? aiCfg.aiAvatar : aiCfg.meAvatar;
+      if (url) {
+        box.innerHTML = `<img src="${url}" alt="${isAi?'AI':'我'}">`;
+      } else {
+        box.innerHTML = `<div class="ai-avatar-placeholder ${isAi?'ai':'me'}">${isAi?'AI':'我'}</div>`;
+      }
+    });
+    // 设置面板输入框回显
+    const sn = $('#aiSetName'); if (sn) sn.value = aiCfg.name || 'AI 助手';
+    const ss = $('#aiSetStatus'); if (ss) ss.value = aiCfg.status || '说人话就能干活';
+  }
+
+  // 生成头像 HTML
+  function aiAvatarHtml(role) {
+    const url = role === 'ai' ? aiCfg.aiAvatar : aiCfg.meAvatar;
+    if (url) return `<img src="${url}" alt="${role==='ai'?'AI':'我'}">`;
+    return `<div class="ai-avatar-placeholder ${role}">${role === 'ai' ? 'AI' : '我'}</div>`;
+  }
+  // 生成昵称
+  function aiNickHtml(role) {
+    if (role === 'ai') return '<span class="ai-nick">' + escapeHtml(aiCfg.name || 'AI 助手') + '</span>';
+    return '<span class="ai-nick">' + escapeHtml(aiCfg.meNick || '我') + '</span>';
+  }
+
+  function aiScrollBottom() {
+    const b = $('#aiChatBody');
+    if (b) b.scrollTop = b.scrollHeight;
+  }
+  function aiNowTs() {
+    const d = new Date();
+    const h = String(d.getHours()).padStart(2,'0');
+    const m = String(d.getMinutes()).padStart(2,'0');
+    return `${h}:${m}`;
+  }
+  function aiPush(role, text, opt) {
+    opt = opt || {};
+    const body = $('#aiChatBody');
+    if (!body) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-msg ' + (role === 'me' ? 'me' : 'ai');
+
+    // 头像列
+    const avCol = document.createElement('div');
+    avCol.className = 'ai-avatar';
+    avCol.innerHTML = aiAvatarHtml(role);
+
+    // 内容列
+    const col = document.createElement('div');
+    col.className = 'ai-msg-col';
+
+    // 昵称
+    col.insertAdjacentHTML('beforeend', aiNickHtml(role));
+
+    // 气泡
+    const bub = document.createElement('div');
+    bub.className = 'ai-bubble' + (opt.cls ? ' ' + opt.cls : '');
+    bub.textContent = text;
+
+    // 操作按钮
+    if (opt.acts && opt.acts.length) {
+      const acts = document.createElement('div');
+      acts.className = 'ai-acts';
+      opt.acts.forEach(a => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = a.label; btn.onclick = a.fn;
+        acts.appendChild(btn);
+      });
+      bub.appendChild(acts);
+    }
+    col.appendChild(bub);
+
+    // 时间戳
+    const ts = document.createElement('div');
+    ts.className = 'ai-ts';
+    ts.innerHTML = aiNowTs() + (role === 'me' ? '<span class="read">✓✓</span>' : '');
+    col.appendChild(ts);
+
+    wrap.appendChild(avCol);
+    wrap.appendChild(col);
+    body.appendChild(wrap);
+    // v3.23: 持久化聊天记录（跳过 typing 占位消息和回放期间）
+    if (text && !wrap.classList.contains('ai-typing-msg') && !window.__app._replayingChat) {
+      try {
+        const hist = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY) || '[]');
+        hist.push({ role: role === 'me' ? 'me' : 'ai', text: text, time: Date.now(), cls: (opt && opt.cls) || '' });
+        if (hist.length > AI_CHAT_MAX_HISTORY) hist.splice(0, hist.length - AI_CHAT_MAX_HISTORY);
+        localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(hist));
+      } catch(e) {}
+    }
+    aiScrollBottom();
+    return wrap;
+  }
+  function aiPushTyping() {
+    const body = $('#aiChatBody');
+    if (!body) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-msg ai';
+    const avCol = document.createElement('div'); avCol.className = 'ai-avatar'; avCol.innerHTML = aiAvatarHtml('ai');
+    const col = document.createElement('div'); col.className = 'ai-msg-col';
+    col.insertAdjacentHTML('beforeend', aiNickHtml('ai'));
+    const bub = document.createElement('div');
+    bub.className = 'ai-bubble';
+    bub.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+    col.appendChild(bub);
+    wrap.appendChild(avCol); wrap.appendChild(col);
+    body.appendChild(wrap);
+    aiScrollBottom();
+    return wrap;
+  }
+  function aiGoPage(page, tab, render) {
+    aiCloseChat();
+    showPage(page);
+    if (!tab) return;
+    setTimeout(() => {
+      $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      $$('.tab-content').forEach(c => c.hidden = c.id !== 'tab-' + tab);
+      if (render) { try { render(); } catch (e) {} }
+    }, 60);
+  }
+  const AI_HELP = `我能听懂这些话（直接打字就行），而且能直接帮你干活：
+
+① 新建学员（直接建档 + 同步学情台账，可带班级）
+· 新建学员张三，七年级3班，家长电话13800000001
+· 录入新学员李四，初二(5)班，薄弱项作文
+
+② 台账速记
+· 录入熊子骏，今天入门测82分，作业全部完成
+· 李芊诺本次课堂积分+5
+· 王小明昨天作业未完成
+
+③ 调取学情
+· 调取高朗绮的学情台账
+· 查看蔡诗瑶最近30天全部记录
+· 看看张三8月的记录
+
+④ 回访 / 续费待办
+· 提醒我后天和龚姿羽家长沟通续费
+· 记得明天回访李四家长
+· 给张三做续费方案
+
+⑤ 生成课后反馈
+· 给熊子骏生成今天一对一课堂反馈，讲了《草船借箭》人物分析，发言积极
+
+⑥ 打开工作台各功能
+· 给张三批改作业（AI 批改）
+· 给张三生成练习，主题《病句修改》
+· 给张三导出反馈（WPS 可打开）
+· 拍照导入学员（批量建档）
+· 打开学情台账 / 打开备课助手 / 打开练习生成器
+
+其它随便问（如"帮我想3个课堂互动游戏"）会走 AI 自由问答，需要先在「个性化设置」里配好 AI 接口。`;
+
+  function aiRenderChips() {
+    const el = $('#aiChatChips');
+    if (!el) return;
+    const names = Array.from(aiStudentIndex().keys()).slice(0, 3);
+    const chips = names.length
+      ? [
+          `录入${names[0]}，今天入门测85分，作业全部完成`,
+          `调取${names[0]}的学情台账`,
+          names[1] ? `${names[1]}本次课堂积分+5` : AI_CHIPS[1],
+          names[1] ? `提醒我后天和${names[1]}家长沟通续费` : AI_CHIPS[4],
+          `给${names[0]}生成今天一对一课堂反馈`
+        ]
+      : AI_CHIPS;
+    el.innerHTML = '';
+    chips.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = c.length > 18 ? c.slice(0, 17) + '…' : c;
+      b.title = c;
+      b.onclick = () => {
+        const ta = $('#aiChatText');
+        if (ta) { ta.value = c; ta.focus(); aiAutoGrow(ta); }
+      };
+      el.appendChild(b);
+    });
+  }
+  function aiAutoGrow(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+  }
+  function aiOpenChat() {
+    const p = $('#aiChatPanel'), m = $('#aiChatMask'), ball = $('#aiBall');
+    if (!p) return;
+    p.hidden = false;
+    if (m) m.hidden = false;
+    if (ball) ball.classList.add('on');
+    aiApplyCfg();
+    aiRenderChips();
+    // v3.23: 回放持久化的聊天记录（仅当对话面板为空时回放，避免重复）
+    const body = $('#aiChatBody');
+    if (body && !body.children.length) {
+      try {
+        const hist = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY) || '[]');
+        if (hist.length) {
+          window.__app._replayingChat = true;
+          hist.forEach(h => {
+            aiPush(h.role === 'me' ? 'me' : 'ai', h.text, { cls: h.cls || '' });
+          });
+          window.__app._replayingChat = false;
+          AI_CHAT.greeted = true; // 有历史记录则不再显示欢迎语
+        }
+      } catch(e) {}
+    }
+    if (!AI_CHAT.greeted) {
+      AI_CHAT.greeted = true;
+      const n = aiStudentIndex().size;
+      aiPush('ai', `我在。已认识 ${n} 位学员，直接用大白话说要干什么就行。\n比如「录入张三，今天入门测85分，作业全部完成」。`, {
+        acts: [{ label: '能说什么？', fn: () => aiPush('ai', AI_HELP, { cls: 'sys' }) }]
+      });
+    }
+    setTimeout(() => { const ta = $('#aiChatText'); if (ta) ta.focus(); }, 120);
+  }
+  function aiCloseChat() {
+    const p = $('#aiChatPanel'), m = $('#aiChatMask'), ball = $('#aiBall');
+    if (p) p.hidden = true;
+    if (m) m.hidden = true;
+    if (ball) ball.classList.remove('on');
+    // 关闭时顺便关设置面板
+    const sp = $('#aiSettingsPanel'); if (sp) sp.classList.add('hidden');
+  }
+
+  // ---------- 指令总调度 ----------
+  async function aiHandle(text) {
+    const t = text.trim();
+    if (!t) return;
+    if (/^(帮助|help|\?|？|能说什么|你会什么|怎么用)$/i.test(t)) { aiPush('ai', AI_HELP, { cls: 'sys' }); return; }
+
+    const intent = aiDetectIntent(t);
+    const date = aiParseDate(t);
+    let stu = aiMatchStudent(t);
+
+    // 需要学员但没匹配到：给出建档入口，别让老师卡住
+    // v3.22: create/ocr/exercise/prep/page 这些不需要先有学员，放行给 dispatch 自行处理
+    if (!stu && intent !== 'chat' && intent !== 'create' && intent !== 'ocr'
+        && intent !== 'exercise' && intent !== 'prep' && intent !== 'page') {
+      const guess = aiGuessName(t);
+      if (guess) {
+        aiPush('ai', `名单里没找到「${guess}」。要我先建个档再执行这条指令吗？`, {
+          cls: 'sys',
+          acts: [{
+            label: `建档并执行`,
+            fn: async () => {
+              const s = { name: guess, ledger: null, profile: null };
+              await aiEnsureLedgerStudent(s);
+              await aiEnsureProfile(s);
+              saveLocalCache();
+              aiPush('ai', `已为「${guess}」建档 ✓`, { cls: 'ok' });
+              await aiDispatch(intent, t, s, date);
+            }
+          }, {
+            label: '取消',
+            fn: () => aiPush('ai', '好，这条先不执行。', { cls: 'sys' })
+          }]
+        });
+        return;
+      }
+      aiPush('ai', '没听出是哪位学员，把名字带上再说一次就行，比如「录入张三，今天入门测85分」。', { cls: 'sys' });
+      return;
+    }
+    await aiDispatch(intent, t, stu, date);
+  }
+
+  async function aiDispatch(intent, t, stu, date) {
+    if (intent === 'ledger') {
+      const done = await aiExecLedger(t, stu, date);
+      if (!done) {
+        aiPush('ai', `听出是给 ${stu.name} 记录，但没识别到具体分数/作业/积分。\n试试：「录入${stu.name}，今天入门测82分，作业全部完成」。`, { cls: 'sys' });
+        return;
+      }
+      aiPush('ai', `✅ 已记入台账 · ${stu.name} · ${date}\n${done.map(d => '· ' + d).join('\n')}`, {
+        cls: 'ok',
+        acts: [
+          { label: '打开学情台账', fn: () => aiGoPage('ledger') },
+          { label: '看这名学员', fn: () => { aiCloseChat(); openStudentDetail((stu.profile || {}).id || ''); } },
+          { label: '生成今日反馈', fn: () => aiRun(`给${stu.name}生成今天一对一课堂反馈`) }
+        ]
+      });
+      return;
+    }
+    if (intent === 'query') {
+      const month = aiParseMonth(t);
+      const days = month ? 0 : aiParseDays(t);
+      const txt = aiBuildProfileText(stu, { month, days });
+      aiPush('ai', txt, {
+        acts: [
+          { label: '打开档案', fn: async () => { const p = await aiEnsureProfile(stu); aiCloseChat(); openStudentDetail(p.id); } },
+          { label: '导出全部反馈', fn: () => aiExportStudentFeedback(stu.name) },
+          { label: '换本月看', fn: () => aiRun(`查看${stu.name}本月的记录`) },
+          { label: '看全部', fn: () => aiRun(`调取${stu.name}的学情台账全部记录`) }
+        ]
+      });
+      return;
+    }
+    if (intent === 'callback') {
+      const item = await aiExecCallback(t, stu, date);
+      aiPush('ai', `✅ 已加入待回访清单\n· 学员：${item.student}\n· 时间：${item.due}\n· 事由：${item.reason}`, {
+        cls: 'ok',
+        acts: [
+          { label: '打开回访清单', fn: () => aiGoPage('communicate', 'callback', renderCallbacks) },
+          { label: 'AI 帮写续费话术', fn: () => { aiCloseChat(); editCommModal(stu && stu.profile ? stu.profile.id : undefined); } }
+        ]
+      });
+      return;
+    }
+    if (intent === 'feedback') {
+      const tip = aiPushTyping();
+      try {
+        const r = await aiExecFeedback(t, stu, date);
+        if (tip) tip.remove();
+        aiPush('ai', `${r.byAI ? '✅ AI 已生成' : '✅ 已按模板生成'}并归档到 ${stu.name} 的时间轴（${date}）\n\n${r.text}`, {
+          cls: 'ok',
+          acts: [
+            { label: '复制发家长', fn: () => copyText(r.text) },
+            { label: '打开档案看归档', fn: async () => { const p = await aiEnsureProfile(stu); aiCloseChat(); openStudentDetail(p.id); } },
+            { label: '导出这名学员全部反馈', fn: () => aiExportStudentFeedback(stu.name) }
+          ]
+        });
+      } catch (e) {
+        if (tip) tip.remove();
+        aiPush('ai', '生成失败：' + (e.message || e), { cls: 'err' });
+      }
+      return;
+    }
+
+    // ---------- v3.22: 新建学员（直接建档 + 同步台账）----------
+    if (intent === 'create') {
+      if (stu && stu.profile) {           // 已有学员：补充档案并同步班级
+        const f = aiParseStudentFields(t);
+        let ch = false;
+        ['grade', 'className', 'school', 'phone', 'weakness'].forEach(k => { if (f[k]) { stu.profile[k] = f[k]; ch = true; } });
+        if (f.parent) { stu.profile.parent = f.parent; ch = true; }
+        if (ch) await dbPut('students', stu.profile);
+        await mirrorToLedger(stu.profile, stu.profile.name);
+        saveLocalCache();
+        try { renderStudentList(); } catch (e) {}
+        try { if (typeof renderLedger === 'function') renderLedger(); } catch (e) {}
+        aiPush('ai', `✅ 已更新「${stu.name}」档案并同步台账${f.className ? '（班级：' + f.className + '）' : ''}`, {
+          cls: 'ok',
+          acts: [
+            { label: '看这名学员', fn: () => { aiCloseChat(); openStudentDetail(stu.profile.id); } },
+            { label: '打开学情台账', fn: () => aiGoPage('ledger') }
+          ]
+        });
+        return;
+      }
+      const r = await aiCreateStudent(t);   // 全新学员
+      if (!r) { aiPush('ai', '没听出要新建的学员名字，试试：「新建学员张三，七年级3班，家长电话13800000001」。', { cls: 'sys' }); return; }
+      const bits = [r.sp.grade, r.sp.className, r.sp.school, r.sp.phone && ('家长电话 ' + r.sp.phone), r.sp.weakness].filter(Boolean);
+      aiPush('ai', `✅ 已建档并同步学情台账：${r.name}${bits.length ? '\n· ' + bits.join('\n· ') : ''}`, {
+        cls: 'ok',
+        acts: [
+          { label: '看这名学员', fn: () => { aiCloseChat(); openStudentDetail(r.sp.id); } },
+          { label: '打开学情台账', fn: () => aiGoPage('ledger') },
+          { label: '继续录入', fn: () => aiPush('ai', '好，接着说下一位学员的名字和班级就行。', { cls: 'sys' }) }
+        ]
+      });
+      return;
+    }
+
+    // ---------- v3.22: 打开各功能页面 ----------
+    if (intent === 'page') {
+      const map = { 台账: 'ledger', 学员: 'students', 档案: 'students', 反馈: 'feedback', 沟通: 'communicate', 课表: 'schedule', 备课: 'prep', 练习: 'exercise', 记账: 'accounting', 总览: 'dashboard', 首页: 'dashboard', 设置: 'settings', 数据: 'data', 工作台: 'dashboard' };
+      let pg = '';
+      for (const k in map) if (t.indexOf(k) >= 0) { pg = map[k]; break; }
+      if (!pg) { aiPush('ai', '想打开哪个页面？试试「打开学情台账」「打开学员档案」「打开练习生成器」。', { cls: 'sys' }); return; }
+      aiPush('ai', `已打开「${pg}」。`, { cls: 'sys' });
+      aiCloseChat(); showPage(pg);
+      return;
+    }
+
+    // ---------- v3.22: 拍照 / OCR 批量导入 ----------
+    if (intent === 'ocr') {
+      aiPush('ai', '已打开拍照 / 图片批量导入，拍下名单即可自动建档并同步台账。', { cls: 'ok' });
+      aiCloseChat();
+      setTimeout(() => { try { openOCRImport(); } catch (e) { toast('打开失败'); } }, 120);
+      return;
+    }
+
+    // ---------- v3.22: AI 批改作业 ----------
+    if (intent === 'grade') {
+      if (!stu) { const g = aiGuessName(t); if (g) stu = aiStudentIndex().get(g); }
+      if (!stu || !stu.profile) { aiPush('ai', '没找到对应学员，把名字带上，如「给张三批改作业」。', { cls: 'sys' }); return; }
+      aiPush('ai', `已打开「${stu.name}」的 AI 作业批改。`, { cls: 'ok' });
+      aiCloseChat();
+      setTimeout(() => { try { openAIGrade(stu.profile.id); } catch (e) { toast('打开失败'); } }, 120);
+      return;
+    }
+
+    // ---------- v3.22: 续费助手 ----------
+    if (intent === 'renew') {
+      if (!stu) { const g = aiGuessName(t); if (g) stu = aiStudentIndex().get(g); }
+      if (!stu || !stu.profile) { aiPush('ai', '没找到对应学员，把名字带上，如「给张三做续费方案」。', { cls: 'sys' }); return; }
+      aiPush('ai', `已打开「${stu.name}」的续费助手（方案 + 话术）。`, { cls: 'ok' });
+      aiCloseChat();
+      setTimeout(() => { try { openRenewAssistant(stu.profile.id); } catch (e) { toast('打开失败'); } }, 120);
+      return;
+    }
+
+    // ---------- v3.22: 生成练习 ----------
+    if (intent === 'exercise') {
+      const topic = (t.match(/(?:练习|题|试卷|作业|测验)[是为：: ]*([^，,。；;]{4,80})/) || [])[1] || '';
+      aiPush('ai', '已打开练习生成器' + (topic ? '，并填入主题：' + topic : '') + '，点「生成」即可。', { cls: 'sys' });
+      aiCloseChat();
+      setTimeout(() => {
+        showPage('exercise');
+        try {
+          const ta = $('#exSource'); if (ta && topic) ta.value = topic;
+          if (typeof window.__app.generateExercises === 'function') window.__app.generateExercises();
+        } catch (e) {}
+      }, 140);
+      return;
+    }
+
+    // ---------- v3.22: 导出学员反馈 ----------
+    if (intent === 'export') {
+      if (!stu) { const g = aiGuessName(t); if (g) stu = aiStudentIndex().get(g); }
+      if (!stu) { aiPush('ai', '没找到对应学员，把名字带上，如「导出张三的反馈」。', { cls: 'sys' }); return; }
+      aiExportStudentFeedback(stu.name);
+      aiPush('ai', `已导出「${stu.name}」的全部反馈（可用 WPS 打开）。`, { cls: 'ok' });
+      return;
+    }
+
+    // ---------- v3.22: 备课助手 ----------
+    if (intent === 'prep') {
+      aiPush('ai', '已打开备课助手。', { cls: 'sys' });
+      aiCloseChat(); showPage('prep');
+      return;
+    }
+
+    // 自由问答
+    if (!getSetting('aiApiUrl', '').trim()) {
+      aiPush('ai', '这句我没匹配到可执行的指令，自由问答需要先配 AI 接口（个性化设置 → AI 接口）。\n先试试这几类："录入…分"、"调取…台账"、"提醒我…"、"给…生成反馈"。', {
+        cls: 'sys',
+        acts: [
+          { label: '去配置 AI', fn: () => aiGoPage('settings') },
+          { label: '能说什么？', fn: () => aiPush('ai', AI_HELP, { cls: 'sys' }) }
+        ]
+      });
+      return;
+    }
+    const tip = aiPushTyping();
+    try {
+      const names = Array.from(aiStudentIndex().keys()).slice(0, 40).join('、');
+      const ans = await callAIText(
+        `${t}\n\n（背景：我是语文培训老师，我的学员有：${names || '暂无'}。回答简洁、可直接用。）`,
+        '你是资深中小学语文教师助手，回答专业、简洁、可直接使用，不要客套。'
+      );
+      if (tip) tip.remove();
+      aiPush('ai', ans, {
+        acts: [{ label: '复制', fn: () => copyText(ans) }]
+      });
+    } catch (e) {
+      if (tip) tip.remove();
+      aiPush('ai', 'AI 调用失败：' + (e.message || e), { cls: 'err' });
+    }
+  }
+
+  async function aiRun(text) {
+    if (AI_CHAT.busy) return;
+    AI_CHAT.busy = true;
+    const btn = $('#aiChatSend');
+    if (btn) btn.disabled = true;
+    aiPush('me', text);
+    try {
+      await aiHandle(text);
+    } catch (e) {
+      aiPush('ai', '出错了：' + (e.message || e), { cls: 'err' });
+    } finally {
+      AI_CHAT.busy = false;
+      if (btn) btn.disabled = false;
+      aiScrollBottom();
+    }
+  }
+
+  function bindAIChat() {
+    const ball = $('#aiBall');
+    if (!ball) return;
+    // v3.22: 悬浮球可拖动（pointer 事件，区分点击与拖动），位置记忆
+    const BALL_POS_KEY = 'ai_ball_pos';
+    try {
+      const pos = JSON.parse(localStorage.getItem(BALL_POS_KEY) || 'null');
+      if (pos && typeof pos.x === 'number') {
+        ball.style.left = pos.x + 'px'; ball.style.right = 'auto';
+        ball.style.top = pos.y + 'px'; ball.style.bottom = 'auto';
+      }
+    } catch (e) {}
+    let dragging = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0;
+    const onDown = e => {
+      dragging = true; moved = false;
+      sx = e.clientX; sy = e.clientY;
+      const r = ball.getBoundingClientRect();
+      ball.style.left = r.left + 'px'; ball.style.right = 'auto';
+      ball.style.top = r.top + 'px'; ball.style.bottom = 'auto';
+      sl = ball.offsetLeft; st = ball.offsetTop;
+      ball.style.transition = 'none';
+      try { ball.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+    const onMove = e => {
+      if (!dragging) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+      let nl = Math.max(4, Math.min(window.innerWidth - ball.offsetWidth - 4, sl + dx));
+      let nt = Math.max(4, Math.min(window.innerHeight - ball.offsetHeight - 4, st + dy));
+      ball.style.left = nl + 'px'; ball.style.top = nt + 'px';
+    };
+    const onUp = e => {
+      if (!dragging) return;
+      dragging = false;
+      try { ball.releasePointerCapture(e.pointerId); } catch (_) {}
+      ball.style.transition = '';
+      if (moved) {
+        localStorage.setItem(BALL_POS_KEY, JSON.stringify({ x: ball.offsetLeft, y: ball.offsetTop }));
+      } else {
+        const p = $('#aiChatPanel');
+        if (p && p.hidden) { aiLoadCfg(); aiApplyCfg(); aiOpenChat(); } else aiCloseChat();
+      }
+    };
+    ball.addEventListener('pointerdown', onDown);
+    ball.addEventListener('pointermove', onMove);
+    ball.addEventListener('pointerup', onUp);
+    ball.addEventListener('pointercancel', () => { dragging = false; ball.style.transition = ''; });
+    // 关闭
+    const close = $('#aiChatClose'); if (close) close.onclick = aiCloseChat;
+    const mask = $('#aiChatMask'); if (mask) mask.onclick = aiCloseChat;
+    // 清空
+    const clear = $('#aiChatClear');
+    if (clear) clear.onclick = () => {
+      const b = $('#aiChatBody');
+      if (b) b.innerHTML = '';
+      AI_CHAT.greeted = false; aiOpenChat();
+    };
+    // 设置面板开关（左上角 ☰）
+    const menuBtn = $('#aiMenuBtn');
+    if (menuBtn) menuBtn.onclick = () => { const sp = $('#aiSettingsPanel'); if (sp) { sp.classList.toggle('hidden'); aiApplyCfg(); } };
+    const setBack = $('#aiSetBack');
+    if (setBack) setBack.onclick = () => { const sp = $('#aiSettingsPanel'); if (sp) sp.classList.add('hidden'); };
+    // 头像上传：点击 → 选图 → 压缩 → base64 存 localStorage
+    function bindAvatarUpload(inputId, boxId, cfgKey, defaultLabel) {
+      const input = $('#' + inputId), box = $('#' + boxId);
+      if (!input || !box) return;
+      box.onclick = () => input.click();
+      input.onchange = async e => {
+        const f = e.target.files[0]; if (!f) return;
+        try {
+          const dataUrl = await new Promise((resolve, reject) => {
+            const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(f);
+          });
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = dataUrl;
+          });
+          const c = document.createElement('canvas');
+          const s = Math.min(120, img.naturalWidth, img.naturalHeight);
+          c.width = c.height = s;
+          c.getContext('2d').drawImage(img, 0, 0, s, s);
+          const small = c.toDataURL('image/jpeg', 0.75);
+          aiCfg[cfgKey] = small; aiSaveCfg();
+          box.innerHTML = `<img src="${small}" alt="${defaultLabel}">`;
+        } catch(e2) { toast('头像处理失败'); }
+        input.value = '';
+      };
+    }
+    bindAvatarUpload('aiAvatarInput', 'aiSetAiAvatar', 'aiAvatar', 'AI');
+    bindAvatarUpload('meAvatarInput', 'aiSetMeAvatar', 'meAvatar', '我');
+    // 保存设置
+    const saveBtn = $('#aiSaveSettings');
+    if (saveBtn) saveBtn.onclick = () => {
+      const sn = $('#aiSetName'), ss = $('#aiSetStatus');
+      if (sn) aiCfg.name = sn.value.trim() || 'AI 助手';
+      if (ss) aiCfg.status = ss.value.trim() || '说人话就能干活';
+      aiSaveCfg(); aiApplyCfg(); toast('已保存');
+      const sp = $('#aiSettingsPanel'); if (sp) sp.classList.add('hidden');
+    };
+    // v3.23: 清空聊天记录
+    const clearChatBtn = $('#aiClearChatBtn');
+    if (clearChatBtn) clearChatBtn.onclick = () => {
+      if (!confirm('确定要清空所有聊天记录吗？此操作不可撤销。')) return;
+      localStorage.removeItem(AI_CHAT_HISTORY_KEY);
+      const body = $('#aiChatBody'); if (body) body.innerHTML = '';
+      AI_CHAT.greeted = false; // 重置欢迎语，下次打开会重新显示
+      toast('聊天记录已清空');
+    };
+    // 输入框
+    const form = $('#aiChatForm');
+    const ta = $('#aiChatText');
+    if (form) form.onsubmit = e => {
+      e.preventDefault();
+      const v = (ta && ta.value || '').trim();
+      if (!v) return;
+      ta.value = ''; aiAutoGrow(ta); aiRun(v);
+    };
+    if (ta) {
+      ta.oninput = () => aiAutoGrow(ta);
+      ta.onkeydown = e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (form) form.requestSubmit ? form.requestSubmit() : form.onsubmit(e); }
+      };
+    }
+    // 底部「+」→ 帮助
+    const plus = $('#aiInputPlus');
+    if (plus) plus.onclick = () => aiPush('ai', AI_HELP, { cls: 'sys' });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') aiCloseChat(); });
+  }
+
   // v3.7.8：用 Object.assign 合并，保留前面已挂载的方法（delPgAgImg / delDiagImg 等）
   Object.assign(window.__app, {
     editClassModal: window.editClassModal, editStudentModal: window.editStudentModal,
@@ -14311,12 +16266,19 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     suspendLesson: window.suspendLesson, adjustLesson: window.adjustLesson,
     removeOverride: window.removeOverride, openCourseware: window.openCourseware,
     checkMindmap: window.checkMindmap, saveMindmapToLibrary: window.saveMindmapToLibrary,
-    quickAddTodo: window.quickAddTodo
+    quickAddTodo: window.quickAddTodo,
+    // v3.19 悬浮 AI 对话
+    openAIChat: aiOpenChat, closeAIChat: aiCloseChat, aiRun,
+    exportStudentFeedback: aiExportStudentFeedback,
+    // v3.21: 供自动化 / 测试注入配置（亦可在控制台使用）
+    setSetting: updateSetting, getSetting: getSetting,
+    // v3.22: AI 可直达的功能
+    openOCRImport: openOCRImport, openAIGrade, openRenewAssistant, generateExercises
   });
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '63';
+  const CURRENT_JS_VER = '75';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

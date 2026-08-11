@@ -13,7 +13,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
-<meta name="app-version" content="76">
+<meta name="app-version" content="86">
 <script>
   // v3.7.8 脚本错误可视化：脚本一旦报错就顶部弹红条说明原因，
   // 避免出现「页面能打开但点什么都没反应」的静默假死
@@ -39,7 +39,7 @@
       var LV = (document.querySelector('meta[name="app-version"]') || {}).content;
       if (!LV) return;
       var x = new XMLHttpRequest();
-      x.open('GET', 'data:text/plain;charset=utf-8,76', true);
+      x.open('GET', 'data:text/plain;charset=utf-8,86', true);
       x.onreadystatechange = function () {
         if (x.readyState === 4 && x.status === 200) {
           var nv = (x.responseText || '').trim();
@@ -221,6 +221,11 @@ body {
   font-weight: 600;
 }
 .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+svg.nav-icon {
+  width: 19px; height: 19px; flex-shrink: 0; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 .sidebar-footer {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -264,43 +269,6 @@ body {
   color: var(--text);
 }
 .page-title { font-size: 17px; font-weight: var(--font-weight-title, 600); flex: 1; color: var(--text); }
-.global-search { position: relative; }
-.global-search input {
-  width: 220px;
-  max-width: 100%;
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  outline: none;
-  font-size: 13px;
-  color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
-}
-.global-search input:focus { border-color: var(--primary); background: #fff; }
-.search-result {
-  position: absolute;
-  top: 100%; right: 0;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-top: 6px;
-  min-width: 260px;
-  max-width: 90vw;
-  max-height: 320px;
-  overflow-y: auto;
-  display: none;
-  z-index: 80;
-}
-.search-result.active { display: block; }
-.search-result .sr-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-light);
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text);
-}
-.search-result .sr-item:hover { background: var(--bg); }
 
 .page {
   flex: 1 1 auto;
@@ -329,6 +297,26 @@ body {
   padding: 16px;
 }
 #page-dashboard .memo-card { margin-top: 0; }
+
+/* 手机端仪表盘：整屏浅色铺底，消除底部灰色死区；强制撑满视口 */
+@media (max-width: 768px) {
+  #page-dashboard {
+    min-height: calc(100dvh - 46px);   /* 强制填满视口，背景交回主题（液态/个性化） */
+  }
+  /* 白底上让卡片清晰可辨：加浅灰描边（否则白卡融在白底里像“没了”） */
+  #page-dashboard .profile-card,
+  #page-dashboard .tov-card,
+  #page-dashboard .memo-card {
+    border: 1px solid var(--border, #e6e6e6);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  #page-dashboard .today-overview {
+    flex: none;
+    min-height: unset;
+    background: transparent;
+    padding: 12px 12px calc(var(--bnav-total-h, 70px) + 20px);
+  }
+}
 
 /* ================= 卡片 ================= */
 .panel {
@@ -440,18 +428,6 @@ img { border-radius: var(--img-radius, 12px); }
 }
 :root.glass-mode select option {
   background: #fff;
-}
-:root.glass-mode .global-search input {
-  background: rgba(255,255,255,0.65) !important;
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  border-color: var(--glass-border) !important;
-}
-:root.glass-mode .search-result {
-  background: var(--glass-bg) !important;
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  border-color: var(--glass-border) !important;
 }
 /* 底栏：已有 blur 但绑定变量 */
 :root.glass-mode .bottom-nav {
@@ -1177,7 +1153,62 @@ label input, label select, label textarea { margin-top: 4px; }
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,.06);
+  cursor: zoom-in;
 }
+
+/* v3.29 图片查看器（点备忘录图片放大） */
+.img-viewer {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.2s ease;
+  z-index: 3000;
+  cursor: zoom-out;
+}
+.img-viewer.open { opacity: 1; visibility: visible; }
+.img-viewer::after {
+  content: '点击任意处关闭';
+  position: absolute; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  text-align: center; font-size: 12px; color: rgba(255,255,255,0.55);
+  pointer-events: none;
+}
+.img-viewer img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+/* ===== v3.30 学情汇总图 · 时间范围选择弹窗 ===== */
+.lgi-wrap { display: flex; flex-direction: column; gap: 10px; }
+.lgi-label { font-size: 13px; font-weight: 600; color: var(--text, #1a1a1a); }
+.lgi-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lgi-chip {
+  padding: 8px 16px; border-radius: 999px; font-size: 13px; font-family: inherit;
+  border: 1px solid var(--border, #e0e0e0); background: var(--bg, #fff);
+  color: var(--text-soft, #555); cursor: pointer; transition: all .15s;
+}
+.lgi-chip:active { transform: scale(.95); }
+.lgi-chip.active {
+  background: var(--primary, #1a1a1a); color: #fff;
+  border-color: var(--primary, #1a1a1a); font-weight: 600;
+}
+.lgi-custom { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lgi-custom label { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0; }
+.lgi-custom input[type="date"] {
+  font-size: 15px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border, #e0e0e0); background: var(--bg, #fff); color: inherit; font-family: inherit;
+}
+.lgi-tilde { color: var(--text-muted, #999); }
+.lgi-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-soft, #555); margin: 0; cursor: pointer; }
+.lgi-switch input { width: 16px; height: 16px; flex-shrink: 0; }
+.lgi-hint {
+  font-size: 12px; padding: 9px 12px; border-radius: 8px;
+  background: var(--bg-soft, #f6f7f9); color: var(--text-muted, #888); line-height: 1.5;
+}
+.lgi-hint.ok { background: #eaf6ee; color: #2c7a4b; }
+.lgi-hint.warn { background: #fdf0e6; color: #b5651d; }
+
 .memo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .memo-text {
   font-size: 13px;
@@ -1485,6 +1516,7 @@ label input, label select, label textarea { margin-top: 4px; }
 .lc-title { font-size: 13px; font-weight: 600; color: var(--text); margin: 2px 0; }
 .lc-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .lb { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--bg-soft); color: var(--text-soft); }
+.lb-warn { background: #fdecea; color: #c0392b; font-weight: 700; }
 .lb-prep { background: #e8f0ff; color: #2b5fd9; }
 .lb-ex { background: #fff3e0; color: #c77700; }
 .lb-note { background: #fde8ef; color: #c0397a; }
@@ -2265,33 +2297,10 @@ label input, label select, label textarea { margin-top: 4px; }
 .search-results .sr-item:active { background: #f6f6f6; }
 .search-results .badge { flex: 0 0 auto; }
 
-/* ================= 速记收件箱 FAB（左下角） ================= */
-.qc-ball { position: fixed; bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom, 0)); left: 16px; width: 50px; height: 50px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 95; cursor: pointer; transition: transform .15s; }
-.qc-ball:active { transform: scale(.92); }
-@media (max-width: 768px) { .qc-ball { width: 46px; height: 46px; font-size: 22px; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0)); left: 12px; } }
-
 /* 底部导航搜索按钮 */
 .bnav-search { color: var(--bnav-inactive-ico); }
 .bnav-search .bnav-ico { stroke: var(--bnav-inactive-ico); }
 
-/* ================= 速记收件箱卡片 ================= */
-.qc-inbox-card .qc-item, .qc-all .qc-item { display: flex; align-items: center; gap: 8px; padding: 10px 4px; border-bottom: 1px solid #f2f2f2; font-size: 14px; cursor: pointer; }
-.qc-inbox-card .qc-item:active, .qc-all .qc-item:active { background: #f6f6f6; }
-.qc-cat { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; border-radius: 8px; color: #fff; }
-.qc-cat-auto { background: #9aa0b5; } .qc-cat-note { background: #5b6cff; } .qc-cat-todo { background: #fa8c16; }
-.qc-cat-fee { background: #52c41a; } .qc-cat-comm { background: #eb2f96; } .qc-cat-other { background: #8c8c8c; }
-.qc-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qc-stu { flex: 0 0 auto; font-size: 11px; color: #5b6cff; }
-.qc-del { flex: 0 0 auto; border: none; background: none; color: #bbb; font-size: 18px; padding: 0 4px; line-height: 1; }
-.qc-del:active { color: #f5222d; }
-.qc-detect { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.qc-chip { font-size: 12px; padding: 3px 8px; border-radius: 8px; }
-.qc-chip-stu { background: #eef1ff; color: #3a4bd8; }
-.qc-chip-cat { background: #fff3e6; color: #d4690a; }
-.qc-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.qc-cats button { border: 1px solid #ddd; background: #fff; border-radius: 16px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.qc-cats button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
-#qcText { width: 100%; border: 1px solid #e3e6ec; border-radius: 10px; padding: 10px; font-size: 15px; resize: vertical; box-sizing: border-box; }
 
 /* ================= 悬浮球 ================= */
 .float-ball {
@@ -2377,13 +2386,13 @@ label input, label select, label textarea { margin-top: 4px; }
   position: fixed;
   right: 16px;
   bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom, 0));
-  width: 380px;
+  width: 400px;
   max-width: calc(100vw - 24px);
-  height: 600px;
-  max-height: 78vh;
-  background: #efeff4;
+  height: 640px;
+  max-height: 82vh;
+  background: #f5f5f5;
   border: none;
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 20px 56px rgba(0,0,0,0.24);
   display: flex;
   flex-direction: column;
@@ -2394,9 +2403,9 @@ label input, label select, label textarea { margin-top: 4px; }
 /* ===== 顶栏（可自定义标题/副标题） ===== */
 .ai-chat-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 14px;
-  background: #f7f7f7;
-  border-bottom: 0.5px solid #dcdcdc;
+  padding: 12px 14px;
+  background: #f5f5f5;
+  border-bottom: 0.5px solid #e8e8e8;
   flex: 0 0 auto;
   user-select: none;
 }
@@ -2435,10 +2444,10 @@ label input, label select, label textarea { margin-top: 4px; }
   flex: 1 1 auto;
   overflow-y: auto;
   padding: 12px 10px;
-  background: #efeff4;
+  background: #f5f5f5;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2456,9 +2465,26 @@ label input, label select, label textarea { margin-top: 4px; }
   border-radius: 999px;
 }
 
-/* 单条消息行（带头像） */
+/* 单条消息行（带头像）—— 兼容旧结构，新合并模式用 .ai-msg-group */
 .ai-msg { display: flex; align-items: flex-start; gap: 6px; max-width: 100%; }
 .ai-msg.me { flex-direction: row-reverse; }
+
+/* ===== 合并消息组（LINE 风格：同发送者连续消息共享头像） ===== */
+.ai-msg-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.ai-msg-group.me { flex-direction: row-reverse; }
+.ai-msg-group .ai-avatar { align-self: flex-end; flex-shrink: 0; }
+.ai-msg-group .ai-bubble-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 78%;
+  min-width: 0;
+}
 
 /* 头像 */
 .ai-avatar {
@@ -2497,39 +2523,38 @@ label input, label select, label textarea { margin-top: 4px; }
 .ai-msg.me .ai-nick { text-align: right; }
 
 /* 消息体容器 */
-.ai-msg-col { display: flex; flex-direction: column; max-width: 72%; min-width: 0; }
+.ai-msg-col { display: flex; flex-direction: column; max-width: 78%; min-width: 0; }
 
-/* 气泡 */
+/* 气泡 —— LINE 风格：AI 深色底白字 + 用户浅色底黑字 */
 .ai-bubble {
-  padding: 8px 11px;
-  border-radius: 6px 12px 12px 12px;
-  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 14.5px;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  background: #fff;
-  color: #222;
+  overflow-wrap: anywhere;
+  background: #2d2d2d;
+  color: #fff;
   position: relative;
-  box-shadow: 0 1px 1px rgba(0,0,0,0.04);
 }
-.ai-msg.me .ai-bubble {
-  border-radius: 12px 6px 12px 12px;
+.ai-msg.me .ai-bubble,
+.ai-msg-group.me .ai-bubble {
+  border-radius: 16px 16px 4px 16px;
   background: #ffffff;
   color: #111;
-  border: 1px solid #d9dde3;
+  border: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 .ai-bubble.sys {
   background: #fffbdc;
-  border: none;
   color: #8a7510;
-  font-size: 12px;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 .ai-bubble.err {
   background: #fce8e8;
-  border: none;
   color: #a52222;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 .ai-bubble.ok {
   border-left: 3px solid #22a06b;
@@ -2537,35 +2562,49 @@ label input, label select, label textarea { margin-top: 4px; }
 
 /* 时间戳 + 已读标记 */
 .ai-ts {
-  font-size: 10px; color: #aaa;
+  font-size: 10px; color: #bbb;
   text-align: right;
-  margin-top: 2px;
+  margin-top: 3px;
   line-height: 1;
   padding: 0 2px;
 }
 .ai-ts .read { color: #4a90d9; font-size: 10px; margin-left: 2px; }
 
+/* 组间时间分隔线（合并模式下显示在组之间） */
+.ai-time-divider {
+  text-align: center;
+  margin: 14px 0 8px;
+  font-size: 11px;
+  color: #999;
+}
+
 /* 操作按钮组 */
-.ai-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ai-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .ai-acts button {
-  background: rgba(255,255,255,0.85);
-  border: 0.5px solid #d0d0d0;
-  color: #333;
+  background: rgba(255,255,255,0.15);
+  border: 0.5px solid rgba(255,255,255,0.25);
+  color: #eee;
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 11.5px;
   font-family: inherit;
   cursor: pointer;
 }
-.ai-acts button:active { background: #e8e8e8; }
+.ai-msg.me .ai-acts button,
+.ai-msg-group.me .ai-acts button {
+  background: rgba(255,255,255,0.85);
+  border: 0.5px solid #d0d0d0;
+  color: #333;
+}
+.ai-acts button:active { background: rgba(255,255,255,0.3); }
 
 /* 打字动画 */
 .ai-typing {
-  display: inline-flex; gap: 3px; padding: 8px 12px;
+  display: inline-flex; gap: 4px; padding: 10px 14px;
 }
 .ai-typing span {
-  display: inline-block; width: 6px; height: 6px;
-  border-radius: 50%; background: #999;
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: rgba(255,255,255,0.5);
   animation: aiDot 1s infinite ease-in-out;
 }
 .ai-typing span:nth-child(2) { animation-delay: 0.15s; }
@@ -2600,8 +2639,8 @@ label input, label select, label textarea { margin-top: 4px; }
   display: flex; align-items: flex-end; gap: 6px;
   padding: 8px 10px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
-  background: #f7f7f7;
-  border-top: 0.5px solid #dcdcdc;
+  background: #f5f5f5;
+  border-top: 0.5px solid #e8e8e8;
 }
 .ai-input-plus {
   flex: 0 0 auto;
@@ -2898,17 +2937,18 @@ label input, label select, label textarea { margin-top: 4px; }
   .settings-grid { padding: 12px; }
   .float-ball { width: 44px; height: 44px; font-size: 22px; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0)); right: 12px; }
   .float-menu { bottom: calc(var(--bottomnav-h) + 64px + env(safe-area-inset-bottom, 0)); right: 12px; min-width: 140px; }
-  /* v3.20 悬浮 AI：手机上占满宽度、贴底，键盘弹出也不挡 */
-  .ai-ball { width: 46px; height: 46px; font-size: 13px; bottom: calc(var(--bottomnav-h) + 64px + env(safe-area-inset-bottom, 0)); right: 12px; }
+  /* v3.20+ 悬浮 AI：手机端全屏铺满 */
+  .ai-ball { width: 48px; height: 48px; font-size: 13px; bottom: calc(var(--bottomnav-h) + 64px + env(safe-area-inset-bottom, 0)); right: 14px; }
   .ai-chat {
-    right: 0; left: 0; bottom: 0;
+    right: 0; left: 0; bottom: 0; top: 0;
     width: 100%; max-width: 100%;
-    height: 86vh; max-height: 86vh;
-    border-radius: 14px 14px 0 0;
+    height: 100%; max-height: 100%;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .ai-avatar { width: 36px; height: 36px; min-width: 36px; }
-  .ai-bubble { font-size: 15px; }
-  .ai-bubble { font-size: 13.5px; max-width: 88%; }
+  .ai-avatar { width: 38px; height: 38px; min-width: 38px; }
+  .ai-bubble { font-size: 15.5px; padding: 11px 15px; }
+  .ai-msg-group .ai-bubble-list { max-width: 82%; }
   .float-menu button { padding: 8px 12px; font-size: 12px; }
   .modal-mask { padding: 8px; align-items: flex-end; }
   .modal { max-height: 85vh; }
@@ -3051,8 +3091,18 @@ label input, label select, label textarea { margin-top: 4px; }
 .ledger-quick-form .lq-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .ledger-quick-form .lq-row > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
 .ledger-quick-form .lq-row input, .ledger-quick-form .lq-row select { font-size: 15px; padding: 7px 9px; width: auto; min-width: 130px; }
-.ledger-quick-form .lq-student { flex: 1; min-width: 180px; }
-.ledger-quick-form .lq-student select { width: 100%; }
+.ledger-quick-form .lq-student { flex: 1; min-width: 180px; position: relative; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.ledger-quick-form .lq-student-label { font-size: 12px; color: var(--text-muted); }
+.lq-stu-btn { align-self: flex-start; font-size: 14px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); cursor: pointer; max-width: 100%; }
+.lq-stu-btn:active { background: var(--accent-soft); }
+.lq-stu-panel { position: absolute; top: 100%; left: 0; z-index: 50; margin-top: 4px; width: min(360px, 92vw); max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 8px; }
+.lq-stu-group { padding: 4px 0; border-bottom: 1px dashed var(--border-light); }
+.lq-stu-group:last-of-type { border-bottom: 0; }
+.lq-stu-group-head { font-size: 12px; font-weight: 700; color: var(--text-muted); padding: 4px 6px; }
+.lq-stu-opt { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; font-size: 14px; color: var(--text); cursor: pointer; }
+.lq-stu-opt:active { background: var(--accent-soft); }
+.lq-stu-opt input { width: 16px; height: 16px; flex-shrink: 0; }
+.lq-stu-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 4px 2px; }
 .ledger-quick-form .lq-note { flex: 1; min-width: 220px; }
 .ledger-quick-form .lq-note input { width: 100%; }
 .ledger-quick-form .lq-score input { width: 90px; }
@@ -3115,6 +3165,8 @@ label input, label select, label textarea { margin-top: 4px; }
 .ls-list { display: flex; flex-direction: column; gap: 8px; }
 .ls-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: var(--bg-soft); padding: 8px; border-radius: 8px; }
 .ls-row .ls-f { flex: 1 1 90px; min-width: 80px; }
+/* v3.31: 成绩趋势图 */
+.ls-trend { width: 100%; height: auto; background: #fafbfc; border: 1px solid var(--border-light); border-radius: 8px; margin-top: 4px; }
 .ls-row .lf-note, .ls-row .lf-content { flex: 2 1 140px; }
 .ls-imgcell { display: inline-flex; align-items: center; gap: 4px; }
 .ls-imgbtn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
@@ -4331,6 +4383,185 @@ label input, label select, label textarea { margin-top: 4px; }
   }
 }
 
+/* ============================================================
+   v3.25 移动端：统一竖向滚动 + 宽度自适应修复
+   根因：学员档案列表 .stu-list 此前没有滚动容器，长列表被 .stu-page
+   (overflow:hidden) 裁切，导致“不能下拉”。其余页（反馈/课表/沟通等）
+   虽有内部滚动容器，但嵌套内边距导致内容宽度忽宽忽窄。本段在移动端：
+   1) .page 兜底可竖向滚动，杜绝任何页面“不能下拉”
+   2) .stu-list 独立滚动
+   3) 收敛反馈页多层内边距，使各页内容宽度一致
+   4) 表单控件与悬浮操作栏不超出视口
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 兜底：页面级竖向滚动（不抢占已有内部滚动，仅在内容超高时生效） */
+  .page {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* 学员档案列表：独立滚动，底部留白避开悬浮操作栏 */
+  .stu-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 16px 112px;
+  }
+  /* 反馈页：去掉 own-body 多余左右内边距，与学员页保持一致内容宽度 */
+  .own-body:not(.pg-swipe) {
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 120px;
+  }
+  .fb-sheet { padding: 12px 14px 16px; }
+  .fb-tabs { padding: 0 12px; }
+  /* 表单控件在窄屏绝不溢出视口 */
+  .page input, .page select, .page textarea,
+  .filter-row select, .filter-row input,
+  .feedback-gen-area select, .feedback-gen-area input, .feedback-gen-area textarea,
+  .card-form input, .card-form select, .card-form textarea,
+  .ledger-quick-form input, .ledger-quick-form select {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  /* 悬浮操作栏小屏换行、不超出屏幕 */
+  .stu-actions, .sch-actions {
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+@media (max-width: 360px) {
+  .stu-actions { gap: 4px; padding: 6px 8px; }
+  .stu-actions button { font-size: 11px; padding: 6px 10px; }
+  .fb-tab { padding: 10px 8px; font-size: 12px; }
+}
+
+/* ============================================================
+   v3.26 仪表盘「快速行动」中心 + 模板选择器
+   ============================================================ */
+.action-center { margin-top: 0; }
+.ac-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 4px 2px 6px;
+}
+.ac-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 2px 6px;
+  border: 1px solid var(--border, #eee);
+  background: var(--bg, #fff);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  font-family: inherit;
+}
+.ac-btn:active { transform: scale(.95); border-color: var(--primary, #4a7cff); }
+.ac-ico { font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.ac-svg {
+  width: 22px; height: 22px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  color: var(--primary, #4a7cff);
+}
+.ac-label { font-size: 11px; color: var(--text, #1a1a1a); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpl-pick { cursor: pointer; }
+.tpl-pick:active { background: #f6f6f6; }
+
+/* 手机端：5列紧凑，确保两行完整显示 */
+@media (max-width: 768px) {
+  .ac-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    padding: 2px 0 4px;
+  }
+  .ac-btn { padding: 6px 1px 4px; border-radius: 8px; }
+  .ac-ico { font-size: 18px; }
+  .ac-svg { width: 20px; height: 20px; }
+  .ac-label { font-size: 10px; }
+}
+@media (max-width: 360px) {
+  .ac-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .ac-ico { font-size: 16px; }
+  .ac-svg { width: 18px; height: 18px; }
+  .ac-label { font-size: 9px; }
+}
+
+/* ================= 手机端全局：所有页面撑满 + 统一宽度（尊重主题背景） ================= */
+@media (max-width: 768px) {
+  /* 所有页面撑满视口，背景透明交回主题（液态/个性化），消除各页底部死区 */
+  .page { min-height: calc(100dvh - 46px); }
+  /* 统一内容左右内边距为主页面的 12px：外层留白、内层清零，避免各页宽度不一 */
+  .page { padding: 0 !important; }
+  .today-overview,
+  .own-body:not(.pg-swipe),
+  .stu-body, .com-body, .lib-body, .sch-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  /* 内层包裹清零横向 padding，避免与外层叠加导致宽度不一 */
+  .feedback-gen-area, .fb-sheet, .renew-body, .stu-list, .card-list {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  /* 移除 main-area 多余底部留白（页面内部已用内容内边距避让底栏），让页面真正撑满 */
+  .main-area { padding-bottom: 0 !important; }
+}
+
+/* ============ v3.32: 批量拍照登分 ============ */
+.bg-wrap { font-size: 13px; }
+.bg-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+.bg-tab {
+  flex: 1; padding: 9px 6px; border: 1px solid var(--border, #e5e7eb); border-radius: 10px;
+  background: #fff; color: var(--text-soft, #475569); font-size: 13px; cursor: pointer; transition: .15s;
+}
+.bg-tab.active { background: var(--primary, #2563eb); border-color: var(--primary, #2563eb); color: #fff; font-weight: 600; }
+.bg-tip { font-size: 12px; color: var(--text-muted, #6b7280); margin: 0 0 8px; line-height: 1.5; }
+.bg-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.bg-class-sel { padding: 7px 8px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; font-size: 13px; background: #fff; }
+.bg-global { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 6px 0 8px; padding: 8px 10px; background: var(--bg-soft, #f7f8fa); border-radius: 10px; }
+.bg-global label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-soft, #475569); }
+.bg-global select, .bg-global input[type="date"] { padding: 5px 7px; border: 1px solid var(--border, #e5e7eb); border-radius: 7px; font-size: 13px; }
+.bg-storeall { gap: 4px; }
+.bg-preview { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.bg-preview img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); }
+.bg-thumb { position: relative; display: inline-block; }
+.bg-thumb img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); display: block; }
+.bg-thumb-del { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: none; background: var(--danger, #e11d48); color: #fff; font-size: 12px; line-height: 18px; text-align: center; padding: 0; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.bg-status { font-size: 12px; min-height: 16px; margin: 4px 0; }
+.bg-confirm { margin-top: 6px; max-height: 46vh; overflow: auto; }
+.bg-hint { font-size: 12px; color: var(--text-muted, #6b7280); line-height: 1.6; }
+.bg-table { display: flex; flex-direction: column; gap: 4px; }
+.bg-thead, .bg-row { display: grid; grid-template-columns: 56px 1.4fr 0.7fr 0.7fr 0.9fr 0.5fr 28px; gap: 5px; align-items: center; }
+.bg-thead { font-size: 11px; color: var(--text-muted, #6b7280); padding: 0 2px; }
+.bg-row { padding: 6px 2px; border-bottom: 1px solid var(--border-light, #eef0f3); }
+.bg-th img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); }
+.bg-name { display: flex; flex-direction: column; gap: 3px; }
+.bg-name input, .bg-row input[type="number"], .bg-row select { width: 100%; padding: 5px 6px; border: 1px solid var(--border, #e5e7eb); border-radius: 7px; font-size: 12px; box-sizing: border-box; }
+.bg-row select { padding: 5px 4px; }
+.bg-del { border: none; background: transparent; color: var(--danger, #e11d48); font-size: 15px; cursor: pointer; line-height: 1; }
+
+/* ============ v3.32: 作业状态快捷登记（预设标签） ============ */
+.lq-status-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lq-status-label { font-size: 12px; color: var(--text-muted, #6b7280); }
+.chip-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.st-chip {
+  padding: 6px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 999px; background: #fff;
+  color: var(--text-soft, #475569); font-size: 12px; cursor: pointer; transition: .15s;
+}
+.st-chip.active { background: var(--primary, #2563eb); border-color: var(--primary, #2563eb); color: #fff; font-weight: 600; }
+.st-chip[data-st="未完成"], .st-chip[data-st="未交"] { }
+.st-chip[data-st="未完成"].active, .st-chip[data-st="未交"].active { background: #e11d48; border-color: #e11d48; }
+.st-chip[data-st="订正中"].active { background: #d97706; border-color: #d97706; }
+.st-chip[data-st="全对"].active { background: #16a34a; border-color: #16a34a; }
+
+
 </style>
 </head>
 <body>
@@ -4348,42 +4579,42 @@ label input, label select, label textarea { margin-top: 4px; }
   <nav class="nav-list">
     <div class="nav-group">
       <div class="nav-group-title">总览</div>
-      <a class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span class="nav-label">今日总览</span></a>
+      <a class="nav-item active" data-page="dashboard"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.4V20h13V9.4"/><path d="M9.5 20v-5.6h5V20"/></svg><span class="nav-label">今日总览</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">备课</div>
-      <a class="nav-item" data-page="schedule"><span class="nav-icon">▦</span><span class="nav-label">班级课表</span></a>
-      <a class="nav-item" data-page="mindmap"><span class="nav-icon">◈</span><span class="nav-label">AI 备课导图</span></a>
-      <a class="nav-item" data-page="prep"><span class="nav-icon">▣</span><span class="nav-label">备课助手</span></a>
-      <a class="nav-item" data-page="exercise"><span class="nav-icon">✎</span><span class="nav-label">练习生成器</span></a>
-      <a class="nav-item" data-page="library"><span class="nav-icon">❐</span><span class="nav-label">教学素材</span></a>
+      <a class="nav-item" data-page="schedule"><svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="nav-label">班级课表</span></a>
+      <a class="nav-item" data-page="mindmap"><svg class="nav-icon" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.8 10.9 15.7 7.1M7.8 13.1l7.9 3.8"/></svg><span class="nav-label">AI 备课导图</span></a>
+      <a class="nav-item" data-page="prep"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 6.6C10.5 5.1 8.6 4.5 4 4.5V18c4.6 0 6.5.6 8 2 1.5-1.4 3.4-2 8-2V4.5c-4.6 0-6.5.6-8 2.1Z"/><path d="M12 6.6V20"/></svg><span class="nav-label">备课助手</span></a>
+      <a class="nav-item" data-page="exercise"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20h4L18.6 9.4a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.4 7.6l3 3"/></svg><span class="nav-label">练习生成器</span></a>
+      <a class="nav-item" data-page="library"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.6h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg><span class="nav-label">教学素材</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">学员</div>
-      <a class="nav-item" data-page="students"><span class="nav-icon">☷</span><span class="nav-label">学员档案</span></a>
-      <a class="nav-item" data-page="ledger"><span class="nav-icon">☱</span><span class="nav-label">学情台账</span></a>
-      <a class="nav-item" data-page="feedback"><span class="nav-icon">✎</span><span class="nav-label">课后反馈</span></a>
-      <a class="nav-item" data-page="feedback-mat"><span class="nav-icon">📚</span><span class="nav-label">反馈素材</span></a>
-      <a class="nav-item" data-page="diag"><span class="nav-icon">🔍</span><span class="nav-label">AI 学情诊断</span></a>
-      <a class="nav-item" data-page="aigrade"><span class="nav-icon">🤖</span><span class="nav-label">AI 作业批改</span></a>
+      <a class="nav-item" data-page="students"><svg class="nav-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M2.8 19.6c0-3.4 2.8-5.7 6.2-5.7s6.2 2.3 6.2 5.7"/><path d="M16.4 5.4a3.3 3.3 0 0 1 0 5.9M17.6 14.4c2.2.6 3.6 2.5 3.6 5.2"/></svg><span class="nav-label">学员档案</span></a>
+      <a class="nav-item" data-page="ledger"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 17v-5M12 17V7.5M17 17v-7"/></svg><span class="nav-label">学情台账</span></a>
+      <a class="nav-item" data-page="feedback"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 15.2a2 2 0 0 1-2 2H8.4L4 20.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z"/><path d="M8.6 10.6l2.2 2.2 4.4-4.4"/></svg><span class="nav-label">课后反馈</span></a>
+      <a class="nav-item" data-page="feedback-mat"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3 3 7.8l9 4.8 9-4.8L12 3Z"/><path d="M3 12.6 12 17.4l9-4.8"/><path d="M3 17.2 12 22l9-4.8"/></svg><span class="nav-label">反馈素材</span></a>
+      <a class="nav-item" data-page="diag"><svg class="nav-icon" viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.2"/><path d="M15.2 15.2 20.5 20.5"/><path d="M7.6 11.2h1.7l1.2-2.4 1.4 4 1.1-1.6h1.4"/></svg><span class="nav-label">AI 学情诊断</span></a>
+      <a class="nav-item" data-page="aigrade"><svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.2"/><path d="M8.2 12.3l2.6 2.6L16 9.4"/></svg><span class="nav-label">AI 作业批改</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">运营</div>
-      <a class="nav-item" data-page="communicate"><span class="nav-icon">✉</span><span class="nav-label">家长沟通</span></a>
-      <a class="nav-item" data-page="kanban"><span class="nav-icon">▤</span><span class="nav-label">工作看板</span></a>
-      <a class="nav-item" data-page="renew"><span class="nav-icon">💡</span><span class="nav-label">续费助手</span></a>
+      <a class="nav-item" data-page="communicate"><svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.6 7.6 12 13.2l8.4-5.6"/></svg><span class="nav-label">家长沟通</span></a>
+      <a class="nav-item" data-page="kanban"><svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M15 4v16"/></svg><span class="nav-label">工作看板</span></a>
+      <a class="nav-item" data-page="renew"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.2 3.8v4.8h-4.8"/></svg><span class="nav-label">续费助手</span></a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">工具</div>
-      <a class="nav-item" data-page="tools"><span class="nav-icon">⚙</span><span class="nav-label">工具中心</span></a>
-      <a class="nav-item" data-page="accounting"><span class="nav-icon">¥</span><span class="nav-label">个人记账</span></a>
-      <a class="nav-item" data-page="life"><span class="nav-icon">○</span><span class="nav-label">生活助手</span></a>
-      <a class="nav-item" data-page="settings"><span class="nav-icon">✦</span><span class="nav-label">个性化设置</span></a>
-      <a class="nav-item" data-page="data"><span class="nav-icon">⇋</span><span class="nav-label">数据备份</span></a>
+      <a class="nav-item" data-page="tools"><svg class="nav-icon" viewBox="0 0 24 24"><rect x="3.4" y="3.4" width="7.2" height="7.2" rx="2"/><rect x="13.4" y="3.4" width="7.2" height="7.2" rx="2"/><rect x="3.4" y="13.4" width="7.2" height="7.2" rx="2"/><rect x="13.4" y="13.4" width="7.2" height="7.2" rx="2"/></svg><span class="nav-label">工具中心</span></a>
+      <a class="nav-item" data-page="accounting"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M3.4 7.6A2.6 2.6 0 0 1 6 5h10.4a1.8 1.8 0 0 1 1.8 1.8v.8"/><rect x="3.4" y="7.6" width="17.2" height="11.8" rx="2.6"/><circle cx="16.4" cy="13.5" r="1.3"/></svg><span class="nav-label">个人记账</span></a>
+      <a class="nav-item" data-page="life"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 20.2S4.2 15.4 4.2 10.4A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.8 2.4c0 5-7.8 9.8-7.8 9.8Z"/></svg><span class="nav-label">生活助手</span></a>
+      <a class="nav-item" data-page="settings"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 7.4h9.2M18.4 7.4h1.8M4 16.6h4.4M13.6 16.6h6.6"/><circle cx="15.8" cy="7.4" r="2.3"/><circle cx="10.9" cy="16.6" r="2.3"/></svg><span class="nav-label">个性化设置</span></a>
+      <a class="nav-item" data-page="data"><svg class="nav-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5.8" rx="7.4" ry="2.9"/><path d="M4.6 5.8v6c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9v-6"/><path d="M4.6 11.8v6.4c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9v-6.4"/></svg><span class="nav-label">数据备份</span></a>
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span class="version">v3.24 · Kissgoodbye</span>
+    <span class="version">v3.30 · Kissgoodbye</span>
   </div>
 </aside>
 
@@ -4393,10 +4624,6 @@ label input, label select, label textarea { margin-top: 4px; }
     <button class="hamburger" id="hamburger">≡</button>
     <h1 class="page-title" id="pageTitle">工作台首页</h1>
     <div class="topbar-right">
-      <div class="global-search">
-        <input type="text" id="globalSearch" placeholder="搜索学生、关键词…" />
-        <div id="searchResult" class="search-result"></div>
-      </div>
       <div class="font-quick-wrapper">
         <button class="btn-ghost font-quick-btn" id="fontQuickBtn" title="字号/字体快捷调整">A±</button>
         <div class="font-quick-panel" id="fontQuickPanel" hidden>
@@ -4480,12 +4707,9 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
         <div id="dashMemoList" class="memo-list"></div>
       </div>
-      <div class="tov-card qc-inbox-card" id="qcInboxCard">
-        <div class="memo-head">
-          <h4>⚡ 速记收件箱</h4>
-          <button class="btn-primary btn-sm" id="qcViewAllBtn" type="button">查看全部</button>
-        </div>
-        <div id="qcInboxList" class="memo-list"></div>
+      <div class="tov-card action-center" id="actionCenter">
+        <div class="memo-head"><h4>⚡ 快速行动</h4></div>
+        <div class="ac-grid" id="acGrid"></div>
       </div>
     </div>
   </section>
@@ -4732,9 +4956,11 @@ label input, label select, label textarea { margin-top: 4px; }
               <label>生成结果
                 <textarea id="genFeedbackResult" rows="8" placeholder="点击「智能生成反馈」，系统将根据该学员的历史反馈和素材库自动生成一段反馈文案，可编辑后保存…"></textarea>
               </label>
-              <div style="display:flex;gap:8px">
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="btn-ghost" id="copyFeedbackBtn">复制</button>
                 <button class="btn-primary" id="saveFeedbackBtn">保存为该学员反馈</button>
+                <button class="btn-ghost" id="fbSaveTplBtn">💾 存为模板</button>
+                <button class="btn-ghost" id="fbLoadTplBtn">📂 载入模板</button>
               </div>
             </div>
           </div>
@@ -5005,6 +5231,8 @@ label input, label select, label textarea { margin-top: 4px; }
             <button class="btn-ghost" id="renewCopy">复制话术</button>
             <button class="btn-ghost" id="renewClear">清空</button>
             <button class="btn-primary" id="renewSave">存入沟通档案</button>
+            <button class="btn-ghost" id="renewSaveTplBtn">💾 存为模板</button>
+            <button class="btn-ghost" id="renewLoadTplBtn">📂 载入模板</button>
           </div>
         </div>
       </div>
@@ -5678,7 +5906,11 @@ label input, label select, label textarea { margin-top: 4px; }
       </div>
       <div class="ledger-quick-form">
         <div class="lq-row">
-          <label class="lq-student">学员<select id="lqStudent"></select></label>
+          <div class="lq-student">
+            <span class="lq-student-label">学员</span>
+            <button type="button" id="lqStudentBtn" class="lq-stu-btn">选择学员（0）</button>
+            <div id="lqStudentPanel" class="lq-stu-panel" hidden></div>
+          </div>
           <div class="lq-type" id="lqType">
             <button type="button" class="lq-type-btn active" data-type="entry">入门测</button>
             <button type="button" class="lq-type-btn" data-type="hw">作业</button>
@@ -5689,7 +5921,16 @@ label input, label select, label textarea { margin-top: 4px; }
           <label id="lqContentWrap" hidden>内容<input type="text" id="lqContent" placeholder="选填（如：第3课生字词抄写）"></label>
           <label class="lq-score">分数<input type="number" id="lqScore" value="0" step="0.5"></label>
           <label class="lq-fullscore">满分<input type="number" id="lqFull" placeholder="选填" step="0.5"></label>
-          <label id="lqStatusWrap" hidden>状态<select id="lqStatus"><option>已完成</option><option>未完成</option><option>订正中</option><option>部分完成</option></select></label>
+          <div class="lq-status-chips" id="lqStatusWrap" hidden>
+            <span class="lq-status-label">状态</span>
+            <div class="chip-group" id="lqStatusChips">
+              <button type="button" class="st-chip active" data-st="已完成">已完成</button>
+              <button type="button" class="st-chip" data-st="全对">全对</button>
+              <button type="button" class="st-chip" data-st="订正中">订正中</button>
+              <button type="button" class="st-chip" data-st="未完成">未完成</button>
+              <button type="button" class="st-chip" data-st="未交">未交</button>
+            </div>
+          </div>
         </div>
         <div class="lq-row">
           <label class="lq-note">备注<input type="text" id="lqNote" placeholder="选填（如：进步明显 / 需重点关注）"></label>
@@ -5715,6 +5956,7 @@ label input, label select, label textarea { margin-top: 4px; }
           <input type="file" id="ledgerImportInput" accept=".xlsx,.xls,.csv" hidden>
           <button class="btn-ghost" id="ledgerOcrCamBtn">📷 拍照识图</button>
           <button class="btn-ghost" id="ledgerOcrAlbumBtn">🖼 相册导入</button>
+          <button class="btn-primary" id="ledgerBatchGradeBtn">📷 批量拍照登分</button>
           <button class="btn-ghost" id="exportLedgerBtn">导出WPS</button>
           <button class="btn-primary" id="addLedgerClassBtn">＋ 新建班级</button>
         </div>
@@ -5733,6 +5975,8 @@ label input, label select, label textarea { margin-top: 4px; }
         <div class="header-actions">
           <button class="btn-ghost" id="ledgerSummaryClassBtn">生成班级汇总图</button>
           <button class="btn-ghost" id="ledgerSummaryAllBtn">生成全量汇总图</button>
+          <button class="btn-ghost" id="ledgerReportClassBtn">导出班级报表图</button>
+          <button class="btn-ghost" id="ledgerReportAllBtn">导出全量报表图</button>
         </div>
       </div>
       <div id="ledgerSummary" class="ledger-summary-area"></div>
@@ -5812,8 +6056,6 @@ label input, label select, label textarea { margin-top: 4px; }
 </div>
 
 <!-- 悬浮球 -->
-<!-- 速记收件箱 FAB（左下角，随手记） -->
-<div id="quickCapBall" class="qc-ball" title="随手记">✎</div>
 <div id="floatBall" class="float-ball">＋</div>
 <div id="floatMenu" class="float-menu" hidden>
   <button data-fm="student">新建学员</button>
@@ -6003,10 +6245,28 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     modalFooter.innerHTML = '';
   }
 
+  // v3.29 图片查看器：点备忘录图片放大查看（黑色沉浸式遮罩，点击关闭）
+  function openImageViewer(src) {
+    if (!src) return;
+    let ov = document.getElementById('imgViewer');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'imgViewer';
+      ov.className = 'img-viewer';
+      ov.innerHTML = '<img alt="查看图片">';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', () => ov.classList.remove('open'));
+    }
+    ov.querySelector('img').src = src;
+    void ov.offsetWidth; // 强制重排以触发过渡
+    ov.classList.add('open');
+  }
+  window.__app.openImageViewer = openImageViewer;
+
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory', 'quickCapture'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory'];
 
   // ===== 底栏可配置项（方案B 圆形胶囊）=====
   const DEFAULT_BNAV = ['dashboard', 'schedule', 'students', 'renew'];
@@ -6159,8 +6419,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     classFeedbacks: [],
     accounting: [],
     ledgerStudents: [],
-    attendance: [],
-    quickCapture: []
+    attendance: []
   };
   let currentStudentId = null;
   let mmChart = null;
@@ -6218,6 +6477,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     // 把多栏目页面变成左右滑动（须在页面渲染后）
     initSwipeAll();
+
+    // 二级页面：左滑返回（不必只点左上角返回键）
+    initBackSwipe();
 
     // 渲染工具页面
     renderTools();
@@ -6540,10 +6802,44 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function initSwipeAll() {
     $$('.own-body').forEach(buildSwipeTrack);
   }
-  function resetSwipe(page) {
-    const body = $('#page-' + page + ' .own-body.pg-swipe');
-    if (body) { body.scrollLeft = 0; if (body._pgSync) body._pgSync(); }
-  }
+    function resetSwipe(page) {
+      const body = $('#page-' + page + ' .own-body.pg-swipe');
+      if (body) { body.scrollLeft = 0; if (body._pgSync) body._pgSync(); }
+    }
+
+    // 二级页面：左滑返回（不必只点左上角返回键）
+    // 作用域：带 .stu-back 返回键的页面；避开横向滑动栏目(pg-swipe)与列表左滑删除(swipe-item)，
+    // 若手势起点落在可横滑容器(如反馈页标签条)上则让其自行横滑，不触发返回。
+    function initBackSwipe() {
+      if (window.innerWidth > 768) return;
+      let sx = 0, sy = 0, armed = false;
+      const inHScroll = el => {
+        while (el && el !== document.body) {
+          const cs = getComputedStyle(el);
+          if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 2) return true;
+          el = el.parentElement;
+        }
+        return false;
+      };
+      document.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        const page = document.querySelector('.page:not([hidden])');
+        if (!page || !page.querySelector('.stu-back')) return;
+        if (page.querySelector('.own-body.pg-swipe') || page.querySelector('.swipe-item')) return;
+        if (inHScroll(e.target)) return;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; armed = true;
+      }, { passive: true });
+      document.addEventListener('touchend', e => {
+        if (!armed) return; armed = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - sx, dy = t.clientY - sy;
+        if (dx < -60 && Math.abs(dy) < 60) {
+          const back = document.querySelector('.page:not([hidden]) .stu-back');
+          const bp = back && back.dataset.page;
+          if (bp) showPage(bp);
+        }
+      }, { passive: true });
+    }
 
   // 移动端点击主内容区域关闭侧边栏
   document.addEventListener('click', e => {
@@ -6569,11 +6865,6 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // 备忘录：新增
     const memoAddBtn = $('#memoAddBtn');
     if (memoAddBtn) memoAddBtn.onclick = () => openMemoModal();
-    // 速记收件箱：FAB + 查看全部
-    const qcBall = $('#quickCapBall');
-    if (qcBall) qcBall.onclick = () => openQuickCapture();
-    const qcViewAll = $('#qcViewAllBtn');
-    if (qcViewAll) qcViewAll.onclick = () => renderQuickCapAll();
     // 全局搜索浮层：输入 / 关闭
     const sInput = $('#searchInput');
     if (sInput) sInput.addEventListener('input', e => doSearch(e.target.value, '#searchResults', true));
@@ -7115,6 +7406,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const addFeedbackMaterialBtn = $('#addFeedbackMaterialBtn');
     if (addFeedbackMaterialBtn) addFeedbackMaterialBtn.onclick = addFeedbackMaterial;
 
+    // 生成器模板复用：反馈结果 ↔ 话术模板库
+    const fbSaveTpl = $('#fbSaveTplBtn');
+    if (fbSaveTpl) fbSaveTpl.onclick = () => saveResultAsTemplate('genFeedbackResult', '学情反馈');
+    const fbLoadTpl = $('#fbLoadTplBtn');
+    if (fbLoadTpl) fbLoadTpl.onclick = () => pickTemplate('学情反馈', 'genFeedbackResult');
+    const renewSaveTpl = $('#renewSaveTplBtn');
+    if (renewSaveTpl) renewSaveTpl.onclick = () => saveResultAsTemplate('renewResult', '续报引导');
+    const renewLoadTpl = $('#renewLoadTplBtn');
+    if (renewLoadTpl) renewLoadTpl.onclick = () => pickTemplate('续报引导', 'renewResult');
+
     // 课堂反馈 tab 切换
     $$('.fb-tab[data-sheet]').forEach(tab => {
       tab.onclick = () => {
@@ -7204,16 +7505,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // v3.19 悬浮 AI 对话框（纯文字指令）
     bindAIChat();
 
-    // 全局搜索
-    $('#globalSearch').oninput = e => doSearch(e.target.value);
-
     // 关闭悬浮菜单（外部点击）
     document.addEventListener('click', e => {
       if (!$('#floatBall').contains(e.target) && !$('#floatMenu').contains(e.target)) {
         $('#floatMenu').hidden = true;
-      }
-      if (!$('#globalSearch').contains(e.target) && !$('#searchResult').contains(e.target)) {
-        $('#searchResult').classList.remove('active');
       }
     });
 
@@ -7263,9 +7558,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const exportLedgerBtn = $('#exportLedgerBtn');
     if (exportLedgerBtn) exportLedgerBtn.onclick = exportLedgerToWPS;
     const ledgerSummaryClassBtn = $('#ledgerSummaryClassBtn');
-    if (ledgerSummaryClassBtn) ledgerSummaryClassBtn.onclick = () => generateLedgerImage('class');
+    if (ledgerSummaryClassBtn) ledgerSummaryClassBtn.onclick = () => openLedgerImageModal('class');
     const ledgerSummaryAllBtn = $('#ledgerSummaryAllBtn');
-    if (ledgerSummaryAllBtn) ledgerSummaryAllBtn.onclick = () => generateLedgerImage('all');
+    if (ledgerSummaryAllBtn) ledgerSummaryAllBtn.onclick = () => openLedgerImageModal('all');
+    const ledgerReportClassBtn = $('#ledgerReportClassBtn');
+    if (ledgerReportClassBtn) ledgerReportClassBtn.onclick = () => window.__app.exportLedgerReport('class');
+    const ledgerReportAllBtn = $('#ledgerReportAllBtn');
+    if (ledgerReportAllBtn) ledgerReportAllBtn.onclick = () => window.__app.exportLedgerReport('all');
+    const ledgerBatchGradeBtn = $('#ledgerBatchGradeBtn');
+    if (ledgerBatchGradeBtn) ledgerBatchGradeBtn.onclick = () => window.openBatchGrade();
 
     // v3.1: 备课助手 - 小学段
     const prepSearchBtnPrimary = $('#prepSearchBtnPrimary');
@@ -7811,7 +8112,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function renderDashboard() {
     renderProfileCard();   // 名片（社交资料页风格）
     renderDashboardMemos(); // 备忘录（主页仅名片 + 备忘录）
-    renderQuickCapInbox();  // 速记收件箱
+    renderActionCenter();   // 快速行动中心
   }
 
   // 备忘录渲染（今日总览）：读取 state.memos，支持图片/编辑/删除
@@ -7852,6 +8153,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         }
       };
     });
+    // v3.29 备忘录图片点击放大查看
+    list.querySelectorAll('.memo-img img').forEach(img => {
+      img.style.cursor = 'zoom-in';
+      img.onclick = e => { e.stopPropagation(); openImageViewer(img.getAttribute('src')); };
+    });
   }
 
   // 备忘录弹窗（新增 / 编辑），支持文字 + 图片
@@ -7875,7 +8181,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const preview = $('#memoImgPreview');
     let pendingImg = m && m.image ? m.image : '';
     const renderPreview = () => {
-      preview.innerHTML = pendingImg ? `<img src="${pendingImg}" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid #eee">` : '';
+      preview.innerHTML = pendingImg ? `<img src="${pendingImg}" alt="预览" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid #eee;cursor:zoom-in">` : '';
+      const pv = preview.querySelector('img');
+      if (pv) pv.onclick = e => { e.stopPropagation(); openImageViewer(pendingImg); };
     };
     renderPreview();
     if (imgInput) imgInput.onchange = async () => {
@@ -9510,6 +9818,38 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       } catch (e) { resolve(null); }
     });
   }
+  // v3.32: AI 批改结果回写学情台账（按姓名匹配台账学员，找不到则自动建档）
+  async function saveAIGradeToLedger(s, g, img) {
+    const name = (s.name || '').trim();
+    if (!name) return false;
+    const clsName = (s.className || '').trim();
+    let ls = null;
+    if (clsName) {
+      const cls = state.classes.find(c => (c.name || '').trim() === clsName);
+      if (cls) ls = state.ledgerStudents.find(x => (x.name || '').trim() === name && x.classId === cls.id);
+    }
+    if (!ls) ls = state.ledgerStudents.find(x => (x.name || '').trim() === name);
+    if (!ls) {
+      const cls = clsName ? state.classes.find(c => (c.name || '').trim() === clsName) : null;
+      ls = { id: uid(), classId: cls ? cls.id : '', name, entryTests: [], homeworks: [], scores: [], ts: Date.now() };
+      state.ledgerStudents.push(ls);
+    }
+    const status = (g.score != null && g.fullScore && g.fullScore > 0 && g.score / g.fullScore >= 0.6) ? '已完成' : '订正中';
+    ls.homeworks = ls.homeworks || [];
+    ls.homeworks.push({
+      date: todayStr(),
+      content: g.summary || 'AI作业批改',
+      status,
+      score: g.score != null ? g.score : '',
+      fullScore: g.fullScore != null ? g.fullScore : '',
+      comment: 'AI批改：' + (((g.wrong || []).join('；')) || '无明显错误'),
+      img: img || '',
+      ts: Date.now()
+    });
+    await dbPut('ledgerStudents', ls);
+    return true;
+  }
+
   window.openAIGrade = async function (sid) {
     const s = state.students.find(x => x.id === sid); if (!s) return;
     let imgs = [];
@@ -9576,9 +9916,10 @@ ${note ? '附加要求：' + note : ''}${toneSuffix(tone)}`;
       s.aiGrades.push({ date: todayStr(), img: imgs[0] || '', summary: grade.summary || '', score: grade.score, fullScore: grade.fullScore, problems: grade.problems || [], wrong: grade.wrong || [], ts: Date.now() });
       await dbPut('students', s);
       saveStudentSilent(s);
+      await saveAIGradeToLedger(s, grade, imgs[0]);
       closeModal();
       renderStudentDetail();
-      toast('已存入' + (s.name || '学员') + '的专属档案');
+      toast('已存入' + (s.name || '学员') + '的专属档案，并回写学情台账');
     };
   };
 
@@ -10237,6 +10578,74 @@ ${note ? '补充背景：' + note : ''}${profileSuffix(profile)}${toneSuffix(ton
     const tf = $('#tplCatFilter');
     if (tf) tf.onchange = renderTemplates;
   }
+
+  // ================= 生成器 ↔ 话术模板库：一键存为模板 / 载入模板 =================
+  function saveResultAsTemplate(taId, category) {
+    const ta = $('#' + taId); if (!ta) return;
+    const text = (ta.value || '').trim();
+    if (!text) { toast('先生成或写点内容，再存为模板'); return; }
+    const def = category === '续报引导' ? '续费应对话术' : '学情反馈话术';
+    const body = `<label>模板名称<input type="text" id="tplName" value="${escapeHtml(def)}" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border,#e3e6ec);border-radius:8px;font-size:15px"></label>`;
+    openModal('存为模板', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="tplNameSave">保存</button>`);
+    const saveBtn = $('#tplNameSave');
+    if (saveBtn) saveBtn.onclick = () => {
+      const title = ($('#tplName').value || def).trim();
+      const item = { id: uid(), category, title, content: text, ts: Date.now() };
+      state.templates.push(item);
+      dbPut('templates', item);
+      saveLocalCache();
+      if (typeof renderTemplates === 'function') renderTemplates();
+      closeModal();
+      toast('已存为模板，可在「沟通 → 话术模板」复用');
+    };
+  }
+  function pickTemplate(category, taId) {
+    const list = (state.templates || []).filter(t => (t.category || '学情反馈') === category);
+    const body = list.length
+      ? list.map(t => `<div class="template-item tpl-pick" data-tpl="${t.id}"><h4>${escapeHtml(t.title)}<span class="tpl-cat">${escapeHtml(t.category || '学情反馈')}</span></h4><p>${escapeHtml(t.content)}</p></div>`).join('')
+      : '<div class="info-block">该分类暂无模板，可先在生成器里「存为模板」。</div>';
+    openModal('载入' + category + '模板', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>`);
+    document.querySelectorAll('#modalBody .tpl-pick').forEach(it => it.onclick = () => {
+      const t = (state.templates || []).find(x => x.id === it.dataset.tpl);
+      const ta = $('#' + taId);
+      if (ta && t) ta.value = t.content;
+      window.__app.closeModal();
+      toast('已载入模板');
+    });
+  }
+
+  // ================= 仪表盘「快速行动」中心 =================
+  function renderActionCenter() {
+    const grid = $('#acGrid'); if (!grid) return;
+    const sv = p => `<svg class="ac-svg" viewBox="0 0 24 24">${p}</svg>`;
+    const ICO = {
+      userAdd: sv('<circle cx="9.6" cy="8" r="3.4"/><path d="M3 19.8c0-3.5 3-5.9 6.6-5.9 1.1 0 2.1.2 3 .6"/><path d="M17.8 13.8v6.4M14.6 17h6.4"/>'),
+      chat: sv('<path d="M20 15.2a2 2 0 0 1-2 2H8.4L4 20.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z"/><path d="M8.4 9.6h7.2M8.4 12.8h4.6"/>'),
+      pen: sv('<path d="M4 20h4L18.6 9.4a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.4 7.6l3 3"/>'),
+      renew: sv('<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.2 3.8v4.8h-4.8"/>'),
+      file: sv('<path d="M13.2 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.8Z"/><path d="M13.2 3v5.8H19"/><path d="M8.6 13h6.8M8.6 16.4h4.4"/>'),
+      book: sv('<path d="M12 6.6C10.5 5.1 8.6 4.5 4 4.5V18c4.6 0 6.5.6 8 2 1.5-1.4 3.4-2 8-2V4.5c-4.6 0-6.5.6-8 2.1Z"/><path d="M12 6.6V20"/>'),
+      chart: sv('<path d="M4 20h16"/><path d="M7 17v-5M12 17V7.5M17 17v-7"/>'),
+      cal: sv('<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+      clip: sv('<rect x="4.6" y="4" width="14.8" height="17" rx="2.6"/><rect x="9" y="2.2" width="6" height="3.6" rx="1.3"/><path d="M8.6 11.4h6.8M8.6 15h4.4"/>'),
+      mind: sv('<circle cx="5.5" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.8 10.9 15.7 7.1M7.8 13.1l7.9 3.8"/>')
+    };
+    const acts = [
+      { icon: ICO.userAdd, label: '新建学员', fn: () => window.editStudentModal && window.editStudentModal() },
+      { icon: ICO.chat, label: '记沟通', fn: () => window.editCommModal && window.editCommModal() },
+      { icon: ICO.pen, label: '写反馈', fn: () => showPage('feedback') },
+      { icon: ICO.renew, label: '续费助手', fn: () => showPage('renew') },
+      { icon: ICO.file, label: '生成练习', fn: () => showPage('exercise') },
+      { icon: ICO.book, label: '备课', fn: () => showPage('prep') },
+      { icon: ICO.chart, label: '学情台账', fn: () => showPage('ledger') },
+      { icon: ICO.cal, label: '课表', fn: () => showPage('schedule') },
+      { icon: ICO.clip, label: '话术模板', fn: () => { showPage('communicate'); setTimeout(() => { $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'template')); $$('.tab-content').forEach(c => c.hidden = c.id !== 'tab-template'); if (typeof renderTemplates === 'function') renderTemplates(); }, 50); } },
+      { icon: ICO.mind, label: '思维导图', fn: () => showPage('mindmap') }
+    ];
+    grid.innerHTML = acts.map((a, i) => `<button type="button" class="ac-btn" data-i="${i}"><span class="ac-ico">${a.icon}</span><span class="ac-label">${a.label}</span></button>`).join('');
+    grid.querySelectorAll('.ac-btn').forEach(b => b.onclick = () => acts[+b.dataset.i].fn());
+  }
+
   function renderCallbacks() {
     const el = $('#tab-callback');
     el.innerHTML = `
@@ -12520,9 +12929,7 @@ ${source}${weakExtra ? '\n' + weakExtra : ''}`;
       }
     });
 
-    const closePart = overlay
-      ? "window.__app.closeSearch&&window.__app.closeSearch();"
-      : "document.getElementById('searchResult').classList.remove('active');document.getElementById('globalSearch').value='';";
+    const closePart = "window.__app.closeSearch&&window.__app.closeSearch();";
     if (results.length === 0) {
       el.innerHTML = '<div class="sr-item">无匹配结果</div>';
     } else {
@@ -12549,116 +12956,12 @@ ${source}${weakExtra ? '\n' + weakExtra : ''}`;
     const res = $('#searchResults'); if (res) res.classList.remove('active');
   }
 
-  // ================= 速记收件箱（随手记，一键入库自动归类） =================
-  function catLabel(c) {
-    return ({ auto: '自动', note: '备注', todo: '待办', fee: '收费', comm: '沟通', other: '其他' })[c] || '自动';
-  }
-  function detectStudent(text) {
-    const t = (text || '').toLowerCase();
-    for (const s of state.students) {
-      if (s.name && t.includes(s.name.toLowerCase())) return s;
-    }
-    return null;
-  }
-  function detectCat(text) {
-    const t = text || '';
-    if (/收费|续费|续报|缴费|交费|费用|学费|收款|收钱|交钱|欠费/.test(t)) return 'fee';
-    if (/沟通|回访|微信|电话|家长|话术|催/.test(t)) return 'comm';
-    if (/待办|提醒|记得|下周|明天|今天|约|计划|别忘/.test(t)) return 'todo';
-    if (/备注|情况|观察|注意|笔记|意见|亮点/.test(t)) return 'note';
-    return 'other';
-  }
-  function openQuickCapture() {
-    const body = `
-      <textarea id="qcText" rows="4" placeholder="随手记一句：&#10;张三 作文没交&#10;给李四家长发续费话术&#10;记得买粉笔、周三教研"></textarea>
-      <div id="qcDetect" class="qc-detect"></div>
-      <div class="qc-cats" id="qcCats">
-        ${['auto', 'note', 'todo', 'fee', 'comm', 'other'].map(c => `<button type="button" data-cat="${c}" class="${c === 'auto' ? 'on' : ''}">${catLabel(c)}</button>`).join('')}
-      </div>`;
-    openModal('⚡ 速记收件箱', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="qcSaveBtn">保存</button>`);
-    let curCat = 'auto';
-    const text = $('#qcText'), detect = $('#qcDetect'), cats = $('#qcCats');
-    const update = () => {
-      const v = text.value;
-      const stu = detectStudent(v);
-      let cat = curCat; if (cat === 'auto') cat = detectCat(v);
-      let html = '';
-      if (stu) html += `<span class="qc-chip qc-chip-stu">→ ${escapeHtml(stu.name)}</span>`;
-      if (v.trim()) html += `<span class="qc-chip qc-chip-cat">归类：${catLabel(cat)}</span>`;
-      detect.innerHTML = html;
-    };
-    text.addEventListener('input', update); update();
-    cats.querySelectorAll('button').forEach(b => b.onclick = () => {
-      curCat = b.dataset.cat;
-      cats.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-      update();
-    });
-    $('#qcSaveBtn').onclick = () => {
-      const v = text.value.trim();
-      if (!v) { toast('先写点什么'); return; }
-      const stu = detectStudent(v);
-      let cat = curCat; if (cat === 'auto') cat = detectCat(v);
-      const item = { id: uid(), ts: Date.now(), text: v, studentId: stu ? stu.id : null, studentName: stu ? stu.name : null, cat, done: false };
-      state.quickCapture.push(item);
-      dbPut('quickCapture', item);
-      saveLocalCache();
-      window.__app.closeModal();
-      toast('已收入速记收件箱');
-      renderQuickCapInbox();
-    };
-  }
-  function renderQuickCapInbox() {
-    const box = $('#qcInboxList'); if (!box) return;
-    const list = (state.quickCapture || []).slice().sort((a, b) => b.ts - a.ts);
-    if (!list.length) { box.innerHTML = '<div class="memo-empty">速记收件箱为空，点左下角 ✎ 随手记一笔</div>'; return; }
-    box.innerHTML = list.slice(0, 5).map(c => `
-      <div class="qc-item" data-id="${c.id}">
-        <span class="qc-cat qc-cat-${c.cat}">${catLabel(c.cat)}</span>
-        <span class="qc-text">${escapeHtml(c.text)}</span>
-        ${c.studentName ? `<span class="qc-stu">@${escapeHtml(c.studentName)}</span>` : ''}
-        <button class="qc-del" data-id="${c.id}" type="button">×</button>
-      </div>`).join('');
-    box.querySelectorAll('.qc-del').forEach(b => b.onclick = e => { e.stopPropagation(); delQuickCap(b.dataset.id); });
-    box.querySelectorAll('.qc-item').forEach(it => it.onclick = () => openQuickCapItem(it.dataset.id));
-  }
-  function openQuickCapItem(id) {
-    const c = (state.quickCapture || []).find(x => x.id === id); if (!c) return;
-    let acts = `<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button><button class="btn-ghost" id="qcDel2">删除</button>`;
-    if (c.studentId) acts = `<button class="btn-primary" id="qcOpenStu">打开 @${escapeHtml(c.studentName || '学员')}</button>` + acts;
-    else if (c.cat === 'fee') acts = `<button class="btn-primary" id="qcOpenAcc">去记账</button>` + acts;
-    else if (c.cat === 'todo') acts = `<button class="btn-primary" id="qcOpenTodo">去工作看板</button>` + acts;
-    openModal('速记详情', `<p style="white-space:pre-wrap;line-height:1.6;margin:0 0 10px">${escapeHtml(c.text)}</p><div class="qc-detect"><span class="qc-chip qc-chip-cat">${catLabel(c.cat)}</span>${c.studentName ? `<span class="qc-chip qc-chip-stu">@${escapeHtml(c.studentName)}</span>` : ''}</div>`, acts);
-    if (c.studentId) { const b = $('#qcOpenStu'); if (b) b.onclick = () => { window.__app.closeModal(); window.__app.openStudent(c.studentId); }; }
-    if (c.cat === 'fee') { const b = $('#qcOpenAcc'); if (b) b.onclick = () => { window.__app.closeModal(); showPage('accounting'); }; }
-    if (c.cat === 'todo') { const b = $('#qcOpenTodo'); if (b) b.onclick = () => { window.__app.closeModal(); showPage('kanban'); }; }
-    const d = $('#qcDel2'); if (d) d.onclick = () => delQuickCap(id);
-  }
-  function delQuickCap(id) {
-    if (!confirm('删除这条速记？')) return;
-    state.quickCapture = (state.quickCapture || []).filter(x => x.id !== id);
-    dbDel('quickCapture', id).catch(() => {});
-    saveLocalCache();
-    toast('已删除');
-    renderQuickCapInbox();
-  }
-  function renderQuickCapAll() {
-    const list = (state.quickCapture || []).slice().sort((a, b) => b.ts - a.ts);
-    const body = list.length ? `<div class="qc-all">` + list.map(c => `
-      <div class="qc-item" data-id="${c.id}">
-        <span class="qc-cat qc-cat-${c.cat}">${catLabel(c.cat)}</span>
-        <span class="qc-text">${escapeHtml(c.text)}</span>
-        ${c.studentName ? `<span class="qc-stu">@${escapeHtml(c.studentName)}</span>` : ''}
-        <button class="qc-del" data-id="${c.id}" type="button">×</button>
-      </div>`).join('') + `</div>` : '<div class="memo-empty">还没有速记</div>';
-    openModal('全部速记（' + list.length + '）', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>`);
-    document.querySelectorAll('#modalBody .qc-del').forEach(b => b.onclick = e => { e.stopPropagation(); delQuickCap(b.dataset.id); setTimeout(renderQuickCapAll, 60); });
-    document.querySelectorAll('#modalBody .qc-item').forEach(it => it.onclick = () => openQuickCapItem(it.dataset.id));
-  }
   window.__app = window.__app || {};
   window.__app.closeSearch = closeSearch;
   window.__app.openSearch = openSearch;
-  window.__app.openQuickCapture = openQuickCapture;
-  window.__app.renderQuickCapAll = renderQuickCapAll;
+  window.__app.saveResultAsTemplate = saveResultAsTemplate;
+  window.__app.pickTemplate = pickTemplate;
+  window.__app.renderActionCenter = renderActionCenter;
 
   // ================= 通用工具函数 =================
   function escapeHtml(s) {
@@ -13451,9 +13754,277 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast(`成功导入 ${count} 名学员，去「学员档案」查看`);
   }
 
+  // ================= v3.32: 批量拍照登分（AI 识名归位 + 连拍顺序归位） =================
+  let bgImages = [];
+  let bgRows = [];
+  let bgMode = 'ai';
+
+  function bgMatchStudent(name) {
+    const n = (name || '').trim().toLowerCase();
+    if (!n) return null;
+    return state.ledgerStudents.find(x => (x.name || '').trim().toLowerCase() === n) || null;
+  }
+
+  function openBatchGrade() {
+    bgImages = [];
+    bgRows = [];
+    bgMode = 'ai';
+    const body = `
+      <div class="bg-wrap">
+        <div class="bg-tabs">
+          <button type="button" class="bg-tab active" data-mode="ai">🤖 智能识别</button>
+          <button type="button" class="bg-tab" data-mode="order">📋 按名单顺序</button>
+        </div>
+        <p class="bg-tip" id="bgTip"></p>
+        <div class="bg-toolbar">
+          <button class="btn-ghost" id="bgCamBtn" type="button">📷 拍照</button>
+          <input type="file" id="bgCamInput" accept="image/*" capture="environment" hidden>
+          <button class="btn-ghost" id="bgAlbumBtn" type="button">🖼 从相册选</button>
+          <input type="file" id="bgAlbumInput" accept="image/*" multiple hidden>
+          <select id="bgClassSel" class="bg-class-sel" hidden></select>
+          <button class="btn-primary" id="bgRecBtn" type="button" disabled>识别</button>
+        </div>
+        <div class="bg-global" id="bgGlobal" hidden>
+          <label>类型
+            <select id="bgType">
+              <option value="hw" selected>作业</option>
+              <option value="entry">入门测</option>
+            </select>
+          </label>
+          <label>日期<input type="date" id="bgDate"></label>
+          <label class="bg-storeall"><input type="checkbox" id="bgStoreAll" checked> 全部存图</label>
+        </div>
+        <div class="bg-preview" id="bgPreview"></div>
+        <div class="bg-status" id="bgStatus"></div>
+        <div class="bg-confirm" id="bgConfirm">
+          <p class="bg-hint">先拍照或选图：<b>智能识别</b>模式会读姓名与分数自动归位；<b>按名单顺序</b>模式请先选班级，再按名单顺序连拍，照片自动对应到每位学员。</p>
+        </div>
+      </div>`;
+    openModal('📷 批量拍照登分', body, `
+      <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
+      <button class="btn-primary" id="bgWriteBtn" type="button" disabled>写入台账</button>
+    `);
+    bindBatchGrade();
+  }
+
+  function bindBatchGrade() {
+    const camBtn = $('#bgCamBtn'), camInput = $('#bgCamInput');
+    const albumBtn = $('#bgAlbumBtn'), albumInput = $('#bgAlbumInput');
+    const recBtn = $('#bgRecBtn'), writeBtn = $('#bgWriteBtn');
+    const classSel = $('#bgClassSel'), dateEl = $('#bgDate'), storeAll = $('#bgStoreAll');
+    const tip = $('#bgTip');
+    if (camBtn && camInput) camBtn.onclick = () => camInput.click();
+    if (albumBtn && albumInput) albumBtn.onclick = () => albumInput.click();
+    if (camInput) camInput.onchange = e => { bgHandleFiles(e.target.files); e.target.value = ''; };
+    if (albumInput) albumInput.onchange = e => { bgHandleFiles(e.target.files); e.target.value = ''; };
+    if (classSel) {
+      classSel.innerHTML = '<option value="">选择班级（按名单顺序归位）</option>' +
+        state.classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      classSel.onchange = () => { if (bgMode === 'order') { bgRebuildOrderRows(); bgRenderRows(); } };
+    }
+    if (dateEl && !dateEl.value) dateEl.value = todayStr();
+    $$('.bg-tab').forEach(t => t.onclick = () => {
+      bgMode = t.dataset.mode;
+      $$('.bg-tab').forEach(x => x.classList.toggle('active', x === t));
+      if (classSel) classSel.hidden = bgMode !== 'order';
+      if (recBtn) recBtn.hidden = bgMode !== 'ai';
+      if (tip) tip.textContent = bgMode === 'ai'
+        ? '让学生把姓名写在作业/试卷上，拍照或选图后点「识别」，AI 自动读出姓名与分数并归位到对应学员。'
+        : '先选班级，再按名单顺序连拍或选图：第 1 张归第 1 名学员，依次对应，无需 AI 也能快速登分。';
+      // 切换模式时清空已识别/匹配的行（图片保留），避免两种模式串味
+      bgRows = [];
+      bgRenderRows();
+    });
+    if (tip) tip.textContent = '让学生把姓名写在作业/试卷上，拍照或选图后点「识别」，AI 自动读出姓名与分数并归位到对应学员。';
+    if (recBtn) recBtn.onclick = bgRecognize;
+    if (storeAll) storeAll.onchange = () => { bgRows.forEach(r => r.store = storeAll.checked); bgRenderRows(); };
+    if (writeBtn) writeBtn.onclick = bgWrite;
+  }
+
+  async function bgHandleFiles(files) {
+    const arr = Array.from(files || []).filter(f => f.type && f.type.indexOf('image/') === 0);
+    if (!arr.length) return;
+    for (const f of arr) {
+      const d = await compressImage(f, 1280, 0.75);
+      if (d) bgImages.push({ id: uid(), dataUrl: d });
+    }
+    const recBtn = $('#bgRecBtn');
+    if (recBtn) recBtn.disabled = bgImages.length === 0;
+    bgRenderPreview();
+    if (bgMode === 'order') bgRebuildOrderRows();
+    bgRenderRows();
+  }
+
+  // v3.32.1: 拍完/选完图立即在预览条显示缩略图（修复"拍照不显示图片"）
+  function bgRenderPreview() {
+    const wrap = $('#bgPreview');
+    if (!wrap) return;
+    if (!bgImages.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = bgImages.map((img, i) => `
+      <span class="bg-thumb" data-i="${i}">
+        <img src="${img.dataUrl}" onerror="this.style.display='none'">
+        <button type="button" class="bg-thumb-del" data-i="${i}" title="移除">×</button>
+      </span>`).join('');
+    wrap.querySelectorAll('.bg-thumb-del').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      bgImages = bgImages.filter((_, k) => k !== i);
+      if (bgMode === 'order') bgRebuildOrderRows();
+      bgRenderPreview();
+      bgRenderRows();
+      const rb = $('#bgRecBtn'); if (rb) rb.disabled = bgImages.length === 0;
+    });
+  }
+
+  function bgRebuildOrderRows() {
+    const cid = $('#bgClassSel') ? $('#bgClassSel').value : '';
+    const roster = cid ? state.ledgerStudents.filter(s => s.classId === cid).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh')) : [];
+    bgRows = bgImages.map((img, i) => {
+      const stu = roster[i];
+      return { imgIndex: i, dataUrl: img.dataUrl, name: stu ? (stu.name || '') : '', sid: stu ? stu.id : '', type: 'hw', score: '', fullScore: '', status: '已完成', store: true };
+    });
+  }
+
+  async function bgRecognize() {
+    const status = $('#bgStatus');
+    const recBtn = $('#bgRecBtn');
+    const aiUrl = getSetting('aiApiUrl', '').trim();
+    if (!aiUrl) {
+      if (status) { status.textContent = '❌ 未配置 AI 接口，请先到「个性化设置 → AI 模型配置」填写'; status.style.color = 'var(--danger,#e11d48)'; }
+      toast('识别需先配置 AI 视觉接口');
+      return;
+    }
+    if (!bgImages.length) { toast('请先拍照或选图'); return; }
+    if (recBtn) { recBtn.disabled = true; recBtn.textContent = '识别中…'; }
+    if (status) { status.textContent = `AI 正在识别 ${bgImages.length} 张…`; status.style.color = ''; }
+    const images = bgImages.map(x => x.dataUrl);
+    const prompt = '你是一名语文老师助教。下面是一批学生的作业或试卷照片，每张照片对应一名学生，照片上学生通常写有自己的姓名（手写或打印），以及本次的得分、满分，或完成状态（如"全对""已完成""未完成""订正"等）。\n请逐张识别，按图片顺序返回一个 JSON 数组，数组长度必须等于图片数量，第 i 个元素对应第 i 张图：\n{"name": 姓名（识别不到留空字符串）, "score": 数字或 null, "fullScore": 数字或 null, "status": "已完成"|"未完成"|"部分完成"|"订正中"|"未交" 或空字符串, "note": 简短备注或空字符串}\n要求：\n1. 只返回 JSON 数组，不要任何解释、不要 markdown 代码块标记。\n2. 数组长度必须等于图片数量。\n3. 完全无法识别的元素 name 留空、其余留空或 null。\n4. 不要编造信息，识别不到的字段就留空或 null。';
+    try {
+      const text = await callAIVision(prompt, images, '你是 OCR 与成绩提取助手，只输出结构化 JSON 数组，不要解释。');
+      let arr = extractJSON(text);
+      if (!Array.isArray(arr)) arr = [];
+      const known = ['全对', '已完成', '订正中', '未完成', '未交'];
+      bgRows = bgImages.map((img, i) => {
+        const r = arr[i] || {};
+        const name = String(r.name || '').trim();
+        const sc = (r.score == null || r.score === '') ? '' : (isNaN(Number(r.score)) ? '' : Number(r.score));
+        const fs = (r.fullScore == null || r.fullScore === '') ? '' : (isNaN(Number(r.fullScore)) ? '' : Number(r.fullScore));
+        let st = String(r.status || '').trim();
+        if (!known.includes(st)) st = (fs !== '' && sc !== '' && Number(sc) === Number(fs)) ? '全对' : (sc !== '' && fs !== '' && Number(sc) / Number(fs) < 0.6 ? '订正中' : '已完成');
+        const matched = bgMatchStudent(name);
+        return { imgIndex: i, dataUrl: img.dataUrl, name, sid: matched ? matched.id : '', type: 'hw', score: sc, fullScore: fs, status: st, store: true };
+      });
+      bgRenderRows();
+      const unmatched = bgRows.filter(r => !r.sid).length;
+      if (status) { status.textContent = `✅ 识别完成，共 ${bgRows.length} 张${unmatched ? '，' + unmatched + ' 张未匹配到学员（可在下拉手动指定）' : ''}`; status.style.color = 'var(--success,#16a34a)'; }
+      toast('识别完成');
+    } catch (err) {
+      if (status) { status.textContent = '❌ 识别失败：' + (err && err.message ? err.message : '请检查 AI 配置是否支持图片输入'); status.style.color = 'var(--danger,#e11d48)'; }
+      toast('识别失败：' + (err && err.message ? err.message : '未知错误'));
+    } finally {
+      if (recBtn) { recBtn.disabled = bgImages.length === 0; recBtn.textContent = '识别'; }
+    }
+  }
+
+  function bgRenderRows() {
+    const wrap = $('#bgConfirm');
+    const global = $('#bgGlobal');
+    const writeBtn = $('#bgWriteBtn');
+    if (!wrap) return;
+    if (!bgRows.length) {
+      const hint = bgImages.length
+        ? `已添加 ${bgImages.length} 张照片${bgMode === 'ai' ? '，点上方「识别」按钮自动读出姓名与分数，并归位到对应学员' : '，选择班级后照片会按顺序对应到每位学员'}。`
+        : '先拍照或选图：<b>智能识别</b>模式会读姓名与分数自动归位；<b>按名单顺序</b>模式请先选班级，再按名单顺序连拍，照片自动对应到每位学员。';
+      wrap.innerHTML = '<p class="bg-hint">' + hint + '</p>';
+      if (global) global.hidden = true;
+      if (writeBtn) writeBtn.disabled = true;
+      return;
+    }
+    if (global) global.hidden = false;
+    if (writeBtn) writeBtn.disabled = false;
+    const statusOpts = ['全对', '已完成', '订正中', '未完成', '未交'];
+    const stuSorted = state.ledgerStudents.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
+    wrap.innerHTML = `
+      <div class="bg-table">
+        <div class="bg-thead">
+          <span>照片</span><span>学员（可改派）</span><span>分数</span><span>满分</span><span>状态</span><span>存图</span><span></span>
+        </div>
+        ${bgRows.map((r, i) => `
+          <div class="bg-row" data-i="${i}">
+            <span class="bg-th"><img src="${r.dataUrl}" onerror="this.style.display='none'"></span>
+            <span class="bg-name">
+              <input type="text" class="bg-iname" value="${escapeHtml(r.name || '')}" placeholder="姓名">
+              <select class="bg-isid">
+                <option value="">自动按姓名匹配</option>
+                ${stuSorted.map(s => `<option value="${s.id}" ${s.id === r.sid ? 'selected' : ''}>${escapeHtml(s.name || '')}</option>`).join('')}
+              </select>
+            </span>
+            <span><input type="number" class="bg-iscore" value="${r.score !== '' && r.score != null ? r.score : ''}" step="0.5" placeholder="分"></span>
+            <span><input type="number" class="bg-ifull" value="${r.fullScore !== '' && r.fullScore != null ? r.fullScore : ''}" step="0.5" placeholder="满"></span>
+            <span><select class="bg-istatus">${statusOpts.map(o => `<option ${r.status === o ? 'selected' : ''}>${o}</option>`).join('')}</select></span>
+            <span><input type="checkbox" class="bg-istore" ${r.store ? 'checked' : ''}></span>
+            <span><button type="button" class="bg-del" data-i="${i}" title="移除">✕</button></span>
+          </div>`).join('')}
+      </div>`;
+    wrap.querySelectorAll('.bg-del').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      bgImages = bgImages.filter((_, k) => k !== i);
+      bgRows = bgRows.filter((_, k) => k !== i);
+      if (bgMode === 'order') bgRebuildOrderRows();
+      bgRenderRows();
+    });
+  }
+
+  async function bgWrite() {
+    const type = $('#bgType') ? $('#bgType').value : 'hw';
+    const date = ($('#bgDate') ? $('#bgDate').value : '').trim() || todayStr();
+    const wrap = $('#bgConfirm');
+    if (!wrap) return;
+    const rows = Array.from(wrap.querySelectorAll('.bg-row'));
+    if (!rows.length) { toast('没有可写入的记录'); return; }
+    const typeName = type === 'entry' ? '入门测' : '作业';
+    let ok = 0, skip = 0;
+    for (const el of rows) {
+      const i = +el.dataset.i;
+      const nameTxt = el.querySelector('.bg-iname').value.trim();
+      const sidSel = el.querySelector('.bg-isid').value;
+      const scoreRaw = el.querySelector('.bg-iscore').value;
+      const fullRaw = el.querySelector('.bg-ifull').value;
+      const status = el.querySelector('.bg-istatus').value;
+      const store = el.querySelector('.bg-istore').checked;
+      const score = scoreRaw === '' ? 0 : (Number(scoreRaw) || 0);
+      const fullScore = fullRaw === '' ? null : (Number(fullRaw) || 0);
+      const dataUrl = (bgRows[i] && bgRows[i].dataUrl) || '';
+      let sid = sidSel || '';
+      if (!sid && nameTxt) { const m = bgMatchStudent(nameTxt); if (m) sid = m.id; }
+      if (!sid) { skip++; continue; }
+      const s = state.ledgerStudents.find(x => x.id === sid);
+      if (!s) { skip++; continue; }
+      normalizeLedger(s);
+      const img = store ? dataUrl : '';
+      const imgs = (store && dataUrl) ? [dataUrl] : [];
+      let rec;
+      if (type === 'entry') {
+        rec = { date, subject: nameTxt ? (nameTxt + ' 的入门测') : '入门测', score, fullScore, note: img ? '📷附图' : '', img, imgs };
+        s.entryTests = s.entryTests || [];
+        s.entryTests.push(rec);
+      } else {
+        rec = { date, content: nameTxt ? (nameTxt + ' 的作业') : '作业', status, score, fullScore, comment: img ? '📷附图' : '', img, imgs };
+        s.homeworks = s.homeworks || [];
+        s.homeworks.push(rec);
+      }
+      await dbPut('ledgerStudents', s);
+      await mirrorToStudentProfile(s, type, rec);
+      ok++;
+    }
+    saveLocalCache();
+    renderLedger();
+    closeModal();
+    toast(`已写入 ${ok} 条${typeName}${skip ? '，跳过 ' + skip + ' 条（未匹配学员）' : ''}`);
+  }
+  window.openBatchGrade = openBatchGrade;
+
   // 导入话术模板（Excel/CSV/TXT）
   function handleImportTemplates(file) {
-    if (!file) return;
     const reader = new FileReader();
     reader.onload = async e => {
       try {
@@ -13893,6 +14464,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (!el) return;
     el.innerHTML = state.memos.slice().reverse().map(m => `
       <li class="record-item">
+        ${m.image ? `<img class="memo-thumb" src="${m.image}" alt="备忘图片" style="width:46px;height:46px;object-fit:cover;border-radius:8px;cursor:zoom-in;flex-shrink:0">` : ''}
         <span>${escapeHtml(m.text)}</span>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:11px;color:var(--text-muted)">${fmtDate(m.ts).slice(5,10)}</span>
@@ -13900,6 +14472,9 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         </div>
       </li>
     `).join('') || '<li style="padding:12px;color:var(--text-muted);font-size:13px">暂无记事</li>';
+    el.querySelectorAll('.memo-thumb').forEach(img => {
+      img.onclick = e => { e.stopPropagation(); openImageViewer(img.getAttribute('src')); };
+    });
   }
 
   function renderCountdowns() {
@@ -13941,7 +14516,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   async function addMemo() {
     const text = $('#memoInput').value.trim();
     if (!text) return;
-    const item = { id: uid(), text, ts: Date.now() };
+    const item = { id: uid(), text, image: '', ts: Date.now() };
     await dbPut('memos', item);
     state.memos.push(item);
     saveLocalCache();
@@ -14499,7 +15074,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       toast('已移除图片');
     };
     const del = row.querySelector('.ls-del');
-    if (del) del.onclick = () => row.remove();
+    if (del) del.onclick = () => { row.remove(); renderLedgerTrend(); };
   }
   function appendLsRow(type, r) {
     const list = type === 'entry' ? $('#lsEntryList') : type === 'hw' ? $('#lsHwList') : $('#lsScoreList');
@@ -14521,7 +15096,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         <input type="text" class="ls-f lf-content" value="${escapeHtml(r.content || '')}" placeholder="作业内容">
         <select class="ls-f lf-status">
           <option ${r.status === '已完成' ? 'selected' : ''}>已完成</option>
+          <option ${r.status === '全对' ? 'selected' : ''}>全对</option>
+          <option ${r.status === '订正中' ? 'selected' : ''}>订正中</option>
           <option ${r.status === '未完成' ? 'selected' : ''}>未完成</option>
+          <option ${r.status === '未交' ? 'selected' : ''}>未交</option>
           <option ${r.status === '部分完成' ? 'selected' : ''}>部分完成</option>
         </select>
         <input type="number" class="ls-f lf-hwscore" value="${r.score != null ? r.score : ''}" placeholder="得分">
@@ -14573,8 +15151,15 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       <div class="ls-section">
         <div class="ls-section-head"><b>课堂积分记录（可多次追加）</b><button type="button" class="btn-ghost ls-add" data-type="score">＋ 添加</button></div>
         <div class="ls-list" id="lsScoreList"></div>
+      </div>
+      <div class="ls-section">
+        <div class="ls-section-head"><b>成绩趋势</b><button type="button" class="btn-ghost" id="ls_trend_export">导出趋势图</button></div>
+        <canvas id="lsTrend" class="ls-trend" width="640" height="280"></canvas>
+        <div id="lsTrendEmpty" class="hint" style="display:none;font-size:12px;color:var(--text-muted);padding:6px 2px">暂无带分数的记录，无法绘制趋势</div>
       </div>`;
-    openModal(isNew ? '添加学员' : '编辑学情', body, `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ls_save">保存</button>`);
+    const footer = (isNew ? '' : `<button class="btn-ghost" onclick="window.__app.openLedgerImageModal('student','${s.id}')">生成图片</button>`)
+      + `<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="ls_save">保存</button>`;
+    openModal(isNew ? '添加学员' : '编辑学情', body, footer);
 
     (s.entryTests || []).forEach(r => appendLsRow('entry', r));
     (s.homeworks || []).forEach(r => appendLsRow('hw', r));
@@ -14585,7 +15170,12 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       if (t === 'entry') appendLsRow('entry', { date: todayStr(), subject: '', score: 0, note: '', img: '' });
       if (t === 'hw') appendLsRow('hw', { date: todayStr(), content: '', status: '已完成', comment: '', score: 0, img: '' });
       if (t === 'score') appendLsRow('score', { date: todayStr(), score: 0, note: '', img: '' });
+      renderLedgerTrend();
     });
+
+    // v3.31：打开即绘制趋势（未保存也能看）
+    renderLedgerTrend();
+    const te = $('#ls_trend_export'); if (te) te.onclick = () => window.__app.exportLedgerTrend();
 
     $('#ls_save').onclick = async () => {
       const name = $('#ls_name').value.trim();
@@ -14638,7 +15228,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
             <div class="actions">
               <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.editLedgerClassModal('${c.id}')">编辑班级</button>
               <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.openLedgerStudentModal(true,'${c.id}')">＋ 学员</button>
-              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.generateLedgerImage('class','${c.id}')">生成图片</button>
+              <button class="btn-ghost" style="font-size:11px;padding:3px 8px" onclick="window.__app.openLedgerImageModal('class','${c.id}')">生成图片</button>
             </div>
           </div>
           ${students.length === 0 ? '<p style="padding:8px 14px;color:var(--text-muted);font-size:12px">暂无学员，可手动添加或通过「导入学员」批量导入</p>' : `
@@ -14671,10 +15261,12 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
               const etText = et.length ? `${etScore || '-'}${etFull ? ' 👍' : ''}${noteOf(lastEt)} (${et.length}次)` : '-';
               const hwText = hw.length ? `${escapeHtml(lastHw.status || '')}${hwScore}${hwFull ? ' 👍' : ''}${noteOf(lastHw)} (${hw.length}次)` : '-';
               const scText = sc.length ? (sc.reduce((a, b) => a + (Number(b.score) || 0), 0)) + ' (累计)' : '-';
+              // v3.31：有偏低分（得分率<60%）的学员打「需关注」标
+              const needsAtt = listNeedsAttention(et, hw);
               return `
               <li class="row-item" onclick="window.__app.openLedgerStudentModal(false,'${s.id}')">
                 <div class="row-main">
-                  <div class="row-title">${escapeHtml(s.name||'')}</div>
+                  <div class="row-title">${escapeHtml(s.name||'')}${needsAtt ? ' <span class="lb lb-warn">⚠需关注</span>' : ''}</div>
                   <div class="row-sub"><span class="${etFull ? 'full-mark' : ''}">入门 ${etText}</span> · <span class="${hwFull ? 'full-mark' : ''}">作业 ${hwText}</span> · 积分 ${scText}</div>
                 </div>
                 <button class="row-del" type="button" onclick="event.stopPropagation();window.__app.confirmDelete('ledgerStudents','${s.id}','${escapeAttr(s.name||'')}')">删除</button>
@@ -14715,10 +15307,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   }
 
   async function renderLedgerQuick() {
-    const sel = $('#lqStudent');
-    if (!sel) return;
+    const panel = $('#lqStudentPanel');
+    if (!panel) return;
     const added = await syncProfilesIntoLedger();
-    const kept = sel.value;
+    const prev = (window.__lqStudents || []).slice();
     const clsMap = {};
     state.classes.forEach(c => clsMap[c.id] = c.name);
     // 按班级 → 姓名排序，长名单也好找人
@@ -14727,19 +15319,60 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       if (ca !== cb) return ca.localeCompare(cb, 'zh');
       return (a.name || '').localeCompare(b.name || '', 'zh');
     });
-    sel.innerHTML = '<option value="">— 选择学员 —</option>' +
-      sorted.map(s => `<option value="${s.id}">${escapeHtml(s.name || '')}${(clsMap[s.classId] ? '（' + escapeHtml(clsMap[s.classId]) + '）' : '')}</option>`).join('');
-    if (kept) sel.value = kept;
+    // v3.31：按班级分组，复选多学员
+    const groups = {};
+    sorted.forEach(s => { const k = clsMap[s.classId] || '未分班'; (groups[k] = groups[k] || []).push(s); });
+    panel.innerHTML = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'zh')).map(g => `
+      <div class="lq-stu-group">
+        <div class="lq-stu-group-head">${escapeHtml(g)}</div>
+        ${groups[g].map(s => `
+          <label class="lq-stu-opt">
+            <input type="checkbox" class="lq-stu-chk" value="${s.id}" ${prev.includes(s.id) ? 'checked' : ''}>
+            <span>${escapeHtml(s.name || '')}</span>
+          </label>`).join('')}
+      </div>`).join('') + `
+      <div class="lq-stu-foot">
+        <button type="button" class="btn-ghost lq-stu-all">全选</button>
+        <button type="button" class="btn-ghost lq-stu-none">清空</button>
+        <button type="button" class="btn-primary lq-stu-ok">确定</button>
+      </div>`;
+    const sync = () => {
+      window.__lqStudents = Array.from(panel.querySelectorAll('.lq-stu-chk:checked')).map(c => c.value);
+      const btn = $('#lqStudentBtn');
+      if (btn) btn.textContent = window.__lqStudents.length ? `已选 ${window.__lqStudents.length} 名学员` : '选择学员（0）';
+    };
+    panel.querySelectorAll('.lq-stu-chk').forEach(chk => chk.onchange = sync);
+    const allBtn = panel.querySelector('.lq-stu-all'); if (allBtn) allBtn.onclick = () => { panel.querySelectorAll('.lq-stu-chk').forEach(c => c.checked = true); sync(); };
+    const noneBtn = panel.querySelector('.lq-stu-none'); if (noneBtn) noneBtn.onclick = () => { panel.querySelectorAll('.lq-stu-chk').forEach(c => c.checked = false); sync(); };
+    const okBtn = panel.querySelector('.lq-stu-ok'); if (okBtn) okBtn.onclick = () => { panel.hidden = true; sync(); };
+    const btn = $('#lqStudentBtn');
+    if (btn) btn.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) sync(); };
+    sync();
     resetLqForm();
+    bindLqStatusChips();
     if (added) toast(`已从学员档案补入 ${added} 名学员`);
   }
   function resetLqForm() {
     window.__lqType = 'entry';
+    window.__lqStatus = '已完成';
     $$('#lqType .lq-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'entry'));
     const cw = $('#lqContentWrap'); if (cw) cw.hidden = true;
     const stw = $('#lqStatusWrap'); if (stw) stw.hidden = true;
     const dt = $('#lqDate'); if (dt && !dt.value) dt.value = todayStr();
     const ff = $('#lqFull'); if (ff) ff.value = '';
+  }
+
+  // v3.32: 作业状态快捷登记 —— 预设标签一键点选
+  function bindLqStatusChips() {
+    const wrap = $('#lqStatusChips');
+    if (!wrap) return;
+    const set = v => {
+      window.__lqStatus = v;
+      wrap.querySelectorAll('.st-chip').forEach(c => c.classList.toggle('active', c.dataset.st === v));
+    };
+    wrap.querySelectorAll('.st-chip').forEach(c => c.onclick = () => set(c.dataset.st));
+    if (!window.__lqStatus) window.__lqStatus = '已完成';
+    set(window.__lqStatus);
   }
 
   // v3.8.0: 快速记录随手拍照 —— 压缩后再存，避免手机原图撑爆本地数据库
@@ -14773,12 +15406,9 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (pick) pick.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
   }
   window.quickLedgerAdd = async function () {
-    const sel = $('#lqStudent');
-    const sid = sel ? sel.value : '';
-    if (!sid) { toast('请先选择学员'); return; }
-    const s = state.ledgerStudents.find(x => x.id === sid);
-    if (!s) { toast('学员不存在，请重新选择'); renderLedgerQuick(); return; }
-    normalizeLedger(s);
+    // v3.31：支持多选学员，一次给多人录同一次分数
+    const ids = (window.__lqStudents || []).slice();
+    if (!ids.length) { toast('请先选择学员（可多选）'); return; }
     const type = window.__lqType;
     const date = ($('#lqDate').value || '').trim() || todayStr();
     const note = ($('#lqNote').value || '').trim();
@@ -14792,24 +15422,33 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     // v3.8.0: 照片随记录一起存；多张时第一张进主记录 img，其余存 imgs 数组
     const photos = lqPhotos.slice();
     const mainImg = photos[0] || '';
-    let rec;
-    if (type === 'entry') {
-      rec = { date, subject: '', score, fullScore, note: noteFinal, img: mainImg, imgs: photos };
-      s.entryTests.push(rec);
-    } else {
-      // v3.19: 作业内容改为「选填」，不填时按完成度自动补一句，避免记录空白
-      let content = ($('#lqContent').value || '').trim();
-      const status = $('#lqStatus') ? $('#lqStatus').value : '已完成';
-      if (!content) content = '课堂作业（' + (status || '已完成') + '）';
-      rec = { date, content, status, comment: noteFinal, score, fullScore, img: mainImg, imgs: photos };
-      s.homeworks.push(rec);
+    // v3.19: 作业内容改为「选填」，不填时按完成度自动补一句，避免记录空白
+    let content = ($('#lqContent').value || '').trim();
+    const status = window.__lqStatus || '已完成';
+    if (type === 'hw' && !content) content = '课堂作业（' + (status || '已完成') + '）';
+
+    let okCount = 0, fullCount = 0;
+    for (const sid of ids) {
+      const s = state.ledgerStudents.find(x => x.id === sid);
+      if (!s) continue;
+      normalizeLedger(s);
+      let rec;
+      if (type === 'entry') {
+        rec = { date, subject: '', score, fullScore, note: noteFinal, img: mainImg, imgs: photos };
+        s.entryTests.push(rec);
+      } else {
+        rec = { date, content, status, comment: noteFinal, score, fullScore, img: mainImg, imgs: photos };
+        s.homeworks.push(rec);
+      }
+      await dbPut('ledgerStudents', s);
+      // v3.8.0: 镜像同步到「学员档案」，档案里也能看到每天的入门测 / 作业
+      await mirrorToStudentProfile(s, type, rec);
+      if (isFull) fullCount++;
+      okCount++;
     }
-    await dbPut('ledgerStudents', s);
-    // v3.8.0: 镜像同步到「学员档案」，档案里也能看到每天的入门测 / 作业
-    const synced = await mirrorToStudentProfile(s, type, rec);
     saveLocalCache();
     renderLedger();
-    // 保留学员与类型，清空内容/分数/备注/满分/照片，方便连续记录
+    // 保留学员选择，清空内容/分数/备注/满分/照片，方便连续记录
     if ($('#lqContent')) $('#lqContent').value = '';
     if ($('#lqScore')) $('#lqScore').value = 0;
     if ($('#lqFull')) $('#lqFull').value = '';
@@ -14818,9 +15457,9 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     renderLqPhotos();
     const kindTxt = type === 'entry' ? '入门测' : '作业';
     const photoTxt = photos.length ? ` · ${photos.length}张照片` : '';
-    const syncTxt = synced === 'new' ? ' · 已建档案' : (synced ? ' · 已同步档案' : '');
-    if ($('#lqMsg')) $('#lqMsg').textContent = `已追加${kindTxt}${isFull ? ' · 满分 👍' : ' ✓'}${photoTxt}${syncTxt}`;
-    toast(isFull ? '满分！已加 👍' : '已追加 ✓');
+    const fullTxt = fullCount ? ` · 其中 ${fullCount} 人满分 👍` : '';
+    if ($('#lqMsg')) $('#lqMsg').textContent = `已为 ${okCount} 名学员追加${kindTxt} ✓${fullTxt}${photoTxt}`;
+    toast(`已为 ${okCount} 名学员追加${kindTxt}` + (fullCount ? `（${fullCount} 人满分 👍）` : ''));
   };
 
   // v3.8.0: 台账 → 学员档案 镜像同步。按姓名匹配（优先同班级），找不到就自动建档。
@@ -14982,10 +15621,375 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('学情台账已导出');
   }
 
+  // ===== v3.30 学情汇总图：日期范围计算 =====
+  function ledgerRangeOf(kind, cFrom, cTo) {
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = dt => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    const d = new Date();
+    if (kind === 'today') { const t = fmt(d); return { from: t, to: t, label: '今天（' + t + '）' }; }
+    if (kind === 'yesterday') {
+      const y = new Date(d); y.setDate(d.getDate() - 1); const t = fmt(y);
+      return { from: t, to: t, label: '昨天（' + t + '）' };
+    }
+    if (kind === 'week') {
+      const off = (d.getDay() + 6) % 7;               // 周一为一周起点
+      const mon = new Date(d); mon.setDate(d.getDate() - off);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return { from: fmt(mon), to: fmt(sun), label: `本周（${fmt(mon)} ~ ${fmt(sun)}）` };
+    }
+    if (kind === 'month') {
+      const a = new Date(d.getFullYear(), d.getMonth(), 1);
+      const b = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      return { from: fmt(a), to: fmt(b), label: `本月（${fmt(a)} ~ ${fmt(b)}）` };
+    }
+    if (kind === 'custom') {
+      if (!cFrom || !cTo) return null;
+      if (cFrom > cTo) { const t = cFrom; cFrom = cTo; cTo = t; }
+      return { from: cFrom, to: cTo, label: `${cFrom} ~ ${cTo}` };
+    }
+    return null; // all = 不限时间
+  }
+
+  // 取某个 scope 下的学员集合（弹窗与生成共用）
+  function ledgerScopeStudents(scope, classId) {
+    if (scope === 'student') {
+      const s = state.ledgerStudents.find(x => x.id === classId);
+      if (!s) return { err: '学员不存在' };
+      return { students: [s], title: (s.name || '未命名') + ' · 学情汇总', showClass: true };
+    }
+    if (scope === 'class') {
+      const cid = classId || ($('#ledgerClassFilter') ? $('#ledgerClassFilter').value : '');
+      if (!cid) return { err: '请先选择一个班级' };
+      const c = state.classes.find(x => x.id === cid);
+      if (!c) return { err: '班级不存在' };
+      return { students: state.ledgerStudents.filter(s => s.classId === cid), title: c.name + ' · 学情汇总', showClass: !classId };
+    }
+    return { students: state.ledgerStudents.slice(), title: '全部班级 · 学情汇总', showClass: true };
+  }
+
+  // 统计某学员在范围内的记录条数（用于弹窗实时提示 / 过滤空人）
+  function ledgerCountInRange(s, range) {
+    normalizeLedger(s);
+    const inR = r => {
+      const d = r.date || '';
+      if (!range) return true;
+      if (!d) return false;                            // 限定日期时，无日期记录不计入
+      return d >= range.from && d <= range.to;
+    };
+    return (s.entryTests || []).filter(inR).length
+      + (s.homeworks || []).filter(inR).length
+      + (s.scores || []).filter(inR).length;
+  }
+
+  // v3.31：偏低分自动「需关注」判定 —— 得分率低于阈值即标记（仅入门测/作业，积分不计）
+  const ATTENTION_RATIO = 0.6;
+  const FONT = '"PingFang SC", "Microsoft YaHei", sans-serif';
+  function recordNeedsAttention(r) {
+    const sc = Number(r.score), fs = Number(r.fullScore);
+    return r.fullScore != null && r.fullScore !== '' && fs > 0 && !isNaN(sc) && (sc / fs) < ATTENTION_RATIO;
+  }
+  function listNeedsAttention(ets, hws) {
+    return (ets || []).some(recordNeedsAttention) || (hws || []).some(recordNeedsAttention);
+  }
+
+  // ===== v3.31 成绩趋势图（学员弹窗内，按日期看入门测/作业进退步）=====
+  // 从弹窗内实时 DOM 读取（未保存也能画），返回 {ets, hws} 两组点
+  function gatherTrendPoints() {
+    const read = (type) => {
+      const list = type === 'entry' ? $('#lsEntryList') : $('#lsHwList');
+      if (!list) return [];
+      return Array.from(list.querySelectorAll('.ls-row')).map(row => {
+        const sc = parseFloat(row.querySelector(type === 'entry' ? '.lf-score' : '.lf-hwscore').value);
+        return { date: row.querySelector('.ld').value || '', score: isNaN(sc) ? 0 : sc };
+      }).filter(r => r.date && !isNaN(r.score));
+    };
+    return { ets: read('entry'), hws: read('hw') };
+  }
+  // 在指定矩形内绘制折线图；返回是否有数据
+  function drawTrend(ctx, x0, y0, W, H, ets, hws) {
+    ctx.clearRect(x0, y0, W, H);
+    const all = [];
+    (ets || []).forEach(r => r.date && all.push({ date: r.date, y: Number(r.score), k: 'entry' }));
+    (hws || []).forEach(r => r.date && all.push({ date: r.date, y: Number(r.score), k: 'hw' }));
+    if (all.length === 0) return false;
+    all.sort((a, b) => a.date.localeCompare(b.date));
+    const padL = 44, padR = 14, padT = 22, padB = 34;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const yMaxRaw = Math.max(10, ...all.map(p => p.y));
+    const niceMax = Math.max(10, Math.ceil(yMaxRaw / 10) * 10);
+    const xAt = i => x0 + padL + (all.length === 1 ? plotW / 2 : plotW * i / (all.length - 1));
+    const yAt = v => y0 + padT + plotH * (1 - v / niceMax);
+    ctx.font = '11px ' + FONT; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = '#eee'; ctx.fillStyle = '#9aa'; ctx.textAlign = 'right';
+    [0, niceMax / 2, niceMax].forEach(v => {
+      const y = yAt(v);
+      ctx.beginPath(); ctx.moveTo(x0 + padL, y); ctx.lineTo(x0 + W - padR, y); ctx.stroke();
+      ctx.fillText(String(Math.round(v)), x0 + padL - 6, y);
+    });
+    ctx.textAlign = 'center'; ctx.fillStyle = '#9aa';
+    const step = Math.max(1, Math.ceil(all.length / 6));
+    all.forEach((p, i) => {
+      if (i % step !== 0) return;
+      const m = p.date.match(/(\d{4})-(\d{2})-(\d{2})/);
+      ctx.fillText(m ? m[2] + '-' + m[3] : p.date, xAt(i), y0 + H - padB + 12);
+    });
+    const series = [['entry', '#2563eb', ets], ['hw', '#7c3aed', hws]];
+    series.forEach(([k, color, arr]) => {
+      if (!arr || !arr.length) return;
+      const pts = arr.slice().sort((a, b) => a.date.localeCompare(b.date));
+      const idxOf = p => all.findIndex(q => q.date === p.date && q.k === k && Math.abs(q.y - Number(p.score)) < 1e-6);
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+      pts.forEach((p, i) => { const x = xAt(idxOf(p)), y = yAt(Number(p.score)); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+      ctx.stroke();
+      pts.forEach(p => { const x = xAt(idxOf(p)), y = yAt(Number(p.score)); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill(); });
+    });
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#2563eb'; ctx.fillRect(x0 + padL, y0 + 6, 10, 3);
+    ctx.fillStyle = '#555'; ctx.fillText('入门测', x0 + padL + 14, y0 + 7);
+    ctx.fillStyle = '#7c3aed'; ctx.fillRect(x0 + padL + 64, y0 + 6, 10, 3);
+    ctx.fillStyle = '#555'; ctx.fillText('作业', x0 + padL + 78, y0 + 7);
+    return true;
+  }
+  function renderLedgerTrend() {
+    const cv = $('#lsTrend'); if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const { ets, hws } = gatherTrendPoints();
+    const ok = drawTrend(ctx, 0, 0, cv.width, cv.height, ets, hws);
+    const empty = $('#lsTrendEmpty'); if (empty) empty.style.display = ok ? 'none' : '';
+  }
+  window.exportLedgerTrend = function () {
+    const { ets, hws } = gatherTrendPoints();
+    if (!ets.length && !hws.length) { toast('暂无带分数的记录'); return; }
+    const name = ($('#ls_name') ? ($('#ls_name').value || '').trim() : '') || '学员';
+    const W = 720, H = 380, scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale; canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 19px ' + FONT;
+    ctx.fillText(name + ' · 成绩趋势', 20, 16);
+    ctx.fillStyle = '#999'; ctx.font = '12px ' + FONT;
+    ctx.fillText('生成日期：' + todayStr(), 20, 42);
+    drawTrend(ctx, 0, 56, W, H - 56, ets, hws);
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = `${name}_成绩趋势_${todayStr()}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('趋势图已生成');
+  };
+
+  // ===== v3.31 学情报表导出（图片）：概况 + 得分率对比 + 需关注名单 =====
+  window.exportLedgerReport = function (scope, classId) {
+    const sc = ledgerScopeStudents(scope, classId);
+    if (sc.err) { toast(sc.err); return; }
+    if (!sc.students.length) { toast('暂无学员数据'); return; }
+    const avgInfo = list => {
+      const nums = (list || []).filter(r => r.score !== '' && r.score != null && !isNaN(Number(r.score))).map(r => Number(r.score));
+      if (!nums.length) return null;
+      const fs = (list || []).filter(r => r.fullScore != null && r.fullScore !== '' && Number(r.fullScore) !== 0).map(r => Number(r.fullScore));
+      const sameFull = fs.length === nums.length && fs.length > 0 && fs.every(f => f === fs[0]);
+      return { avg: nums.reduce((a, b) => a + b, 0) / nums.length, n: nums.length, full: sameFull ? fs[0] : null };
+    };
+    const stats = sc.students.map(s => {
+      normalizeLedger(s);
+      const ets = s.entryTests || [], hws = s.homeworks || [], scs = s.scores || [];
+      const aEt = avgInfo(ets), aHw = avgInfo(hws);
+      const totalPoints = scs.reduce((a, c) => a + (Number(c.score) || 0), 0);
+      const needsAtt = listNeedsAttention(ets, hws);
+      let rate = null;
+      const cand = [aEt, aHw].filter(Boolean);
+      for (const a of cand) { if (a.full) { rate = a.avg / a.full; break; } }
+      if (rate == null && cand.length) rate = cand[0].avg / (cand[0].full || 100);
+      if (rate != null) rate = Math.max(0, Math.min(1, rate));
+      const low = [];
+      ets.filter(recordNeedsAttention).forEach(r => low.push(`入门测 ${r.score}/${r.fullScore}（${r.date || '?'}）`));
+      hws.filter(recordNeedsAttention).forEach(r => low.push(`作业 ${r.score}/${r.fullScore}（${r.date || '?'}）`));
+      return { name: s.name || '未命名', aEt, aHw, totalPoints, needsAtt, rate, low };
+    });
+    const withData = stats.filter(x => x.aEt || x.aHw || x.totalPoints);
+    if (!withData.length) { toast('学员还没有可统计的分数记录'); return; }
+
+    const padding = 40, W = 896, scale = 2;
+    const headH = 96;
+    const barTitleH = 30, barAreaH = 200, barGap = 16;
+    const attTitleH = 28;
+    const attItems = stats.filter(x => x.needsAtt && x.low.length);
+    const attBlockH = attItems.length ? (attTitleH + attItems.reduce((a, x) => a + 22 + x.low.length * 18 + 8, 0)) : 0;
+    const footH = 40;
+    const H = headH + barTitleH + barAreaH + barGap + attBlockH + footH;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale; canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+
+    // 标题
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 22px ' + FONT;
+    ctx.fillText(sc.title, padding, 24);
+    ctx.fillStyle = '#999'; ctx.font = '13px ' + FONT;
+    ctx.fillText('学情报表 · 生成日期：' + todayStr(), padding, 56);
+    const totalAtt = attItems.length;
+    const gEt = avgInfo(stats.map(s => s.entryTests || []).reduce((a, b) => a.concat(b), []));
+    const gHw = avgInfo(stats.map(s => s.homeworks || []).reduce((a, b) => a.concat(b), []));
+    const sumParts = [`共 ${withData.length} 人`, `需关注 ${totalAtt} 人`];
+    if (gEt) sumParts.push(`入门测均分 ${gEt.avg.toFixed(1)}${gEt.full ? '/' + gEt.full : ''}`);
+    if (gHw) sumParts.push(`作业均分 ${gHw.avg.toFixed(1)}${gHw.full ? '/' + gHw.full : ''}`);
+    ctx.fillStyle = '#555'; ctx.font = '13px ' + FONT;
+    ctx.fillText(sumParts.join('　·　'), padding, 74);
+
+    // 得分率对比条形图
+    let y = headH;
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 15px ' + FONT;
+    ctx.fillText('得分率对比', padding, y);
+    y += barTitleH;
+    const chartX = padding + 8, chartW = W - padding * 2 - 16;
+    const barW = Math.max(14, Math.min(54, (chartW - 20) / withData.length - 6));
+    const slotW = chartW / withData.length;
+    const baseY = y + barAreaH;
+    // 基准线
+    ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+    [0, 0.5, 1].forEach(v => { const yy = baseY - barAreaH * v; ctx.beginPath(); ctx.moveTo(chartX, yy); ctx.lineTo(chartX + chartW, yy); ctx.stroke(); });
+    withData.forEach((x, i) => {
+      const bx = chartX + slotW * i + (slotW - barW) / 2;
+      const bh = (x.rate != null ? x.rate : 0) * barAreaH;
+      ctx.fillStyle = x.needsAtt ? '#e74c3c' : '#4a7cff';
+      ctx.fillRect(bx, baseY - bh, barW, bh);
+      // 姓名
+      ctx.fillStyle = '#444'; ctx.font = '11px ' + FONT; ctx.textAlign = 'center';
+      const nm = x.name.length > 5 ? x.name.slice(0, 5) + '…' : x.name;
+      ctx.fillText(nm, bx + barW / 2, baseY + 5);
+      // 百分比
+      ctx.fillStyle = x.needsAtt ? '#e74c3c' : '#2c7a4b'; ctx.font = 'bold 11px ' + FONT;
+      ctx.fillText(x.rate != null ? Math.round(x.rate * 100) + '%' : '-', bx + barW / 2, baseY - bh - 14);
+      ctx.textAlign = 'left';
+    });
+    y = baseY + 24;
+
+    // 需关注名单
+    if (attItems.length) {
+      y += 8;
+      ctx.fillStyle = '#c0392b'; ctx.font = 'bold 15px ' + FONT;
+      ctx.fillText('⚠ 需关注名单（得分率 < ' + Math.round(ATTENTION_RATIO * 100) + '%）', padding, y);
+      y += attTitleH;
+      attItems.forEach(x => {
+        ctx.fillStyle = '#c0392b'; ctx.font = 'bold 13px ' + FONT;
+        ctx.fillText('· ' + x.name, padding + 6, y);
+        y += 20;
+        ctx.fillStyle = '#7a3b2e'; ctx.font = '12px ' + FONT;
+        x.low.forEach(t => { ctx.fillText('　' + t, padding + 16, y); y += 18; });
+        y += 6;
+      });
+    }
+
+    // 页脚
+    ctx.fillStyle = '#bbb'; ctx.font = '12px ' + FONT;
+    ctx.fillText('由「语文老师工作台」生成 · 仅供教学参考', padding, H - footH + 8);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = `${sc.title.replace(/[·\s]/g, '_')}_学情报表_${todayStr()}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('学情报表已生成');
+  };
+
+  // ===== v3.30 生成前的「时间范围」选择弹窗 =====
+  window.openLedgerImageModal = function (scope, classId) {
+    const sc = ledgerScopeStudents(scope, classId);
+    if (sc.err) { toast(sc.err); return; }
+    if (!sc.students.length) { toast('暂无学员数据'); return; }
+
+    const t = todayStr();
+    openModal('生成学情图片', `
+      <div class="lgi-wrap">
+        <div class="lgi-label">时间范围</div>
+        <div class="lgi-opts" id="lgiOpts">
+          <button type="button" class="lgi-chip active" data-k="today">今天</button>
+          <button type="button" class="lgi-chip" data-k="yesterday">昨天</button>
+          <button type="button" class="lgi-chip" data-k="week">本周</button>
+          <button type="button" class="lgi-chip" data-k="month">本月</button>
+          <button type="button" class="lgi-chip" data-k="custom">自定义</button>
+          <button type="button" class="lgi-chip" data-k="all">全部</button>
+        </div>
+        <div class="lgi-custom" id="lgiCustom" hidden>
+          <label>起<input type="date" id="lgiFrom" value="${t}"></label>
+          <span class="lgi-tilde">~</span>
+          <label>止<input type="date" id="lgiTo" value="${t}"></label>
+        </div>
+        <label class="lgi-switch"><input type="checkbox" id="lgiPhotos" checked><span>包含照片（照片多时图片会很大）</span></label>
+        <label class="lgi-switch"><input type="checkbox" id="lgiSkipEmpty" checked><span>隐藏该时间段没有记录的学员</span></label>
+        <div class="lgi-hint" id="lgiHint">—</div>
+      </div>
+    `, `
+      <button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>
+      <button class="btn-primary" id="lgiGoBtn">生成图片</button>
+    `);
+
+    let kind = 'today';
+    const hint = $('#lgiHint');
+    const curRange = () => ledgerRangeOf(kind, $('#lgiFrom') ? $('#lgiFrom').value : '', $('#lgiTo') ? $('#lgiTo').value : '');
+    const refresh = () => {
+      const range = curRange();
+      if (kind === 'custom' && !range) { hint.textContent = '请选择起止日期'; hint.className = 'lgi-hint warn'; return; }
+      let people = 0, recs = 0, noDate = 0;
+      sc.students.forEach(s => {
+        const n = ledgerCountInRange(s, range);
+        if (n) { people++; recs += n; }
+        normalizeLedger(s);
+        noDate += (s.entryTests || []).filter(r => !r.date).length
+          + (s.homeworks || []).filter(r => !r.date).length
+          + (s.scores || []).filter(r => !r.date).length;
+      });
+      const scopeTxt = range ? range.label : '全部记录（不限时间）';
+      // 限定范围时，没填日期的老记录会被排除，明确告诉用户
+      const tail = (range && noDate) ? `　（另有 ${noDate} 条未填日期的记录不会计入，需要的话选「全部」）` : '';
+      if (recs === 0) {
+        hint.textContent = `${scopeTxt}：这段时间没有任何记录，换个范围试试${tail}`;
+        hint.className = 'lgi-hint warn';
+      } else {
+        hint.textContent = `${scopeTxt}：${people} 名学员 · ${recs} 条记录${tail}`;
+        hint.className = 'lgi-hint ok';
+      }
+    };
+    $('#lgiOpts').querySelectorAll('.lgi-chip').forEach(btn => {
+      btn.onclick = () => {
+        kind = btn.dataset.k;
+        $('#lgiOpts').querySelectorAll('.lgi-chip').forEach(x => x.classList.toggle('active', x === btn));
+        $('#lgiCustom').hidden = kind !== 'custom';
+        refresh();
+      };
+    });
+    ['#lgiFrom', '#lgiTo'].forEach(sel => { const el = $(sel); if (el) el.onchange = refresh; });
+    refresh();
+
+    $('#lgiGoBtn').onclick = () => {
+      const range = curRange();
+      if (kind === 'custom' && !range) { toast('请选择起止日期'); return; }
+      const opt = {
+        range,
+        photos: $('#lgiPhotos').checked,
+        skipEmpty: $('#lgiSkipEmpty').checked
+      };
+      closeModal();
+      window.generateLedgerImage(scope, classId, opt);
+    };
+  };
+
   // v3.8.0 重构：汇总图改为「学员区块 + 逐条明细」，完整显示 得分/满分、备注、照片
-  window.generateLedgerImage = async function (scope, classId) {
+  // v3.30：支持按时间范围筛选 + 周期小结，移除学员行右侧的次数统计
+  window.generateLedgerImage = async function (scope, classId, opt) {
+    opt = opt || {};
+    const range = opt.range || null;
+    const wantPhotos = opt.photos !== false;
+    const skipEmpty = opt.skipEmpty !== false;
     let title, students;
-    if (scope === 'class' && classId) {
+    if (scope === 'student' && classId) {
+      const s = state.ledgerStudents.find(x => x.id === classId);
+      if (!s) { toast('学员不存在'); return; }
+      students = [s];
+      title = (s.name || '未命名') + ' · 学情汇总';
+    } else if (scope === 'class' && classId) {
       const c = state.classes.find(x => x.id === classId);
       if (!c) { toast('班级不存在'); return; }
       students = state.ledgerStudents.filter(s => s.classId === classId);
@@ -15006,6 +16010,15 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     const showClass = !classId;
     toast('正在生成图片…');
 
+    // v3.30 时间范围过滤：限定范围时，无日期的记录不纳入
+    const inRange = (r) => {
+      if (!range) return true;
+      const d = r.date || '';
+      return d ? (d >= range.from && d <= range.to) : false;
+    };
+    // 是否需要「周期小结」：跨度大于 1 天（今天/昨天这种单日不显示）
+    const wantSummary = !range || range.from !== range.to;
+
     const loadImg = (src) => new Promise(res => {
       if (!src) return res(null);
       const im = new Image();
@@ -15020,6 +16033,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     const nameRowH = 46;          // 学员标题行
     const detailRowH = 34;        // 明细行
     const emptyRowH = 30;         // 无记录提示行
+    const summaryRowH = 32;       // v3.30 周期小结行
     // 明细列：日期 / 类型 / 得分 / 备注
     const dCol = [95, 76, 132, 0];
     const tableWidth = 800;
@@ -15048,23 +16062,43 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       return r.fullScore != null && r.fullScore !== '' && fs !== 0 && sc === fs;
     };
 
+    // 均分：只统计填了分数的记录；满分不同的记录同时给出得分率
+    const avgOf = (list) => {
+      const nums = list.filter(r => r.score !== '' && r.score != null && !isNaN(Number(r.score))).map(r => Number(r.score));
+      if (!nums.length) return null;
+      const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+      // 若所有记录满分一致且非 0，附带 /满分
+      const fulls = list.filter(r => r.fullScore != null && r.fullScore !== '' && Number(r.fullScore) !== 0).map(r => Number(r.fullScore));
+      const sameFull = fulls.length === nums.length && fulls.length > 0 && fulls.every(f => f === fulls[0]);
+      return { avg, n: nums.length, full: sameFull ? fulls[0] : null };
+    };
+    const avgTxt = (a) => a ? (`${a.avg.toFixed(1)}${a.full ? '/' + a.full : ''}（${a.n}次）`) : null;
+
     // ===== 汇总每个学员的明细行 =====
     const blocks = [];
+    let hiddenCount = 0;
     for (const s of students) {
       normalizeLedger(s);
+      const ets = (s.entryTests || []).filter(inRange);
+      const hws = (s.homeworks || []).filter(inRange);
+      const scs = (s.scores || []).filter(inRange);
+
+      // v3.30 该时间段没有任何记录 → 默认跳过，避免一堆「暂无记录」
+      if (skipEmpty && !ets.length && !hws.length && !scs.length) { hiddenCount++; continue; }
+
       const rows = [];
-      (s.entryTests || []).forEach(r => rows.push({
+      ets.forEach(r => rows.push({
         date: r.date || '', kind: '入门测', scoreTxt: fmtScore(r),
         note: (r.note || '').trim(), full: isFullMark(r),
         imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
       }));
-      (s.homeworks || []).forEach(r => rows.push({
+      hws.forEach(r => rows.push({
         date: r.date || '', kind: '作业', scoreTxt: fmtScore(r),
         note: [(r.status || ''), (r.comment || '').trim(), (r.content || '').trim()].filter(Boolean).join(' · '),
         full: isFullMark(r),
         imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
       }));
-      (s.scores || []).forEach(r => rows.push({
+      scs.forEach(r => rows.push({
         date: r.date || '', kind: '积分', scoreTxt: fmtScore(r),
         note: (r.note || '').trim(), full: false,
         imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
@@ -15072,24 +16106,44 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       // 按日期升序，无日期的排最后
       rows.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
 
-      // 预加载该学员全部照片
+      // 预加载该学员范围内的照片
       const loaded = [];
-      for (const r of rows) {
-        for (const src of r.imgs) {
-          const img = await loadImg(src);
-          if (img) loaded.push({
-            img, w: img.naturalWidth, h: img.naturalHeight,
-            label: `${fmtMD(r.date)} ${r.kind}${r.scoreTxt ? ' ' + r.scoreTxt : ''}`
-          });
+      if (wantPhotos) {
+        for (const r of rows) {
+          for (const src of r.imgs) {
+            const img = await loadImg(src);
+            if (img) loaded.push({
+              img, w: img.naturalWidth, h: img.naturalHeight,
+              label: `${fmtMD(r.date)} ${r.kind}${r.scoreTxt ? ' ' + r.scoreTxt : ''}`
+            });
+          }
         }
       }
       const galleryLines = loaded.length ? Math.ceil(loaded.length / perLine) : 0;
-      const totalPoints = (s.scores || []).reduce((a, c) => a + (Number(c.score) || 0), 0);
+      const totalPoints = scs.reduce((a, c) => a + (Number(c.score) || 0), 0);
+
+      // v3.30 周期小结：入门测均分 / 作业均分 / 满分次数 / 积分
+      const fullMarks = ets.filter(isFullMark).length + hws.filter(isFullMark).length;
+      // v3.31：本周期内是否有偏低分记录
+      const needsAtt = listNeedsAttention(ets, hws);
+      const parts = [];
+      const aEt = avgTxt(avgOf(ets)); if (aEt) parts.push('入门测均分 ' + aEt);
+      const aHw = avgTxt(avgOf(hws)); if (aHw) parts.push('作业均分 ' + aHw);
+      if (fullMarks) parts.push(`满分 ${fullMarks} 次`);
+      if (totalPoints) parts.push(`积分 ${totalPoints > 0 ? '+' : ''}${totalPoints}`);
+      const summary = (wantSummary && parts.length) ? parts.join('　·　') : '';
+
       const h = nameRowH
+        + (summary ? summaryRowH : 0)
         + (rows.length ? rows.length * detailRowH : emptyRowH)
         + (galleryLines ? galleryLines * galleryLineH + 10 : 0)
         + 10;
-      blocks.push({ s, rows, loaded, galleryLines, totalPoints, h });
+      blocks.push({ s, rows, loaded, galleryLines, totalPoints, summary, ets, hws, scs, fullMarks, needsAtt, h });
+    }
+
+    if (!blocks.length) {
+      toast(range ? '这段时间没有任何记录' : '暂无可生成的记录');
+      return;
     }
 
     const totalContentH = blocks.reduce((a, b) => a + b.h, 0);
@@ -15130,7 +16184,9 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     ctx.fillText(title, padding, padding);
     ctx.fillStyle = '#999999';
     ctx.font = '13px ' + FONT;
-    ctx.fillText('生成日期：' + todayStr(), padding, padding + 32);
+    // v3.30 标注统计周期，让家长/自己一眼知道这张图是哪段时间的
+    const periodTxt = range ? ('统计周期：' + range.label) : '统计周期：全部记录';
+    ctx.fillText(periodTxt + '　|　生成日期：' + todayStr(), padding, padding + 32);
 
     // 外框
     ctx.strokeStyle = '#e0e0e0';
@@ -15145,19 +16201,34 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       ctx.fillStyle = bi % 2 === 0 ? '#eef4ff' : '#f4f6fa';
       ctx.fillRect(padding, yTop, tableWidth, nameRowH);
       const cls = state.classes.find(c => c.id === b.s.classId);
-      const nameTxt = (showClass && cls ? `[${cls.name}] ` : '') + (b.s.name || '未命名');
-      ctx.fillStyle = '#1a3a6b';
+      const nameTxt = (showClass && cls ? `[${cls.name}] ` : '') + (b.s.name || '未命名') + (b.needsAtt ? '　⚠需关注' : '');
+      ctx.fillStyle = b.needsAtt ? '#c0392b' : '#1a3a6b';
       ctx.font = 'bold 17px ' + FONT;
       ctx.textAlign = 'left';
-      ctx.fillText(clip(nameTxt, tableWidth - 240), padding + 14, yTop + 14);
-      // 右侧汇总
-      ctx.fillStyle = '#5a6a80';
-      ctx.font = '13px ' + FONT;
-      ctx.textAlign = 'right';
-      const etN = (b.s.entryTests || []).length, hwN = (b.s.homeworks || []).length;
-      ctx.fillText(`入门测 ${etN} · 作业 ${hwN} · 积分 ${b.totalPoints}`, padding + tableWidth - 14, yTop + 16);
+      ctx.fillText(clip(nameTxt, tableWidth - 28), padding + 14, yTop + 14);
+      // v3.30：原先右侧的「入门测 N · 作业 N · 积分 N」次数统计已移除
 
       let dy = yTop + nameRowH;
+
+      // —— v3.30 周期小结 ——
+      if (b.summary) {
+        ctx.fillStyle = '#fffaf0';
+        ctx.fillRect(padding + 1, dy, tableWidth - 2, summaryRowH);
+        ctx.strokeStyle = '#f0e6d2';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding + 1, dy + summaryRowH);
+        ctx.lineTo(padding + tableWidth - 1, dy + summaryRowH);
+        ctx.stroke();
+        ctx.fillStyle = '#b8860b';
+        ctx.font = 'bold 13px ' + FONT;
+        ctx.textAlign = 'left';
+        ctx.fillText('本期小结', padding + 14, dy + 9);
+        ctx.fillStyle = '#7a5c1e';
+        ctx.font = '13px ' + FONT;
+        ctx.fillText(clip(b.summary, tableWidth - 110), padding + 86, dy + 9);
+        dy += summaryRowH;
+      }
 
       if (!b.rows.length) {
         ctx.fillStyle = '#aaaaaa';
@@ -15239,21 +16310,31 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       y = yTop + b.h;
     });
 
-    // 底部统计
-    const totalScore = students.reduce((sum, s) => sum + ((s.scores || []).reduce((a, b2) => a + (Number(b2.score) || 0), 0)), 0);
+    // 底部统计（v3.30：只统计本周期内、且实际画进图里的学员）
+    const totalScore = blocks.reduce((sum, b) => sum + b.totalPoints, 0);
     const totalPhotos = blocks.reduce((a, b) => a + b.loaded.length, 0);
-    const avgScore = students.length > 0 ? (totalScore / students.length).toFixed(1) : 0;
+    const allEt = blocks.reduce((a, b) => a.concat(b.ets), []);
+    const allHw = blocks.reduce((a, b) => a.concat(b.hws), []);
+    const gEt = avgTxt(avgOf(allEt)), gHw = avgTxt(avgOf(allHw));
+    const footParts = [`共 ${blocks.length} 人`];
+    if (gEt) footParts.push('入门测均分 ' + gEt);
+    if (gHw) footParts.push('作业均分 ' + gHw);
+    if (totalScore) footParts.push('总积分 ' + totalScore);
+    if (totalPhotos) footParts.push('照片 ' + totalPhotos + ' 张');
+    if (hiddenCount) footParts.push(`本周期无记录 ${hiddenCount} 人未列出`);
     ctx.fillStyle = '#666666';
     ctx.font = '13px ' + FONT;
     ctx.textAlign = 'left';
-    ctx.fillText(`共 ${students.length} 人 · 总积分 ${totalScore} · 平均积分 ${avgScore}${totalPhotos ? ' · 照片 ' + totalPhotos + ' 张' : ''}`, padding, contentBottom + 18);
+    ctx.fillText(clip(footParts.join(' · '), tableWidth), padding, contentBottom + 18);
 
     // 下载
     canvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${title.replace(/[·\s]/g, '_')}_${todayStr()}.png`;
+      // v3.30 文件名带上周期，方便区分「今天」和「本周」两张图
+      const tag = range ? (range.from === range.to ? range.from : `${range.from}_${range.to}`) : `全部_${todayStr()}`;
+      a.download = `${title.replace(/[·\s]/g, '_')}_${tag}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -15267,9 +16348,12 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       const dataUrl = canvas.toDataURL('image/png');
       summaryEl.innerHTML = `
         <div class="ledger-image-preview">
-          <img src="${dataUrl}" alt="学情汇总图" />
-          <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-muted)">长按图片可保存至手机相册</p>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${escapeHtml(periodTxt)} · ${blocks.length} 人</div>
+          <img src="${dataUrl}" alt="学情汇总图" style="cursor:zoom-in" />
+          <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-muted)">点击可放大 · 长按图片保存至手机相册</p>
         </div>`;
+      const pv = summaryEl.querySelector('img');
+      if (pv) pv.onclick = () => openImageViewer(dataUrl);
     }
   };
 
@@ -15869,26 +16953,45 @@ ${body}
     const m = String(d.getMinutes()).padStart(2,'0');
     return `${h}:${m}`;
   }
+  // v3.28: 合并气泡模式 —— 同一发送者 2 分钟内连续消息共享头像（LINE 风格）
   function aiPush(role, text, opt) {
     opt = opt || {};
     const body = $('#aiChatBody');
     if (!body) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'ai-msg ' + (role === 'me' ? 'me' : 'ai');
 
-    // 头像列
-    const avCol = document.createElement('div');
-    avCol.className = 'ai-avatar';
-    avCol.innerHTML = aiAvatarHtml(role);
+    // 查找最后一个消息组，判断是否可合并
+    const lastGroup = body.querySelector('.ai-msg-group:last-child');
+    const isSameRole = lastGroup && lastGroup.dataset.role === role;
+    const lastTime = lastGroup ? parseInt(lastGroup.dataset.lastTime || '0') : 0;
+    const withinMergeWindow = (Date.now() - lastTime) < 120000; // 2 分钟窗口
 
-    // 内容列
-    const col = document.createElement('div');
-    col.className = 'ai-msg-col';
+    let group, bubbleList;
 
-    // 昵称
-    col.insertAdjacentHTML('beforeend', aiNickHtml(role));
+    if (isSameRole && withinMergeWindow) {
+      // 复用已有组（合并模式）
+      group = lastGroup;
+      bubbleList = group.querySelector('.ai-bubble-list');
+    } else {
+      // 创建新消息组
+      group = document.createElement('div');
+      group.className = 'ai-msg-group' + (role === 'me' ? ' me' : '');
+      group.dataset.role = role;
+      group.dataset.lastTime = String(Date.now());
 
-    // 气泡
+      // 头像（每组只显示一次）
+      const avCol = document.createElement('div');
+      avCol.className = 'ai-avatar';
+      avCol.innerHTML = aiAvatarHtml(role);
+      group.appendChild(avCol);
+
+      // 气泡列
+      bubbleList = document.createElement('div');
+      bubbleList.className = 'ai-bubble-list';
+      group.appendChild(bubbleList);
+      body.appendChild(group);
+    }
+
+    // 创建气泡
     const bub = document.createElement('div');
     bub.className = 'ai-bubble' + (opt.cls ? ' ' + opt.cls : '');
     bub.textContent = text;
@@ -15904,19 +17007,22 @@ ${body}
       });
       bub.appendChild(acts);
     }
-    col.appendChild(bub);
+    bubbleList.appendChild(bub);
 
-    // 时间戳
-    const ts = document.createElement('div');
-    ts.className = 'ai-ts';
-    ts.innerHTML = aiNowTs() + (role === 'me' ? '<span class="read">✓✓</span>' : '');
-    col.appendChild(ts);
+    // 更新组时间戳
+    group.dataset.lastTime = String(Date.now());
 
-    wrap.appendChild(avCol);
-    wrap.appendChild(col);
-    body.appendChild(wrap);
+    // 时间戳（显示在组末尾）
+    let tsEl = bubbleList.querySelector('.ai-ts');
+    if (!tsEl) {
+      tsEl = document.createElement('div');
+      tsEl.className = 'ai-ts';
+      bubbleList.appendChild(tsEl);
+    }
+    tsEl.innerHTML = aiNowTs() + (role === 'me' ? '<span class="read">✓✓</span>' : '');
+
     // v3.23: 持久化聊天记录（跳过 typing 占位消息和回放期间）
-    if (text && !wrap.classList.contains('ai-typing-msg') && !window.__app._replayingChat) {
+    if (text && !window.__app._replayingChat) {
       try {
         const hist = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY) || '[]');
         hist.push({ role: role === 'me' ? 'me' : 'ai', text: text, time: Date.now(), cls: (opt && opt.cls) || '' });
@@ -15925,24 +17031,25 @@ ${body}
       } catch(e) {}
     }
     aiScrollBottom();
-    return wrap;
+    return bub;
   }
+  // v3.28: typing 动画也用合并组结构
   function aiPushTyping() {
     const body = $('#aiChatBody');
     if (!body) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'ai-msg ai';
+    const group = document.createElement('div');
+    group.className = 'ai-msg-group ai-typing-group';
+    group.dataset.role = 'ai';
     const avCol = document.createElement('div'); avCol.className = 'ai-avatar'; avCol.innerHTML = aiAvatarHtml('ai');
-    const col = document.createElement('div'); col.className = 'ai-msg-col';
-    col.insertAdjacentHTML('beforeend', aiNickHtml('ai'));
+    const bubbleList = document.createElement('div'); bubbleList.className = 'ai-bubble-list';
     const bub = document.createElement('div');
     bub.className = 'ai-bubble';
     bub.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
-    col.appendChild(bub);
-    wrap.appendChild(avCol); wrap.appendChild(col);
-    body.appendChild(wrap);
+    bubbleList.appendChild(bub);
+    group.appendChild(avCol); group.appendChild(bubbleList);
+    body.appendChild(group);
     aiScrollBottom();
-    return wrap;
+    return group; // 返回组以便后续 remove
   }
   function aiGoPage(page, tab, render) {
     aiCloseChat();
@@ -16462,6 +17569,11 @@ ${body}
     openRenewAssistant: window.openRenewAssistant,
     openLedgerStudentModal: window.openLedgerStudentModal,
     generateLedgerImage: window.generateLedgerImage,
+    openLedgerImageModal: window.openLedgerImageModal,
+    renderLedgerTrend: renderLedgerTrend,
+    exportLedgerTrend: window.exportLedgerTrend,
+    exportLedgerReport: window.exportLedgerReport,
+    quickLedgerAdd: window.quickLedgerAdd,
     openReceiptGenerator, generateReceipt, saveReceipt, shareReceipt,
     downloadPrepFile, deletePrepFile,
     addEntryTest, delEntryTest, saveEntryTests,
@@ -16484,7 +17596,7 @@ ${body}
 
   // 启动
   // v3.2.1+: 检测 JS 版本，版本不符则强制刷新（绕过浏览器缓存，避免一直看到旧版）
-  const CURRENT_JS_VER = '76';
+  const CURRENT_JS_VER = '86';
   (function checkVersion() {
     const stored = getSetting('jsVer', '');
     if (stored && stored !== CURRENT_JS_VER) {

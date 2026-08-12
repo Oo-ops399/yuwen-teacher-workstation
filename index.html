@@ -3198,6 +3198,18 @@ label input, label select, label textarea { margin-top: 4px; }
   .ql-tip { font-size: 12px; color: var(--text-muted); padding: 6px 14px 12px; margin: 0; line-height: 1.6; }
   .ql-table .ql-chk, .ql-table #qlCheckAll { width: 18px; height: 18px; }
   .ql-row-hl { background: rgba(74,144,226,0.08) !important; box-shadow: inset 0 0 0 2px var(--primary); }
+  .ql-score { display: flex; flex-direction: column; gap: 4px; }
+  .ql-score input { width: 58px; }
+  .ql-presets { display: flex; flex-wrap: wrap; gap: 2px; width: 134px; }
+  .ql-preset { font-size: 10px; padding: 1px 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--text); cursor: pointer; line-height: 1.5; }
+  .ql-preset:active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .ql-trend { text-align: center; padding: 8px 4px 4px; }
+  .ql-trend canvas { width: 100%; max-width: 640px; height: auto; background: #fff; border-radius: 10px; border: 1px solid var(--border); }
+  .ql-trend-legend { font-size: 12px; color: var(--text-muted); margin: 6px 0 2px; }
+  .ql-trend-legend .tdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
+  .ql-trend-legend .tdot.entry { background: #4a90e2; }
+  .ql-trend-legend .tdot.hw { background: #27ae60; }
+  .ql-trend-legend .tdot.dict { background: #e67e22; }
   #qlDate.ql-date { font-size: 14px; padding: 6px 8px; }
   .recording { animation: qlPulse 1s infinite; background: #e23b3b !important; color: #fff !important; border-color: #e23b3b !important; }
   @keyframes qlPulse { 0% { opacity: 1; } 50% { opacity: .55; } 100% { opacity: 1; } }
@@ -15590,18 +15602,18 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       + stu.map(s => {
           const last = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(-1)[0];
           const lastTxt = last ? (last.date || '') + (last.entry && last.entry.score !== '' && last.entry.score != null ? ' 测' + last.entry.score : '') : '';
+          const presets = '<div class="ql-presets">' + QL_HW_OPTS.map(o => '<button type="button" class="ql-preset" data-v="' + o + '">' + o + '</button>').join('') + '</div>';
           return '<tr data-sid="' + s.id + '">'
             + '<td class="ql-name">' + escapeHtml(s.name || '') + (lastTxt ? ' <span class="ql-last">' + escapeHtml(lastTxt) + '</span>' : '') + '</td>'
             + '<td><input type="number" class="ql-entry" step="0.5" min="0" placeholder="—"></td>'
-            + '<td><input type="number" class="ql-hw" step="5" min="0" max="100" list="qlHwDl" placeholder="—"></td>'
-            + '<td><input type="number" class="ql-dict" step="5" min="0" max="100" list="qlHwDl" placeholder="—"></td>'
+            + '<td class="ql-score"><input type="number" class="ql-hw" step="5" min="0" max="100" placeholder="—">' + presets + '</td>'
+            + '<td class="ql-score"><input type="number" class="ql-dict" step="5" min="0" max="100" placeholder="—">' + presets + '</td>'
             + '<td><input type="text" class="ql-note" placeholder="简短备注"></td>'
             + '<td><button type="button" class="btn-ghost ql-photo-btn">📷<span class="ql-photo-count"></span></button><input type="file" class="ql-photo-input" accept="image/*" multiple hidden></td>'
             + '<td><button type="button" class="btn-ghost" onclick="window.__app.openLessonHistory(\'' + s.id + '\')">时间线</button></td>'
             + '</tr>';
         }).join('')
-      + '</tbody></table>'
-      + '<datalist id="qlHwDl">' + QL_HW_OPTS.map(o => '<option value="' + o + '">').join('') + '</datalist>';
+      + '</tbody></table>';
     // 照片按钮绑定
     wrap.querySelectorAll('.ql-photo-btn').forEach(btn => {
       const row = btn.closest('tr');
@@ -15616,6 +15628,14 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         window.__qlPhotos[row.dataset.sid] = arr;
         countEl.textContent = arr.length ? ' ' + arr.length : '';
         e.target.value = '';
+      };
+    });
+    // 预设分数按钮：点一下填入本格输入框（框仍可手填）
+    wrap.querySelectorAll('.ql-preset').forEach(btn => {
+      btn.onclick = () => {
+        const cell = btn.closest('.ql-score');
+        const inp = cell && cell.querySelector('.ql-hw, .ql-dict');
+        if (inp) inp.value = btn.dataset.v;
       };
     });
   }
@@ -15660,7 +15680,12 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (!s) return;
     normalizeLedger(s);
     const lessons = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0));
-    const body = '<div class="ql-hist">'
+    const trendHtml = lessons.length >= 2
+      ? '<div class="ql-trend"><canvas id="qlTrendCanvas" width="640" height="320"></canvas>'
+        + '<div class="ql-trend-legend"><span class="tdot entry"></span>入门测 <span class="tdot hw"></span>作业 <span class="tdot dict"></span>听写</div>'
+        + '<button type="button" class="btn-ghost" onclick="window.__app.exportTrend(\'' + sid + '\')">⬇ 导出趋势图</button></div>'
+      : '<div class="info-block">登记满 2 节课后自动生成分数趋势图</div>';
+    const body = trendHtml + '<div class="ql-hist">'
       + (lessons.length ? lessons.map(l => {
           const entryTxt = (l.entry && l.entry.score !== '' && l.entry.score != null) ? (escapeHtml(String(l.entry.score)) + ' 分' + (l.entry.note ? '（' + escapeHtml(l.entry.note) + '）' : '')) : '—';
           const hwTxt = (l.homework && l.homework.status) ? escapeHtml(l.homework.status) + (l.homework.note ? '（' + escapeHtml(l.homework.note) + '）' : '') : '—';
@@ -15675,6 +15700,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         }).join('') : '<div class="info-block">暂无本节课记录，去「本节课快速录入」登记吧</div>')
       + '</div>';
     openModal(escapeHtml(s.name || '') + ' · 学情时间线', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+    const cv = document.getElementById('qlTrendCanvas');
+    if (cv) drawScoreTrend(cv, lessons);
     Array.from(document.querySelectorAll('.ql-lesson-del')).forEach(b => b.onclick = async () => {
       const lid = b.dataset.lid;
       const st = state.ledgerStudents.find(x => x.id === sid);
@@ -15685,6 +15712,55 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       renderLedger();
       window.__app.openLessonHistory(sid);
     });
+  };
+  function drawScoreTrend(canvas, lessons) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const data = lessons.filter(l => l && l.date).map(l => {
+      const e = (l.entry && l.entry.score !== '' && l.entry.score != null) ? Number(l.entry.score) : NaN;
+      const h = (l.homework && l.homework.status) ? Number(l.homework.status) : NaN;
+      const d = (l.dictation && l.dictation.status) ? Number(l.dictation.status) : NaN;
+      return { date: l.date, e, h, d };
+    }).filter(p => [p.e, p.h, p.d].some(v => !isNaN(v)));
+    if (data.length < 2) return;
+    const padL = 38, padR = 14, padT = 16, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const maxV = 100, minV = 0;
+    const n = data.length;
+    const xAt = i => padL + (n === 1 ? plotW / 2 : plotW * i / (n - 1));
+    const yAt = v => padT + plotH * (1 - (v - minV) / (maxV - minV));
+    ctx.strokeStyle = '#ececf0'; ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) { const y = padT + plotH * g / 4; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke(); }
+    ctx.strokeStyle = '#ccc'; ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(W - padR, padT + plotH); ctx.stroke();
+    ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+    for (let g = 0; g <= 4; g++) { const v = maxV - (maxV - minV) * g / 4; ctx.fillText(Math.round(v), padL - 5, padT + plotH * g / 4 + 4); }
+    ctx.textAlign = 'center';
+    data.forEach((p, i) => { ctx.fillText((p.date || '').slice(5), xAt(i), H - 10); });
+    const series = [['e', '#4a90e2'], ['h', '#27ae60'], ['d', '#e67e22']];
+    series.forEach(([key, color]) => {
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+      let started = false;
+      data.forEach((p, i) => { const v = p[key]; if (isNaN(v)) return; const x = xAt(i), y = yAt(v); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); });
+      ctx.stroke();
+      data.forEach((p, i) => { const v = p[key]; if (isNaN(v)) return; const x = xAt(i), y = yAt(v); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); });
+    });
+  }
+  window.__app.exportTrend = function (sid) {
+    const cv = document.getElementById('qlTrendCanvas');
+    if (!cv) { toast('请先打开该学员的时间线'); return; }
+    const s = state.ledgerStudents.find(x => x.id === sid);
+    const name = (s && s.name) || '学员';
+    let url = '';
+    try { url = cv.toDataURL('image/png'); } catch (e) {}
+    try {
+      const a = document.createElement('a');
+      a.href = url; a.download = name + '_分数趋势图.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('趋势图已导出（未自动保存则长按图片存储）');
+    } catch (e) {
+      openModal(name + ' · 分数趋势图', '<img src="' + url + '" style="max-width:100%;border-radius:10px">', '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+    }
   };
   window.__app.viewLessonImg = function (sid, lid, j) {
     const s = state.ledgerStudents.find(x => x.id === sid);

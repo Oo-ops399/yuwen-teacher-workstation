@@ -3184,6 +3184,34 @@ label input, label select, label textarea { margin-top: 4px; }
   .view-toggle .btn-ghost { padding: 5px 10px; font-size: 12px; }
   .accounting-summary { font-size: 12px; }
   .ledger-table { min-width: 500px; }
+  /* v3.36 本节课快速录入 / 学情时间线 / 语音录入 */
+  .ql-table-wrap { padding: 4px 0 8px; overflow-x: auto; }
+  .ql-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+  .ql-table th, .ql-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  .ql-table th { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+  .ql-table input[type=number] { width: 84px; }
+  .ql-table input[type=text] { width: 132px; }
+  .ql-table select { min-width: 86px; }
+  .ql-name { font-weight: 600; }
+  .ql-last { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
+  .ql-photo-count { font-size: 11px; color: var(--primary); margin-left: 2px; }
+  .ql-tip { font-size: 12px; color: var(--text-muted); padding: 6px 14px 12px; margin: 0; line-height: 1.6; }
+  .ql-table .ql-chk, .ql-table #qlCheckAll { width: 18px; height: 18px; }
+  .ql-row-hl { background: rgba(74,144,226,0.08) !important; box-shadow: inset 0 0 0 2px var(--primary); }
+  #qlDate.ql-date { font-size: 14px; padding: 6px 8px; }
+  .recording { animation: qlPulse 1s infinite; background: #e23b3b !important; color: #fff !important; border-color: #e23b3b !important; }
+  @keyframes qlPulse { 0% { opacity: 1; } 50% { opacity: .55; } 100% { opacity: 1; } }
+  .ql-hist { display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow-y: auto; }
+  .ql-lesson { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .ql-lesson-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .ql-lesson-row { font-size: 14px; padding: 2px 0; color: var(--text-soft); }
+  .ql-lesson-imgs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .ql-lesson-img { width: 88px; height: 88px; object-fit: cover; border-radius: 8px; cursor: pointer; }
+  .fb-1to1-list { display: flex; flex-direction: column; gap: 12px; max-height: 72vh; overflow-y: auto; }
+  .fb-1to1 { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .fb-1to1-hd { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+  .fb-1to1-body { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 14px; margin: 0; line-height: 1.6; }
+
 }
 
 /* ================= v3.0 液态/透明效果 ================= */
@@ -4563,7 +4591,28 @@ label input, label select, label textarea { margin-top: 4px; }
 
 
 </style>
-</head>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'084509db6f7549bfb8d40754ddc39eb9'
+    });
+  }catch(e){}
+})();
+</script></head>
 <body>
 
 <!-- 左侧导航 -->
@@ -4838,6 +4887,7 @@ label input, label select, label textarea { margin-top: 4px; }
       <div class="sch-actions">
         <button class="btn-primary" id="addCommBtn">＋ 记录</button>
         <button class="btn-ghost" id="importTemplateBtn">导入话术</button>
+        <input type="file" id="importTemplateInput" accept=".json,.txt,.md" hidden>
         <button class="btn-ghost" id="exportCommBtn">导出</button>
       </div>
     </div>
@@ -5950,6 +6000,23 @@ label input, label select, label textarea { margin-top: 4px; }
     </div>
     <div class="panel">
       <div class="panel-header">
+        <h2>本节课快速录入</h2>
+        <div class="header-actions">
+          <select id="qlClassSel" style="min-width:100px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)"><option value="">选择班级</option></select>
+          <input type="date" id="qlDate" class="ql-date">
+          <button class="btn-ghost" id="qlCopyCommentBtn">复制相同评语</button>
+          <button class="btn-ghost" id="qlFbBtn">生成课后反馈</button>
+          <button class="btn-ghost" id="qlRefreshBtn">刷新名单</button>
+          <button class="btn-primary" id="qlVoiceBtn">🎤 语音录入</button>
+          <button class="btn-primary" id="qlSaveBtn">一键保存本页</button>
+        </div>
+      </div>
+      <div id="qlTable" class="ql-table-wrap"></div>
+      <p class="ql-tip">选择班级后自动列出本班全部学生，每行直接填写入门测 / 作业 / 听写 / 备注，填完点「保存本页」即可；每行 📷 可绑定本节课照片。点「时间线」查看该生每节课记录与照片。</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
         <h2>班级学员学情台账</h2>
         <div class="header-actions">
           <button class="btn-ghost" id="ledgerImportBtn">导入学员</button>
@@ -6734,7 +6801,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     }
     if (page === 'feedback-mat') renderFeedbackMaterials();
     if (page === 'accounting') renderAccounting();
-    if (page === 'ledger') { renderLedger(); renderLedgerQuick(); }
+    if (page === 'ledger') { renderLedger(); renderLedgerQuick(); renderQuickLesson(); }
     if (page === 'exercise') {
       renderExStudentOptions();
       const tip = $('#exAiTip');
@@ -6924,7 +6991,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       btn.onclick = () => {
         const style = btn.dataset.style;
         updateSetting('cardStyle', style);
-        $('#cardBanner').setAttribute('data-card-style', style);
+        const cbEl = $('#cardBanner'); if (cbEl) cbEl.setAttribute('data-card-style', style);
         $$('.card-style-btn').forEach(b => b.classList.toggle('active', b === btn));
         const extraImg = $('#bannerExtraImg');
         if (extraImg) extraImg.hidden = (style !== 'dualimg');
@@ -7477,7 +7544,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     // 导入话术
     const importTemplateBtn = $('#importTemplateBtn');
-    if (importTemplateBtn) importTemplateBtn.onclick = () => $('#importTemplateInput').click();
+    if (importTemplateBtn) importTemplateBtn.onclick = () => { const el = $('#importTemplateInput'); if (el) el.click(); };
     const importTemplateInput = $('#importTemplateInput');
     if (importTemplateInput) importTemplateInput.onchange = e => handleImportTemplates(e.target.files[0]);
 
@@ -7565,6 +7632,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (ledgerReportClassBtn) ledgerReportClassBtn.onclick = () => window.__app.exportLedgerReport('class');
     const ledgerReportAllBtn = $('#ledgerReportAllBtn');
     if (ledgerReportAllBtn) ledgerReportAllBtn.onclick = () => window.__app.exportLedgerReport('all');
+    const qlSaveBtn = document.getElementById('qlSaveBtn'); if (qlSaveBtn) qlSaveBtn.onclick = window.saveQuickLesson;
+    const qlVoiceBtn = document.getElementById('qlVoiceBtn'); if (qlVoiceBtn) qlVoiceBtn.onclick = window.startVoiceEntry;
+    const qlCopyBtn = document.getElementById('qlCopyCommentBtn'); if (qlCopyBtn) qlCopyBtn.onclick = window.copySameComment;
+    const qlFbBtn = document.getElementById('qlFbBtn'); if (qlFbBtn) qlFbBtn.onclick = window.generateLessonFeedback;
+    const qlRefreshBtn = document.getElementById('qlRefreshBtn'); if (qlRefreshBtn) qlRefreshBtn.onclick = renderQuickLesson;
+    const ledgerClassFilter2 = document.getElementById('ledgerClassFilter'); if (ledgerClassFilter2) ledgerClassFilter2.onchange = () => { renderLedger(); renderQuickLesson(); };
     const ledgerBatchGradeBtn = $('#ledgerBatchGradeBtn');
     if (ledgerBatchGradeBtn) ledgerBatchGradeBtn.onclick = () => window.openBatchGrade();
 
@@ -7877,8 +7950,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const reader = new FileReader();
     reader.onload = e => {
       const url = e.target.result;
-      $('#avatarPreview').style.backgroundImage = `url(${url})`;
-      $('#avatarPreview').innerHTML = '';
+      const apEl = $('#avatarPreview');
+      if (apEl) { apEl.style.backgroundImage = `url(${url})`; apEl.innerHTML = ''; }
       updateSetting('avatar', url);
     };
     reader.readAsDataURL(file);
@@ -8218,8 +8291,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
     const avatar = getSetting('avatar', '');
     if (avatar) {
-      $('#avatarPreview').style.backgroundImage = `url(${avatar})`;
-      $('#avatarPreview').innerHTML = '';
+      const apEl = $('#avatarPreview');
+      if (apEl) { apEl.style.backgroundImage = `url(${avatar})`; apEl.innerHTML = ''; }
     }
   }
 
@@ -11238,16 +11311,32 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
   }
 
   // v3.7: 通用 AI 调用底座（文本 + 多模态图片）
-  async function callAIText(prompt, sysRole) {
-    return callAIVision(prompt, null, sysRole);
+async function callAIText(prompt, sysRole, onDelta) {
+    return callAIVision(prompt, null, sysRole, onDelta);
   }
-  async function callAIVision(prompt, images, sysRole) {
+async function callAIVision(prompt, images, sysRole, onDelta) {
+    // SSE 文本解析（兼容服务器返回流式分块）
+    function parseSSE(raw) {
+      let acc = '', ok = false;
+      raw.split('\n').forEach(function (line) {
+        const s = line.trim();
+        if (!s || !s.startsWith('data:')) return;
+        const data = s.slice(5).trim();
+        if (data === '[DONE]') return;
+        try {
+          const j = JSON.parse(data);
+          const d = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+          if (d) { acc += d; ok = true; }
+        } catch (e2) {}
+      });
+      return ok ? acc : '';
+    }
     const aiUrl = getSetting('aiApiUrl', '').trim();
     const aiKey = getSetting('aiApiKey', '').trim();
     const aiModel = getSetting('aiModel', '').trim() || 'gpt-4o';
     if (!aiUrl) throw new Error('未配置 AI 接口，请到「个性化设置」填写 aiApiUrl');
     const content = [{ type: 'text', text: prompt }];
-    (images || []).forEach(img => {
+    (images || []).forEach(function (img) {
       if (img) content.push({ type: 'image_url', image_url: { url: img } });
     });
     const body = {
@@ -11256,28 +11345,76 @@ ${extra.req ? '教师补充要求（必须满足）：' + extra.req : ''}`;
         { role: 'system', content: sysRole || '你是资深中小学语文教师助手，回答专业、简洁、可直接使用。' },
         { role: 'user', content }
       ],
-      temperature: 0.5
+      temperature: 0.5,
+      stream: !!onDelta
     };
     const headers = { 'Content-Type': 'application/json' };
     if (aiKey) headers['Authorization'] = 'Bearer ' + aiKey;
     let res;
     try {
       res = await fetch(aiUrl, {
-        method: 'POST', headers, body: JSON.stringify(body),
-        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(90000) : undefined
+        method: 'POST', headers: headers, body: JSON.stringify(body),
+        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(120000) : undefined
       });
     } catch (netErr) {
       throw new Error('无法连接到 AI 接口（请检查网址是否正确、网络是否通畅、是否有 CORS 限制）：' + (netErr.message || String(netErr)));
     }
     if (!res.ok) {
       let msg = 'HTTP ' + res.status;
-      try { const t = await res.text(); if (t) msg += ' ' + t.slice(0, 200); } catch (e) {}
+      try { const t = await res.text(); if (t) msg += ' ' + t.slice(0, 200); } catch (e2) {}
       throw new Error(msg);
     }
-    const json = await res.json();
-    const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
-    if (!text) throw new Error('AI 未返回内容');
-    return text;
+
+    // 流式：逐 token 推送到 onDelta
+    if (onDelta && res.body && res.body.getReader) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buf = '', raw = '', acc = '';
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        const piece = decoder.decode(chunk.value, { stream: true });
+        raw += piece; buf += piece;
+        const parts = buf.split('\n');
+        buf = parts.pop();
+        for (const line of parts) {
+          const s = line.trim();
+          if (!s || !s.startsWith('data:')) continue;
+          const data = s.slice(5).trim();
+          if (data === '[DONE]') { try { reader.cancel(); } catch (e3) {} break; }
+          try {
+            const j = JSON.parse(data);
+            const d = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+            if (d) { acc += d; onDelta(acc, d); }
+          } catch (e3) {}
+        }
+      }
+      if (!acc) {
+        // 服务器忽略 stream 标志、实际返回 JSON 时的兜底
+        try {
+          const json = JSON.parse(raw);
+          const text = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+          if (text) { acc = text; onDelta(acc, text); }
+        } catch (e3) {}
+      }
+      if (!acc) throw new Error('AI 未返回内容');
+      return acc;
+    }
+
+    // 非流式：统一先取文本，再兼容 SSE 或 JSON 两种返回
+    const txt = await res.text();
+    const trimmed = txt.trim();
+    let out = '';
+    if (trimmed.indexOf('data:') === 0 || /\ndata:/.test(txt)) {
+      out = parseSSE(txt);
+    } else {
+      try {
+        const json = JSON.parse(txt);
+        out = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+      } catch (e3) {}
+    }
+    if (!out) throw new Error('AI 未返回内容');
+    return out;
   }
   // v3.7: 容错解析 JSON（去除代码块标记 + 抽取首个 {...}）
   function extractJSON(text) {
@@ -15405,6 +15542,267 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (cam) cam.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
     if (pick) pick.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
   }
+  // ===== v3.36: 学情台账「本节课快速录入 / 学情时间线 / 一键反馈 / 语音录入」 =====
+  const QL_HW_OPTS = ['100', '95', '90', '85', '80', '75', '70'];
+  const DEFAULT_FB_TPL = '{姓名}家长您好，以下是{姓名}本节课的学情反馈：\n📝 入门测：{入门测}\n✅ 作业：{作业}\n📖 听写：{听写}\n💡 老师评语：{备注}\n\n最近几次记录：\n{时间线}';
+  function getFbTpl() { try { return localStorage.getItem('ledgerFbTpl') || DEFAULT_FB_TPL; } catch (e) { return DEFAULT_FB_TPL; } }
+  function setFbTpl(v) { try { localStorage.setItem('ledgerFbTpl', v); } catch (e) {} }
+  function copyText(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); toast('已复制'); return; }
+    } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('已复制'); } catch (e) { toast('复制失败，请手动选择'); }
+    ta.remove();
+  }
+  window.copyText = copyText;
+  function qlCurrentClassId() {
+    const sel = document.getElementById('qlClassSel');
+    if (sel && sel.value) return sel.value;
+    const sel2 = document.getElementById('ledgerClassFilter');
+    return (sel2 && sel2.value) || (state.classes[0] && state.classes[0].id) || '';
+  }
+  function renderQuickLesson() {
+    const wrap = document.getElementById('qlTable');
+    if (!wrap) return;
+    // 填充班级选择器
+    const classSel = document.getElementById('qlClassSel');
+    if (classSel) {
+      const prevVal = classSel.value;
+      classSel.innerHTML = '<option value="">选择班级</option>' + state.classes.map(c => '<option value="' + c.id + '"' + (c.id === prevVal ? ' selected' : '') + '>' + escapeHtml(c.name || '') + '</option>').join('');
+      if (prevVal && !classSel.value) classSel.value = prevVal;
+      // 切换班级自动刷新
+      classSel.onchange = () => renderQuickLesson();
+    }
+    const cid = qlCurrentClassId();
+    const dateEl = document.getElementById('qlDate');
+    if (dateEl && !dateEl.value) dateEl.value = todayStr();
+    const stu = state.ledgerStudents.filter(s => s.classId === cid).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
+    if (!state.classes.length) { wrap.innerHTML = '<div class="info-block">请先「＋ 新建班级」或用「导入学员」初始化名单</div>'; return; }
+    if (!cid) { wrap.innerHTML = '<div class="info-block">👆 请先在上方选择一个班级</div>'; return; }
+    if (!stu.length) { wrap.innerHTML = '<div class="info-block">该班级暂无学员，请先「导入学员」或「＋ 学员」添加名单</div>'; return; }
+    // 纯列表：每行一个学生，直接填，不要 checkbox
+    wrap.innerHTML = '<table class="ql-table"><thead><tr>'
+      + '<th>学员</th><th>入门测<br><small>分数</small></th><th>作业</th><th>听写</th><th>备注</th><th>照片</th><th>操作</th>'
+      + '</tr></thead><tbody>'
+      + stu.map(s => {
+          const last = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(-1)[0];
+          const lastTxt = last ? (last.date || '') + (last.entry && last.entry.score !== '' && last.entry.score != null ? ' 测' + last.entry.score : '') : '';
+          return '<tr data-sid="' + s.id + '">'
+            + '<td class="ql-name">' + escapeHtml(s.name || '') + (lastTxt ? ' <span class="ql-last">' + escapeHtml(lastTxt) + '</span>' : '') + '</td>'
+            + '<td><input type="number" class="ql-entry" step="0.5" min="0" placeholder="—"></td>'
+            + '<td><input type="number" class="ql-hw" step="5" min="0" max="100" list="qlHwDl" placeholder="—"></td>'
+            + '<td><input type="number" class="ql-dict" step="5" min="0" max="100" list="qlHwDl" placeholder="—"></td>'
+            + '<td><input type="text" class="ql-note" placeholder="简短备注"></td>'
+            + '<td><button type="button" class="btn-ghost ql-photo-btn">📷<span class="ql-photo-count"></span></button><input type="file" class="ql-photo-input" accept="image/*" multiple hidden></td>'
+            + '<td><button type="button" class="btn-ghost" onclick="window.__app.openLessonHistory(\'' + s.id + '\')">时间线</button></td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table>'
+      + '<datalist id="qlHwDl">' + QL_HW_OPTS.map(o => '<option value="' + o + '">').join('') + '</datalist>';
+    // 照片按钮绑定
+    wrap.querySelectorAll('.ql-photo-btn').forEach(btn => {
+      const row = btn.closest('tr');
+      const input = row.querySelector('.ql-photo-input');
+      const countEl = btn.querySelector('.ql-photo-count');
+      btn.onclick = () => input.click();
+      input.onchange = async e => {
+        const files = e.target.files;
+        window.__qlPhotos = window.__qlPhotos || {};
+        const arr = window.__qlPhotos[row.dataset.sid] || [];
+        for (const f of files) { const d = await compressImage(f, 1280, 0.7); if (d) arr.push(d); }
+        window.__qlPhotos[row.dataset.sid] = arr;
+        countEl.textContent = arr.length ? ' ' + arr.length : '';
+        e.target.value = '';
+      };
+    });
+  }
+  window.saveQuickLesson = async function () {
+    const date = (document.getElementById('qlDate') && document.getElementById('qlDate').value) || todayStr();
+    const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
+    let ok = 0;
+    for (const row of rows) {
+      const sid = row.dataset.sid;
+      const s = state.ledgerStudents.find(x => x.id === sid);
+      if (!s) continue;
+      const er = row.querySelector('.ql-entry').value;
+      const hw = row.querySelector('.ql-hw').value;
+      const dict = row.querySelector('.ql-dict').value;
+      const note = row.querySelector('.ql-note').value.trim();
+      // 至少填了一项才保存（避免空行）
+      if (er === '' && !hw && !dict && !note) continue;
+      if (!Array.isArray(s.lessons)) s.lessons = [];
+      const entryScore = er === '' ? '' : (Number(er) || 0);
+      const imgs = (window.__qlPhotos && window.__qlPhotos[sid]) ? window.__qlPhotos[sid].slice() : [];
+      s.lessons.push({ id: uid(), date, entry: { score: entryScore, level: '', note: '' }, homework: { status: hw, note: '' }, dictation: { status: dict, note: '' }, note, imgs, ts: Date.now() });
+      await dbPut('ledgerStudents', s);
+      ok++;
+    }
+    saveLocalCache();
+    window.__qlPhotos = {};
+    renderLedger();
+    renderQuickLesson();
+    toast(ok > 0 ? '已保存 ' + ok + ' 名学员的本节课记录 ✓' : '没有填写任何数据，无需保存');
+  };
+  window.copySameComment = function () {
+    const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
+    let first = '';
+    for (const r of rows) { const v = r.querySelector('.ql-note').value.trim(); if (v) { first = v; break; } }
+    if (!first) { toast('先在任意一行备注里输入要复制的内容'); return; }
+    let n = 0;
+    rows.forEach(r => { const inp = r.querySelector('.ql-note'); if (!inp.value.trim()) { inp.value = first; n++; } });
+    toast('已为 ' + n + ' 行填充相同评语');
+  };
+  window.__app.openLessonHistory = function (sid) {
+    const s = state.ledgerStudents.find(x => x.id === sid);
+    if (!s) return;
+    normalizeLedger(s);
+    const lessons = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0));
+    const body = '<div class="ql-hist">'
+      + (lessons.length ? lessons.map(l => {
+          const entryTxt = (l.entry && l.entry.score !== '' && l.entry.score != null) ? (escapeHtml(String(l.entry.score)) + ' 分' + (l.entry.note ? '（' + escapeHtml(l.entry.note) + '）' : '')) : '—';
+          const hwTxt = (l.homework && l.homework.status) ? escapeHtml(l.homework.status) + (l.homework.note ? '（' + escapeHtml(l.homework.note) + '）' : '') : '—';
+          const dictTxt = (l.dictation && l.dictation.status) ? escapeHtml(l.dictation.status) : '—';
+          const imgs = (l.imgs && l.imgs.length) ? '<div class="ql-lesson-imgs">' + l.imgs.map((im, j) => '<img src="' + im + '" class="ql-lesson-img" onclick="window.__app.viewLessonImg(\'' + sid + '\',\'' + l.id + '\',' + j + ')">').join('') + '</div>' : '';
+          return '<div class="ql-lesson"><div class="ql-lesson-hd"><b>' + escapeHtml(l.date || '未注明日期') + '</b><button type="button" class="btn-ghost ql-lesson-del" data-lid="' + l.id + '">删除</button></div>'
+            + '<div class="ql-lesson-row">入门测：' + entryTxt + '</div>'
+            + '<div class="ql-lesson-row">作业：' + hwTxt + '</div>'
+            + '<div class="ql-lesson-row">听写：' + dictTxt + '</div>'
+            + (l.note ? '<div class="ql-lesson-row">备注：' + escapeHtml(l.note) + '</div>' : '')
+            + imgs + '</div>';
+        }).join('') : '<div class="info-block">暂无本节课记录，去「本节课快速录入」登记吧</div>')
+      + '</div>';
+    openModal(escapeHtml(s.name || '') + ' · 学情时间线', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+    Array.from(document.querySelectorAll('.ql-lesson-del')).forEach(b => b.onclick = async () => {
+      const lid = b.dataset.lid;
+      const st = state.ledgerStudents.find(x => x.id === sid);
+      if (!st) return;
+      st.lessons = (st.lessons || []).filter(x => x.id !== lid);
+      await dbPut('ledgerStudents', st);
+      saveLocalCache();
+      renderLedger();
+      window.__app.openLessonHistory(sid);
+    });
+  };
+  window.__app.viewLessonImg = function (sid, lid, j) {
+    const s = state.ledgerStudents.find(x => x.id === sid);
+    if (!s) return;
+    const l = (s.lessons || []).find(x => x.id === lid);
+    if (!l || !l.imgs || !l.imgs[j]) return;
+    openModal('查看图片', '<img src="' + l.imgs[j] + '" style="max-width:100%;border-radius:10px">', '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+  };
+  function buildFeedbackText(s, tpl) {
+    const lessons = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
+    const lastEntry = lessons.find(l => l.entry && l.entry.score !== '' && l.entry.score != null);
+    const lastHw = lessons.find(l => l.homework && l.homework.status);
+    const lastDict = lessons.find(l => l.dictation && l.dictation.status);
+    const lastNote = lessons.find(l => l.note);
+    const entryTxt = lastEntry ? (lastEntry.entry.score + ' 分' + (lastEntry.entry.note ? '（' + lastEntry.entry.note + '）' : '')) : '—';
+    const hwTxt = lastHw ? lastHw.homework.status : '—';
+    const dictTxt = lastDict ? lastDict.dictation.status : '—';
+    const noteTxt = lastNote ? lastNote.note : '继续保持，加油！';
+    const timeline = lessons.map(l => (l.date || '某日') + '：入门测' + (l.entry && l.entry.score !== '' && l.entry.score != null ? l.entry.score + '分' : '—') + '，作业' + ((l.homework && l.homework.status) || '—') + '，听写' + ((l.dictation && l.dictation.status) || '—') + (l.note ? '，' + l.note : '')).join('\n');
+    const map = { '{姓名}': s.name || '', '{学生}': s.name || '', '{入门测}': entryTxt, '{作业}': hwTxt, '{听写}': dictTxt, '{备注}': noteTxt, '{时间线}': timeline };
+    let t = tpl;
+    Object.keys(map).forEach(k => { t = t.split(k).join(map[k]); });
+    return t;
+  }
+  window.generateLessonFeedback = function () {
+    const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
+    if (!rows.length) { toast('没有学员数据'); return; }
+    const tpl = getFbTpl();
+    window.__fbCache = {};
+    let html = '';
+    for (const r of rows) {
+      const sid = r.dataset.sid;
+      const s = state.ledgerStudents.find(x => x.id === sid);
+      if (!s) continue;
+      normalizeLedger(s);
+      const text = buildFeedbackText(s, tpl);
+      window.__fbCache[sid] = text;
+      html += '<div class="fb-1to1"><div class="fb-1to1-hd">' + escapeHtml(s.name || '') + ' <button type="button" class="btn-ghost" onclick="window.copyText(window.__fbCache &amp;&amp; window.__fbCache[\'' + sid + '\'])">复制</button></div><pre class="fb-1to1-body">' + escapeHtml(text) + '</pre></div>';
+    }
+    const footer = '<button class="btn-ghost" onclick="window.__app.editFbTpl()">编辑模板</button><button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>';
+    openModal('一对一课堂反馈（全班）', '<div class="fb-1to1-list">' + html + '</div>', footer);
+  };
+  window.__app.editFbTpl = function () {
+    const body = '<label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px">支持占位符：{姓名} {入门测} {作业} {听写} {备注} {时间线}</label><textarea id="fbTplInput" rows="10" style="width:100%">' + escapeHtml(getFbTpl()) + '</textarea>';
+    openModal('编辑反馈模板', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="fbTplSave">保存</button>');
+    document.getElementById('fbTplSave').onclick = () => { setFbTpl(document.getElementById('fbTplInput').value); closeModal(); toast('模板已保存'); window.generateLessonFeedback(); };
+  };
+  function parseVoiceText(t) {
+    const t0 = (t || '').trim();
+    const cid = qlCurrentClassId();
+    const names = state.ledgerStudents.filter(s => s.classId === cid).map(s => (s.name || '').trim()).filter(Boolean);
+    let name = '';
+    names.sort((a, b) => b.length - a.length);
+    for (const n of names) { if (t0.indexOf(n) >= 0) { name = n; break; } }
+    let date = todayStr();
+    const mYest = /昨天/.test(t0);
+    const md = t0.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+    const sd = t0.match(/(\d{1,2})[\/\-.](\d{1,2})/);
+    if (mYest) { const d = new Date(); d.setDate(d.getDate() - 1); date = d.toISOString().slice(0, 10); }
+    else if (md) { const y = new Date().getFullYear(); date = y + '-' + String(md[1]).padStart(2, '0') + '-' + String(md[2]).padStart(2, '0'); }
+    else if (sd) { const y = new Date().getFullYear(); date = y + '-' + String(sd[1]).padStart(2, '0') + '-' + String(sd[2]).padStart(2, '0'); }
+    let entryScore = '';
+    const em = t0.match(/(入门测|小测|考试|测)\D{0,4}(\d+(\.\d+)?)\s*分?/);
+    if (em) entryScore = em[2];
+    function scoreIn(txt) {
+      const m = txt.match(/(\d+(\.\d+)?)\s*分?/);
+      return m ? m[1] : '';
+    }
+    let homework = '';
+    let dictation = '';
+    const hwAfter = (t0.match(/作业([^，。,.]*)/) || [])[1] || '';
+    const dictAfter = (t0.match(/听写([^，。,.]*)/) || [])[1] || '';
+    if (/听写/.test(t0)) dictation = scoreIn(dictAfter);
+    if (/作业/.test(t0)) homework = scoreIn(hwAfter);
+    else if (!/听写/.test(t0)) homework = scoreIn(t0);
+    let note = '';
+    const nm = t0.match(/(备注|评价|评语|表现)[：:是]?\s*(.+)$/);
+    if (nm) note = nm[2].trim();
+    return { name, date, entryScore, homework, dictation, note };
+  }
+  function applyVoiceToRow(p) {
+    let target = null;
+    document.querySelectorAll('#qlTable tr[data-sid]').forEach(r => { if (r.querySelector('.ql-name') && r.querySelector('.ql-name').textContent.trim() === p.name) target = r; });
+    if (!target) { toast('没匹配到学员「' + p.name + '」，请确认名单'); return; }
+    const dateEl = document.getElementById('qlDate');
+    if (p.date && dateEl) dateEl.value = p.date;
+    if (p.entryScore !== '') target.querySelector('.ql-entry').value = p.entryScore;
+    if (p.homework) target.querySelector('.ql-hw').value = p.homework;
+    if (p.dictation) target.querySelector('.ql-dict').value = p.dictation;
+    if (p.note) target.querySelector('.ql-note').value = p.note;
+    // 高亮匹配行
+    document.querySelectorAll('#qlTable tr[data-sid]').forEach(r => r.classList.remove('ql-row-hl'));
+    target.classList.add('ql-row-hl');
+    window.saveQuickLesson();
+  }
+  window.startVoiceEntry = function () {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast('当前浏览器不支持语音识别（建议用手机 Chrome / 微信内置浏览器）'); return; }
+    if (window.__qlRecing) { if (window.__qlRec) window.__qlRec.stop(); return; }
+    const rec = new SR();
+    rec.lang = 'zh-CN'; rec.interimResults = false; rec.continuous = false;
+    window.__qlRec = rec; window.__qlRecing = true;
+    const btn = document.getElementById('qlVoiceBtn');
+    if (btn) { btn.classList.add('recording'); btn.textContent = '🎙 聆听中…（点此停止）'; }
+    rec.onresult = e => {
+      let txt = '';
+      for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+      const p = parseVoiceText(txt);
+      toast('识别：' + txt);
+      if (p.name) applyVoiceToRow(p);
+      else toast('未识别到学员姓名，请说“XX学生，今天入门测78分”');
+    };
+    rec.onend = () => { window.__qlRecing = false; if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤 语音录入'; } };
+    rec.onerror = e => { window.__qlRecing = false; if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤 语音录入'; } toast('语音识别失败：' + (e.error || '')); };
+    try { rec.start(); } catch (e) { window.__qlRecing = false; if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤 语音录入'; } toast('无法启动语音：' + e.message); }
+  };
+  // ===== /v3.36 =====
+
   window.quickLedgerAdd = async function () {
     // v3.31：支持多选学员，一次给多人录同一次分数
     const ids = (window.__lqStudents || []).slice();
@@ -17384,20 +17782,42 @@ ${body}
       });
       return;
     }
-    const tip = aiPushTyping();
+let acc = '';
+    const bub = aiPush('ai', '', {
+      acts: [{ label: '复制', fn: () => copyText(acc) }]
+    });
+    let tn = bub.firstChild;
+    if (!tn || tn.nodeType !== 3) {
+      tn = document.createTextNode('');
+      bub.insertBefore(tn, bub.firstChild);
+    }
     try {
       const names = Array.from(aiStudentIndex().keys()).slice(0, 40).join('、');
-      const ans = await callAIText(
+      await callAIText(
         `${t}\n\n（背景：我是语文培训老师，我的学员有：${names || '暂无'}。回答简洁、可直接用。）`,
-        '你是资深中小学语文教师助手，回答专业、简洁、可直接使用，不要客套。'
+        '你是资深中小学语文教师助手，回答专业、简洁、可直接使用，不要客套。',
+        (full) => {
+          acc = full;
+          tn.textContent = acc;
+          aiScrollBottom();
+        }
       );
-      if (tip) tip.remove();
-      aiPush('ai', ans, {
-        acts: [{ label: '复制', fn: () => copyText(ans) }]
-      });
+      try {
+        const hist = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY) || '[]');
+        for (let i = hist.length - 1; i >= 0; i--) {
+          if (hist[i].role === 'ai' && !hist[i].text) { hist[i].text = acc; break; }
+        }
+        localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(hist));
+      } catch (e3) {}
     } catch (e) {
-      if (tip) tip.remove();
-      aiPush('ai', 'AI 调用失败：' + (e.message || e), { cls: 'err' });
+      tn.textContent = 'AI 调用失败：' + (e.message || e);
+      try {
+        const hist = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY) || '[]');
+        for (let i = hist.length - 1; i >= 0; i--) {
+          if (hist[i].role === 'ai' && !hist[i].text) { hist[i].text = 'AI 调用失败：' + (e.message || e); break; }
+        }
+        localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(hist));
+      } catch (e2) {}
     }
   }
 

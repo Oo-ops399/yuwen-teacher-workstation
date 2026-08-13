@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<link rel="icon" href="./icons/icon-192.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234a7cff'/%3E%3Cpath d='M9 22l1.2-4.2L20 7.8a2.4 2.4 0 0 1 3.4 3.4L13.6 21.2z' fill='%23fff'/%3E%3Cpath d='M9 22l-1.5 4 4-1.5z' fill='%23ffd24a'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-title" content="Kissgoodbye">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -332,6 +332,8 @@ svg.nav-icon {
   transition: box-shadow 0.2s, border-color 0.2s, opacity 0.3s;
 }
 .panel:hover { box-shadow: var(--shadow-md); }
+/* 允许内部横向滚动的 panel（如时间轴表格） */
+.panel-scrollable { overflow: visible; }
 .panel-header {
   display: flex;
   align-items: center;
@@ -3087,6 +3089,8 @@ label input, label select, label textarea { margin-top: 4px; }
 }
 /* v3.7.4 学情台账 快速记录面板 */
 .ledger-quick-panel { border-color: var(--primary, #4a7cff); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary, #4a7cff) 18%, transparent); }
+/* 单人补录面板：辅助工具，淡色虚线边暗示"次级" */
+.ledger-lq-panel { border-style: dashed; border-color: color-mix(in srgb, var(--text-muted) 45%, transparent); box-shadow: none; background: color-mix(in srgb, var(--bg) 60%, var(--card)); }
 .ledger-quick-form { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }
 .ledger-quick-form .lq-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .ledger-quick-form .lq-row > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
@@ -3185,24 +3189,219 @@ label input, label select, label textarea { margin-top: 4px; }
   .accounting-summary { font-size: 12px; }
   .ledger-table { min-width: 500px; }
   /* v3.36 本节课快速录入 / 学情时间线 / 语音录入 */
-  .ql-table-wrap { padding: 4px 0 8px; overflow-x: auto; }
-  .ql-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
-  .ql-table th, .ql-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
-  .ql-table th { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-  .ql-table input[type=number] { width: 84px; }
-  .ql-table input[type=text] { width: 132px; }
-  .ql-table select { min-width: 86px; }
+  .ql-table-wrap { padding: 4px 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .ql-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+  .ql-table th, .ql-table td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  .ql-table th { font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+  .ql-table input[type=number] { width: 56px; }
+  .ql-table input[type=text] { width: 90px; }
+  .ql-table select { min-width: 70px; }
   .ql-name { font-weight: 600; }
   .ql-last { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
   .ql-photo-count { font-size: 11px; color: var(--primary); margin-left: 2px; }
   .ql-tip { font-size: 12px; color: var(--text-muted); padding: 6px 14px 12px; margin: 0; line-height: 1.6; }
   .ql-table .ql-chk, .ql-table #qlCheckAll { width: 18px; height: 18px; }
   .ql-row-hl { background: rgba(74,144,226,0.08) !important; box-shadow: inset 0 0 0 2px var(--primary); }
-  .ql-score { display: flex; flex-direction: column; gap: 4px; }
-  .ql-score input { width: 58px; }
-  .ql-presets { display: flex; flex-wrap: wrap; gap: 2px; width: 134px; }
-  .ql-preset { font-size: 10px; padding: 1px 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--text); cursor: pointer; line-height: 1.5; }
-  .ql-preset:active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  /* ===== 横向时间轴表格样式 ===== */
+  .ql-timeline-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-size: 13px; min-width: 580px;
+  }
+  .ql-timeline-table th, .ql-timeline-table td {
+    border: 1px solid var(--border); padding: 6px 4px; text-align: center;
+    vertical-align: middle; position: relative;
+  }
+  .ql-timeline-table thead th {
+    background: var(--bg); font-size: 11px; font-weight: 600; color: var(--text-muted);
+    position: sticky; top: 0; z-index: 2;
+  }
+  /* 学员名固定列（在勾选框右侧） */
+  .ql-timeline-table th.stu-name-col, .ql-timeline-table td.stu-name-col {
+    position: sticky; left: 36px; z-index: 3; background: var(--card);
+    min-width: 70px; max-width: 90px; text-align: left; padding-left: 10px;
+    font-weight: 600; white-space: nowrap;
+  }
+  .ql-timeline-table td.stu-name-col { cursor: pointer; }
+  .ql-timeline-table td.stu-name-col:hover { background: rgba(74,144,226,0.06); }
+  /* 日期组列头 */
+  .tl-date-group { 
+    border-bottom: 2px solid var(--primary); font-size: 12px; color: var(--text);
+    font-weight: 700; background: linear-gradient(180deg, rgba(74,144,226,0.06), transparent);
+    min-width: 110px;
+  }
+  .tl-date-group.today { 
+    background: linear-gradient(180deg, rgba(39,174,96,0.1), transparent);
+    color: var(--primary-dark, #1a7a3a);
+  }
+  .tl-date-group.today::after { content: ' 📝'; font-size: 10px; }
+  /* 子字段行 */
+  .tl-sub-head { 
+    font-size: 10px; color: var(--text-muted); font-weight: 500; 
+    background: rgba(0,0,0,02); padding: 3px 2px;
+  }
+  /* 数据单元格 */
+  .tl-cell { 
+    min-width: 42px; font-size: 13px; font-weight: 600; color: var(--text);
+    padding: 5px 2px;
+  }
+  .tl-cell.empty { color: var(--text-muted-opacity, #bbb); font-weight: 400; }
+  .tl-cell.full-mark { color: #27ae60; }
+  .tl-cell.low-mark { color: #e74c3c; }
+  /* 今天列 - 可编辑 */
+  .tl-cell.editable input { 
+    width: 38px; height: 26px; font-size: 13px; font-weight: 600;
+    text-align: center; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0 2px; box-sizing: border-box; background: #fff;
+  }
+  .tl-cell.editable input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74,144,226,0.2); }
+  .tl-edit-btn {
+    font-size: 10px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); cursor: pointer; line-height: 1.4; margin-left: 1px;
+  }
+  .tl-edit-btn:active { background: var(--primary); color: #fff; }
+  /* 操作列 */
+  .tl-action-col {
+    position: sticky; right: 0; z-index: 3; background: var(--card);
+    min-width: 50px;
+  }
+  /* 勾选框列 */
+  .tl-chk-col {
+    min-width: 36px; width: 36px; text-align: center; vertical-align: middle;
+    position: sticky; left: 0; z-index: 4; background: var(--card);
+  }
+  .tl-chk-col .ql-check {
+    width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;
+  }
+  /* ===== 批量备注底部弹层 ===== */
+  .remark-sheet .modal-body { padding-bottom: 8px; }
+  .remark-sheet-count { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
+  .remark-sheet-count b { color: var(--primary); font-size: 15px; }
+  .remark-sheet-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; display: block; }
+  .remark-sheet-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .remark-tag {
+    font-size: 13px; padding: 7px 13px; border-radius: 16px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    cursor: pointer; transition: all 0.12s; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+  }
+  .remark-tag:active { background: var(--primary); color: #fff; border-color: var(--primary); transform: scale(0.96); }
+  .remark-sheet textarea {
+    width: 100%; min-height: 96px; resize: vertical; box-sizing: border-box;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card); color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.5;
+  }
+  .remark-sheet textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74,144,226,0.2); }
+  .remark-sheet .modal-footer { flex-wrap: wrap; }
+  .remark-sheet .modal-footer .btn-primary { margin-left: auto; }
+  /* 备注列 */
+  .tl-note-col { min-width: 80px; }
+  .tl-note-col input { 
+    width: 100%; font-size: 12px; padding: 4px; border: 1px solid var(--border); 
+    border-radius: 6px; box-sizing: border-box; background: #fff;
+  }
+  /* 积分列 */
+  .tl-integral-col { min-width: 44px; }
+  .tl-integral-col input { 
+    width: 36px; height: 24px; font-size: 12px; text-align: center;
+    border: 1px solid var(--border); border-radius: 5px;
+  }
+  /* 历史列 hover 提示 */
+  .tl-cell.has-data { cursor: default; position: relative; }
+  .tl-cell.has-data:hover .tl-tooltip {
+    display: block; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #fff; font-size: 11px; padding: 4px 8px;
+    border-radius: 6px; white-space: nowrap; z-index: 10; pointer-events: none;
+  }
+  /* 横向滚动容器 */
+  .ql-table-wrap {
+    overflow-x: auto; overflow-y: visible;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 4px; background: var(--card);
+    position: relative;
+  }
+  /* 右侧渐变提示可滑动 */
+  .ql-table-wrap::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0;
+    width: 36px; pointer-events: none;
+    background: linear-gradient(to left, var(--card), transparent);
+    border-radius: 0 10px 10px 0;
+    transition: opacity 0.3s;
+  }
+  .ql-table-wrap.scroll-end::after { opacity: 0; }
+  /* 手机端卡片式降级 */
+  @media (max-width: 720px) {
+    .ql-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; } /* 保持横滑 */
+    .ql-timeline-table { min-width: 620px; } /* 保证最小宽度触发横滑 */
+    .tl-date-group { min-width: 95px; font-size: 11px; }
+    .tl-cell { min-width: 38px; font-size: 12px; }
+    .tl-cell.editable input { width: 36px; height: 26px; font-size: 12px; }
+    .stu-name-col { min-width: 58px !important; font-size: 13px; }
+    .tl-integral-col { min-width: 42px; }
+    .tl-note-col { min-width: 56px; }
+    .tl-action-col { min-width: 44px; }
+  }
+  /* 快捷工具栏 */
+  .ql-toolbar { 
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center; 
+    margin: 8px 0; padding: 8px 10px; background: rgba(74,144,226,0.04);
+    border: 1px dashed var(--border); border-radius: 10px;
+  }
+  .ql-toolbar .btn-ghost { font-size: 12px; padding: 5px 10px; }
+  .ql-toolbar .btn-primary { font-size: 12px; padding: 5px 10px; }
+  .ql-toolbar select, .ql-toolbar input[type=date] {
+    font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border);
+  }
+  /* 语音录入状态 */
+  .voice-recording { 
+    animation: voicePulse 1s ease infinite; 
+    color: #e74c3c !important; border-color: #e74c3c !important;
+  }
+  @keyframes voicePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  /* 温情档位选择器 */
+  .fb-tone-selector { 
+    display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap;
+  }
+  .fb-tone-btn {
+    flex: 1; min-width: 80px; padding: 8px 12px; border: 2px solid var(--border);
+    border-radius: 10px; background: var(--card); cursor: pointer; font-size: 13px;
+    text-align: center; transition: all 0.15s; font-weight: 500;
+  }
+  .fb-tone-btn.active { 
+    border-color: var(--primary); background: rgba(74,144,226,0.08); 
+    color: var(--primary); font-weight: 700;
+  }
+  .fb-tone-warm { --tone-color: #e67e22; }
+  .fb-tone-warm.active { border-color: #e67e22; background: rgba(230,126,34,0.08); color: #e67e22; }
+  .fb-tone-clean { --tone-color: #3498db; }
+  .fb-tone-clean.active { border-color: #3498db; background: rgba(52,152,219,0.08); color: #3498db; }
+  .fb-tone-strict { --tone-color: #e74c3c; }
+  .fb-tone-strict.active { border-color: #e74c3c; background: rgba(231,76,60,0.08); color: #e74c3c; }
+  /* ===== 快速錄入：舊兼容（保留部分） ===== */
+  .ql-score { display: flex; flex-direction: row; align-items: center; gap: 2px; white-space: nowrap; }
+  .ql-score input { width: 52px; min-width: 0; font-size: 14px; padding: 4px 6px; box-sizing: border-box; text-align: center; }
+  .ql-full { width: 50px !important; min-width: 0; font-size: 14px; padding: 4px 6px; box-sizing: border-box; text-align: center; }
+  .ql-pk-btn { 
+    font-size: 11px; padding: 3px 5px; border: 1px solid var(--border); border-radius: 6px; 
+    background: var(--card); color: var(--text-muted); cursor: pointer; line-height: 1;
+    user-select: none; flex-shrink: 0;
+  }
+  .ql-pk-btn:active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  /* 預設分數浮層選單 */
+  .ql-picker {
+    position: fixed; z-index: 9999; display: none; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18); animation: pkIn 0.15s ease;
+  }
+  .ql-picker.show { display: block; }
+  .ql-picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .ql-pk-item {
+    font-size: 14px; font-weight: 600; padding: 8px 4px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    cursor: pointer; text-align: center; transition: all 0.1s;
+  }
+  .ql-pk-item:active { background: var(--primary); color: #fff; border-color: var(--primary); transform: scale(0.95); }
+  .ql-pk-head { font-size: 11px; color: var(--text-muted); text-align: center; margin-bottom: 6px; }
+  @keyframes pkIn { from{opacity:0;transform:scale(0.9) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
   .ql-trend { text-align: center; padding: 8px 4px 4px; }
   .ql-trend canvas { width: 100%; max-width: 640px; height: auto; background: #fff; border-radius: 10px; border: 1px solid var(--border); }
   .ql-trend-legend { font-size: 12px; color: var(--text-muted); margin: 6px 0 2px; }
@@ -3213,6 +3412,53 @@ label input, label select, label textarea { margin-top: 4px; }
   #qlDate.ql-date { font-size: 14px; padding: 6px 8px; }
   .recording { animation: qlPulse 1s infinite; background: #e23b3b !important; color: #fff !important; border-color: #e23b3b !important; }
   @keyframes qlPulse { 0% { opacity: 1; } 50% { opacity: .55; } 100% { opacity: 1; } }
+  /* ===== 手机端：快速录入改为紧凑卡片式（仅旧版 ql-table，不影响时间轴） ===== */
+  @media (max-width: 720px) {
+    .ql-table-wrap:not(:has(.ql-timeline-table)) { overflow-x: visible; }
+    .ql-table { min-width: 0; }
+    .ql-table thead { display: none; }
+    .ql-table, .ql-table tbody, .ql-table tr, .ql-table td { display: block; width: 100%; box-sizing: border-box; }
+    .ql-table tr {
+      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px;
+      padding: 4px 12px; background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    /* 学员名 + 上次记录：一行搞定 */
+    .ql-table td.ql-name {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 15px; font-weight: 600; padding: 8px 2px 4px; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .ql-name .ql-last { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+    /* 分数行：入门测/满分/作业/听写 两列并排 */
+    .ql-table td.ql-score {
+      display: inline-flex; align-items: center; justify-content: space-between;
+      width: calc(50% - 6px); gap: 6px; border: none !important; padding: 5px 2px !important;
+      vertical-align: top;
+    }
+    .ql-table td.ql-score::before { font-size: 11px; flex-shrink: 0; width: 42px; }
+    .ql-table td[data-label="满分"] {
+      display: inline-flex; align-items: center; justify-content: space-between;
+      width: calc(50% - 6px); gap: 6px; border: none !important; padding: 5px 2px !important;
+    }
+    .ql-table td[data-label="满分"]::before { font-size: 11px; flex-shrink: 0; width: 30px; }
+    /* 积分 + 备注：各占一行但紧凑 */
+    .ql-table td[data-label="积分"],
+    .ql-table td[data-label="备注"] {
+      display: flex; align-items: center; gap: 8px; padding: 5px 2px !important; border-bottom: none !important;
+    }
+    .ql-table td[data-label="积分"]::before,
+    .ql-table td[data-label="备注"]::before { font-size: 11px; width: 30px; flex-shrink: 0; }
+    /* 照片按钮：小一点 */
+    .ql-table td[data-label="照片"] {
+      display: flex; padding: 4px 2px 6px !important; border: none !important;
+    }
+    .ql-table td input[type=number] { width: 80px !important; flex-shrink: 0; font-size: 14px; padding: 4px 6px; }
+    .ql-table td input[type=text] { flex: 1; min-width: 0; font-size: 13px; padding: 4px 6px; }
+    .ql-table .ql-pk-btn { flex-shrink: 0; font-size: 10px; padding: 3px 5px; }
+    .ql-table .ql-full { width: 60px !important; flex-shrink: 0; }
+    /* 勾选框隐藏（手机上不需要批量勾选） */
+    .ql-table td.ql-sel { display: none; }
+  }
   .ql-hist { display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow-y: auto; }
   .ql-lesson { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .ql-lesson-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -3223,6 +3469,28 @@ label input, label select, label textarea { margin-top: 4px; }
   .fb-1to1 { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .fb-1to1-hd { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
   .fb-1to1-body { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 14px; margin: 0; line-height: 1.6; }
+
+  /* ===== 课后反馈 / 模板管理 样式 ===== */
+  .ql-table td.ql-sel { justify-content: flex-start; }
+  .ql-table td.ql-sel::before { content: none; }
+  .ql-table td.ql-sel input[type=checkbox] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary); }
+  .fb-choice { display: flex; flex-direction: column; gap: 12px; padding: 6px 2px; }
+  .fb-choice-btn { font-size: 16px; padding: 14px; }
+  .fb-cfg { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+  .fb-cfg label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); }
+  .fb-cfg select, .fb-cfg textarea, .fb-cfg input[type=text] { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 14px; font-family: inherit; }
+  .fb-cfg textarea { resize: vertical; line-height: 1.5; }
+  .fb-cfg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .fb-text { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 14px; line-height: 1.7; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 0; max-height: 65vh; overflow-y: auto; }
+  .fb-vars { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fb-vars .ql-preset { font-size: 12px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; }
+  .fb-vars .ql-preset:active { background: var(--primary); color: #fff; }
+  .fb-tpl-list { display: flex; flex-direction: column; gap: 8px; }
+  .fb-tpl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+  .fb-tpl-info { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .fb-tpl-ops { display: flex; gap: 6px; flex-shrink: 0; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 20px; background: color-mix(in srgb, var(--primary, #4a7cff) 15%, transparent); color: var(--primary, #4a7cff); }
+  .badge.builtin { background: rgba(120,120,120,.15); color: var(--text-muted); }
 
 }
 
@@ -4603,28 +4871,7 @@ label input, label select, label textarea { margin-top: 4px; }
 
 
 </style>
-<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
-<script>
-(function(){
-  try{
-    var beacon=new BeaconAction({
-      appkey:'0WEB06U85YBSLJNL',
-      versionCode:'1.0.0',
-      channelID:'share',
-      delay:1000,
-      sessionDuration:30*60*1000,
-      isOversea:false,
-      needReportRqdEvent:false
-    });
-    beacon.onDirectUserAction('preview_page_view',{
-      'url':location.href,
-      'referrer':document.referrer,
-      'title':document.title,
-      'sandbox_id':'084509db6f7549bfb8d40754ddc39eb9'
-    });
-  }catch(e){}
-})();
-</script></head>
+</head>
 <body>
 
 <!-- 左侧导航 -->
@@ -5961,10 +6208,10 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
       </div>
       <div class="own-body">
-      <div class="panel">
+      <div class="panel ledger-lq-panel">
       <div class="panel-header">
-        <h2>⚡ 快速记录</h2>
-        <span class="hint" style="font-size:12px;color:var(--text-muted)">选学员 → 选类型 → 一键追加，无需打开编辑框</span>
+        <h2>📝 单人补录</h2>
+        <span class="hint" style="font-size:12px;color:var(--text-muted)">给<b>单个学生</b>追加一条记录（补录缺课/补课、临时加记）。<b>全班批量录分请用下方「本节课快速录入」</b></span>
       </div>
       <div class="ledger-quick-form">
         <div class="lq-row">
@@ -6010,21 +6257,24 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
       </div>
     </div>
-    <div class="panel">
+    <div class="panel panel-scrollable">
       <div class="panel-header">
-        <h2>本节课快速录入</h2>
+        <h2>本节课快速录入 <span class="hint" style="font-size:12px;font-weight:400;color:var(--text-muted)">（全班批量录分）</span></h2>
         <div class="header-actions">
           <select id="qlClassSel" style="min-width:100px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)"><option value="">选择班级</option></select>
           <input type="date" id="qlDate" class="ql-date">
+          <button class="btn-ghost" id="qlSelAllBtn">全选</button>
+          <button class="btn-ghost" id="qlBatchRemarkBtn">批量填备注</button>
           <button class="btn-ghost" id="qlCopyCommentBtn">复制相同评语</button>
+          <button class="btn-ghost" id="qlTplBtn">反馈模板</button>
           <button class="btn-ghost" id="qlFbBtn">生成课后反馈</button>
           <button class="btn-ghost" id="qlRefreshBtn">刷新名单</button>
           <button class="btn-primary" id="qlVoiceBtn">🎤 语音录入</button>
-          <button class="btn-primary" id="qlSaveBtn">一键保存本页</button>
+          <button class="btn-primary" id="qlSaveBtn">💾 保存到台账</button>
         </div>
       </div>
       <div id="qlTable" class="ql-table-wrap"></div>
-      <p class="ql-tip">选择班级后自动列出本班全部学生，每行直接填写入门测 / 作业 / 听写 / 备注，填完点「保存本页」即可；每行 📷 可绑定本节课照片。点「时间线」查看该生每节课记录与照片。</p>
+      <p class="ql-tip">📊 <b>横向时间轴</b>：纵向是学生姓名（固定），横向是上课日期（每来一节课自动新增一列，历史成绩全部保留，可左右滑动查看往期）。最右侧「今天」列直接填分，点 ▼ 快捷选分，填完点「💾 保存到台账」即可。🎤 语音录入可一次性口述多人分数自动填入；框选备注可批量复制。点学员名查看个人时间线，点「生成课后反馈」一键出家长反馈（支持温和/简洁/严谨三档语气）。</p>
     </div>
 
     <div class="panel">
@@ -6345,7 +6595,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
   const DB_VER = 7;
-  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory'];
+  const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory', 'fbTemplates'];
 
   // ===== 底栏可配置项（方案B 圆形胶囊）=====
   const DEFAULT_BNAV = ['dashboard', 'schedule', 'students', 'renew'];
@@ -6496,6 +6746,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     feedbacks: [],
     feedbackMaterials: [],
     classFeedbacks: [],
+    fbTemplates: [],
     accounting: [],
     ledgerStudents: [],
     attendance: []
@@ -6750,6 +7001,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         state.feedbackMaterials.push(item);
         dbPut('feedbackMaterials', item);
       });
+    }
+    // 预置课后反馈模板（班课群 / 一对一私聊）
+    if (state.fbTemplates.length === 0) {
+      const classTpl = '🚴‍♀【上课内容】\n1、入门检测：{{入门测_分数}}\n2、新课学习：{{本节课知识点}}\n3、课堂练习：{{课堂练习内容}}\n\n💛【课堂表现】\n{{班级整体评价}}\n{{自动提取台账备注里面重点学生情况}}\n\n📝【课后作业】\n{{课后作业}}';
+      const privTpl = '{{学生姓名}}家长您好～\n本节课学习内容：{{本节课知识点}}\n课堂表现：{{学生备注}}\n今日巩固任务：{{课后作业}}';
+      const defs = [
+        { id: uid(), name: '班课群反馈（默认）', type: 'class', content: classTpl, builtin: true, ts: Date.now() },
+        { id: uid(), name: '一对一私聊反馈（默认）', type: 'private', content: privTpl, builtin: true, ts: Date.now() }
+      ];
+      defs.forEach(d => { state.fbTemplates.push(d); dbPut('fbTemplates', d); });
     }
   }
 
@@ -7645,9 +7906,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const ledgerReportAllBtn = $('#ledgerReportAllBtn');
     if (ledgerReportAllBtn) ledgerReportAllBtn.onclick = () => window.__app.exportLedgerReport('all');
     const qlSaveBtn = document.getElementById('qlSaveBtn'); if (qlSaveBtn) qlSaveBtn.onclick = window.saveQuickLesson;
-    const qlVoiceBtn = document.getElementById('qlVoiceBtn'); if (qlVoiceBtn) qlVoiceBtn.onclick = window.startVoiceEntry;
+    const qlVoiceBtn = document.getElementById('qlVoiceBtn'); if (qlVoiceBtn) qlVoiceBtn.onclick = window.startVoiceInput;
     const qlCopyBtn = document.getElementById('qlCopyCommentBtn'); if (qlCopyBtn) qlCopyBtn.onclick = window.copySameComment;
     const qlFbBtn = document.getElementById('qlFbBtn'); if (qlFbBtn) qlFbBtn.onclick = window.generateLessonFeedback;
+    const qlTplBtn = document.getElementById('qlTplBtn'); if (qlTplBtn) qlTplBtn.onclick = window.__app.openFbTemplateManager;
+    const qlSelAllBtn = document.getElementById('qlSelAllBtn'); if (qlSelAllBtn) qlSelAllBtn.onclick = window.qlSelectAll;
+    const qlBatchRemarkBtn = document.getElementById('qlBatchRemarkBtn'); if (qlBatchRemarkBtn) qlBatchRemarkBtn.onclick = window.qlBatchRemark;
     const qlRefreshBtn = document.getElementById('qlRefreshBtn'); if (qlRefreshBtn) qlRefreshBtn.onclick = renderQuickLesson;
     const ledgerClassFilter2 = document.getElementById('ledgerClassFilter'); if (ledgerClassFilter2) ledgerClassFilter2.onchange = () => { renderLedger(); renderQuickLesson(); };
     const ledgerBatchGradeBtn = $('#ledgerBatchGradeBtn');
@@ -15181,6 +15445,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       s.scores = (s.score != null && s.score !== '') ? [{ date: '', score: Number(s.score) || 0, note: '', img: '' }] : [];
       delete s.score;
     }
+    if (!Array.isArray(s.dictations)) s.dictations = [];
     return s;
   }
 
@@ -15410,13 +15675,17 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
               const etText = et.length ? `${etScore || '-'}${etFull ? ' 👍' : ''}${noteOf(lastEt)} (${et.length}次)` : '-';
               const hwText = hw.length ? `${escapeHtml(lastHw.status || '')}${hwScore}${hwFull ? ' 👍' : ''}${noteOf(lastHw)} (${hw.length}次)` : '-';
               const scText = sc.length ? (sc.reduce((a, b) => a + (Number(b.score) || 0), 0)) + ' (累计)' : '-';
+              // 听写也展示在台账列表
+              const dt = s.dictations || [];
+              const lastDt = dt[dt.length - 1];
+              const dtText = dt.length ? (lastDt && lastDt.score != null ? lastDt.score + '分' : '-') + ` (${dt.length}次)` : '-';
               // v3.31：有偏低分（得分率<60%）的学员打「需关注」标
               const needsAtt = listNeedsAttention(et, hw);
               return `
               <li class="row-item" onclick="window.__app.openLedgerStudentModal(false,'${s.id}')">
                 <div class="row-main">
                   <div class="row-title">${escapeHtml(s.name||'')}${needsAtt ? ' <span class="lb lb-warn">⚠需关注</span>' : ''}</div>
-                  <div class="row-sub"><span class="${etFull ? 'full-mark' : ''}">入门 ${etText}</span> · <span class="${hwFull ? 'full-mark' : ''}">作业 ${hwText}</span> · 积分 ${scText}</div>
+                  <div class="row-sub"><span class="${etFull ? 'full-mark' : ''}">入门 ${etText}</span> · <span class="${hwFull ? 'full-mark' : ''}">作业 ${hwText}</span> · 听写 ${dtText} · 积分 ${scText}</div>
                 </div>
                 <button class="row-del" type="button" onclick="event.stopPropagation();window.__app.confirmDelete('ledgerStudents','${s.id}','${escapeAttr(s.name||'')}')">删除</button>
               </li>`;
@@ -15555,7 +15824,6 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (pick) pick.onchange = async e => { await addLqPhotos(e.target.files); e.target.value = ''; };
   }
   // ===== v3.36: 学情台账「本节课快速录入 / 学情时间线 / 一键反馈 / 语音录入」 =====
-  const QL_HW_OPTS = ['100', '95', '90', '85', '80', '75', '70'];
   const DEFAULT_FB_TPL = '{姓名}家长您好，以下是{姓名}本节课的学情反馈：\n📝 入门测：{入门测}\n✅ 作业：{作业}\n📖 听写：{听写}\n💡 老师评语：{备注}\n\n最近几次记录：\n{时间线}';
   function getFbTpl() { try { return localStorage.getItem('ledgerFbTpl') || DEFAULT_FB_TPL; } catch (e) { return DEFAULT_FB_TPL; } }
   function setFbTpl(v) { try { localStorage.setItem('ledgerFbTpl', v); } catch (e) {} }
@@ -15576,87 +15844,362 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     const sel2 = document.getElementById('ledgerClassFilter');
     return (sel2 && sel2.value) || (state.classes[0] && state.classes[0].id) || '';
   }
+  // ===== v4.0: 横向时间轴表格（纵向=学生固定，横向=日期递增）=====
+  // 分数快捷预设（扩展版）
+  const QL_ENTRY_OPTS = ['100','95','90','85','80','75','70','65','60'];
+  const QL_HW_OPTS = ['100','95','90','85','80','75','70','65','60'];
+  const QL_FULL_OPTS = ['15','30','100','70'];
+
   function renderQuickLesson() {
     const wrap = document.getElementById('qlTable');
     if (!wrap) return;
-    // 填充班级选择器
+
+    // ---- 班级选择（记住上次）----
     const classSel = document.getElementById('qlClassSel');
     if (classSel) {
-      const prevVal = classSel.value;
-      classSel.innerHTML = '<option value="">选择班级</option>' + state.classes.map(c => '<option value="' + c.id + '"' + (c.id === prevVal ? ' selected' : '') + '>' + escapeHtml(c.name || '') + '</option>').join('');
+      let prevVal = classSel.value;
+      if (!prevVal) { try { prevVal = localStorage.getItem('ql_last_class') || ''; } catch(e){} }
+      classSel.innerHTML = '<option value="">选择班级</option>' + state.classes.map(c => 
+        '<option value="' + c.id + '"' + (c.id === prevVal ? ' selected' : '') + '>' + escapeHtml(c.name || '') + '</option>'
+      ).join('');
       if (prevVal && !classSel.value) classSel.value = prevVal;
-      // 切换班级自动刷新
-      classSel.onchange = () => renderQuickLesson();
+      if (!classSel.value && state.classes[0]) classSel.value = state.classes[0].id;
+      classSel.onchange = () => { renderQuickLesson(); };
     }
     const cid = qlCurrentClassId();
+
+    // ---- 日期（顺延）----
     const dateEl = document.getElementById('qlDate');
-    if (dateEl && !dateEl.value) dateEl.value = todayStr();
+    if (dateEl && !dateEl.value) {
+      try {
+        const lastDate = localStorage.getItem('ql_last_date') || '';
+        if (lastDate < todayStr()) dateEl.value = todayStr();
+        else if (lastDate === todayStr()) dateEl.value = todayStr();
+        else dateEl.value = todayStr();
+      } catch(e) { dateEl.value = todayStr(); }
+    }
+
     const stu = state.ledgerStudents.filter(s => s.classId === cid).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
     if (!state.classes.length) { wrap.innerHTML = '<div class="info-block">请先「＋ 新建班级」或用「导入学员」初始化名单</div>'; return; }
     if (!cid) { wrap.innerHTML = '<div class="info-block">👆 请先在上方选择一个班级</div>'; return; }
     if (!stu.length) { wrap.innerHTML = '<div class="info-block">该班级暂无学员，请先「导入学员」或「＋ 学员」添加名单</div>'; return; }
-    // 纯列表：每行一个学生，直接填，不要 checkbox
-    wrap.innerHTML = '<table class="ql-table"><thead><tr>'
-      + '<th>学员</th><th>入门测<br><small>分数</small></th><th>作业</th><th>听写</th><th>备注</th><th>照片</th><th>操作</th>'
-      + '</tr></thead><tbody>'
-      + stu.map(s => {
-          const last = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(-1)[0];
-          const lastTxt = last ? (last.date || '') + (last.entry && last.entry.score !== '' && last.entry.score != null ? ' 测' + last.entry.score : '') : '';
-          const presets = '<div class="ql-presets">' + QL_HW_OPTS.map(o => '<button type="button" class="ql-preset" data-v="' + o + '">' + o + '</button>').join('') + '</div>';
-          return '<tr data-sid="' + s.id + '">'
-            + '<td class="ql-name">' + escapeHtml(s.name || '') + (lastTxt ? ' <span class="ql-last">' + escapeHtml(lastTxt) + '</span>' : '') + '</td>'
-            + '<td><input type="number" class="ql-entry" step="0.5" min="0" placeholder="—"></td>'
-            + '<td class="ql-score"><input type="number" class="ql-hw" step="5" min="0" max="100" placeholder="—">' + presets + '</td>'
-            + '<td class="ql-score"><input type="number" class="ql-dict" step="5" min="0" max="100" placeholder="—">' + presets + '</td>'
-            + '<td><input type="text" class="ql-note" placeholder="简短备注"></td>'
-            + '<td><button type="button" class="btn-ghost ql-photo-btn">📷<span class="ql-photo-count"></span></button><input type="file" class="ql-photo-input" accept="image/*" multiple hidden></td>'
-            + '<td><button type="button" class="btn-ghost" onclick="window.__app.openLessonHistory(\'' + s.id + '\')">时间线</button></td>'
-            + '</tr>';
-        }).join('')
-      + '</tbody></table>';
-    // 照片按钮绑定
-    wrap.querySelectorAll('.ql-photo-btn').forEach(btn => {
+
+    // ---- 收集所有历史日期（去重排序）----
+    const allDates = new Set();
+    stu.forEach(s => (s.lessons || []).forEach(l => { if (l.date) allDates.add(l.date); }));
+    let dates = Array.from(allDates).sort();
+    
+    // 当前选择的录入日期
+    const targetDate = (dateEl && dateEl.value) || todayStr();
+    // 如果目标日期不在历史中，追加到末尾作为"今天列"
+    const isTodayNew = !allDates.has(targetDate);
+    if (isTodayNew) dates.push(targetDate);
+
+    // 限制显示的最近 N 节课（避免列太多），默认全部显示但提供折叠
+    const MAX_VISIBLE_DATES = 8;
+    const showAll = window.__qlShowAllDates === true;
+    const visibleDates = showAll ? dates : dates.slice(-MAX_VISIBLE_DATES);
+    const hiddenCount = dates.length - visibleDates.length;
+
+    // ---- 构建时间轴表格 HTML ----
+    let html = '<table class="ql-timeline-table">';
+    
+    // 第一行表头：日期组
+    html += '<thead><tr>';
+    html += '<th rowspan="2" class="tl-chk-col"><input type="checkbox" id="qlCheckAll" class="ql-check" title="全选/取消"></th>';
+    html += '<th rowspan="2" class="stu-name-col">学员</th>';
+    visibleDates.forEach(d => {
+      const isTarget = d === targetDate;
+      const dLabel = d.slice(5).replace('-','/') + (isTarget ? '(今天)' : '');
+      html += '<th colspan="4" class="tl-date-group' + (isTarget ? ' today' : '') + '">' + dLabel + '</th>';
+    });
+    html += '<th rowspan="2" class="tl-integral-col">积分</th>';
+    html += '<th rowspan="2" class="tl-note-col">备注</th>';
+    html += '<th rowspan="2" class="tl-action-col">操作</th>';
+    html += '</tr>';
+
+    // 第二行表头：子字段
+    html += '<tr>';
+    visibleDates.forEach(d => {
+      ['入','作','听','满'].forEach((sub, si) => {
+        const ftype = ['entry','hw','dict','full'][si];
+        html += '<th class="tl-sub-head" data-date="' + d + '" data-field="' + ftype + '">' + sub + '</th>';
+      });
+    });
+    html += '</tr></thead>';
+
+    // 数据行
+    html += '<tbody>';
+    stu.forEach(s => {
+      // 建立日期→lesson 的映射
+      const lessonMap = {};
+      (s.lessons || []).forEach(l => { if (l.date) lessonMap[l.date] = l; });
+      const cur = lessonMap[targetDate] || {};
+
+      html += '<tr data-sid="' + s.id + '">';
+
+      // 勾选框
+      html += '<td class="tl-chk-col"><input type="checkbox" class="ql-check" data-sid="' + s.id + '"></td>';
+
+      // 学员名（可点开时间线）
+      html += '<td class="stu-name-col" onclick="window.__app.openLessonHistory(\'' + s.id + '\')">' 
+        + escapeHtml(s.name || '') + '</td>';
+
+      visibleDates.forEach(d => {
+        const isTarget = d === targetDate;
+        const lesson = lessonMap[d];
+        
+        // 入门测
+        if (isTarget) {
+          const ev = (cur.entry && cur.entry.score !== '' && cur.entry.score != null) ? cur.entry.score : '';
+          html += '<td class="tl-cell editable"><input type="number" class="tl-entry" step="0.5" min="0" placeholder="—" value="' + ev + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="entry">▼</button></td>';
+        } else {
+          const val = lesson && lesson.entry && lesson.entry.score !== '' && lesson.entry.score != null ? lesson.entry.score : '';
+          const cls = val !== '' ? (Number(val) >= 90 ? ' full-mark' : (Number(val) < 60 ? ' low-mark' : '')) : ' empty';
+          html += '<td class="tl-cell has-data' + cls + '">' + (val !== '' ? val : '—') + '</td>';
+        }
+        // 作业
+        if (isTarget) {
+          const hv = (cur.homework && cur.homework.status !== '' && cur.homework.status != null) ? cur.homework.status : '';
+          html += '<td class="tl-cell editable"><input type="number" class="tl-hw" step="5" min="0" max="100" placeholder="—" value="' + hv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="hw">▼</button></td>';
+        } else {
+          const val = lesson && lesson.homework && lesson.homework.status ? lesson.homework.status : '';
+          const cls = val !== '' && Number(val) >= 90 ? ' full-mark' : (val !== '' && Number(val) < 60 ? ' low-mark' : '');
+          html += '<td class="tl-cell has-data' + (cls ? cls : (val === '' ? ' empty' : '')) + '">' + (val !== '' ? val : '—') + '</td>';
+        }
+        // 听写
+        if (isTarget) {
+          const dv = (cur.dictation && cur.dictation.status !== '' && cur.dictation.status != null) ? cur.dictation.status : '';
+          html += '<td class="tl-cell editable"><input type="number" class="tl-dict" step="5" min="0" max="100" placeholder="—" value="' + dv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="dict">▼</button></td>';
+        } else {
+          const val = lesson && lesson.dictation && lesson.dictation.status ? lesson.dictation.status : '';
+          const cls = val !== '' && Number(val) >= 90 ? ' full-mark' : (val !== '' && Number(val) < 60 ? ' low-mark' : '');
+          html += '<td class="tl-cell has-data' + (cls ? cls : (val === '' ? ' empty' : '')) + '">' + (val !== '' ? val : '—') + '</td>';
+        }
+        // 满分
+        if (isTarget) {
+          const fv = (cur.entry && cur.entry.fullScore !== '' && cur.entry.fullScore != null) ? cur.entry.fullScore : '';
+          html += '<td class="tl-cell editable"><input type="number" class="tl-full" step="1" min="0" placeholder="—" value="' + fv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="full">▼</button></td>';
+        } else {
+          const val = lesson && lesson.entry && lesson.entry.fullScore != null && lesson.entry.fullScore !== '' ? lesson.entry.fullScore : '';
+          html += '<td class="tl-cell' + (val === '' ? ' empty' : '') + '">' + (val !== '' ? val : '—') + '</td>';
+        }
+      });
+
+      // 积分
+      const curLesson = lessonMap[targetDate] || {};
+      html += '<td class="tl-integral-col"><input type="number" class="tl-integral" step="1" min="0" placeholder="—" value="' + (curLesson.integral !== '' && curLesson.integral != null ? curLesson.integral : '') + '"></td>';
+      
+      // 备注
+      html += '<td class="tl-note-col"><input type="text" class="tl-note" placeholder="备注" value="' + escapeAttr(curLesson.note || '') + '"></td>';
+      
+      // 操作（照片+时间线）
+      html += '<td class="tl-action-col">';
+      html += '<button type="button" class="btn-ghost tl-photo-btn" style="font-size:12px;padding:3px 6px">📷<span class="tl-photo-count"></span></button>';
+      html += '<input type="file" class="tl-photo-input" accept="image/*" multiple hidden>';
+      html += '</td>';
+
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    // 折叠提示
+    if (hiddenCount > 0) {
+      html += '<div style="text-align:center;padding:6px;font-size:12px;color:var(--text-muted)">'
+        + '显示最近 ' + visibleDates.length + ' 节课 · '
+        + '<button type="button" class="btn-ghost" style="font-size:12px" onclick="window.__qlShowAllDates=true;renderQuickLesson();">展开全部 ' + dates.length + ' 节 »</button>'
+        + (showAll ? ' · <button type="button" class="btn-ghost" style="font-size:12px" onclick="window.__qlShowAllDates=false;renderQuickLesson();">« 折叠</button>' : '')
+        + '</div>';
+    }
+
+    wrap.innerHTML = html;
+
+    // ---- 绑定勾选框（全选 + 行高亮）----
+    const checkAll = document.getElementById('qlCheckAll');
+    const rowChecks = wrap.querySelectorAll('tbody .ql-check');
+    if (checkAll) {
+      checkAll.onclick = () => {
+        const checked = checkAll.checked;
+        rowChecks.forEach(c => { c.checked = checked; toggleRowHl(c); });
+      };
+    }
+    rowChecks.forEach(c => {
+      c.addEventListener('change', () => { toggleRowHl(c); syncCheckAll(); });
+    });
+    function toggleRowHl(chk) {
+      const tr = chk.closest('tr');
+      if (tr) tr.classList.toggle('ql-row-hl', chk.checked);
+    }
+    function syncCheckAll() {
+      if (checkAll) checkAll.checked = Array.from(rowChecks).length > 0 && Array.from(rowChecks).every(c => c.checked);
+    }
+
+    // ---- 绑定照片按钮 ----
+    window.__qlPhotos = window.__qlPhotos || {};
+    wrap.querySelectorAll('.tl-photo-btn').forEach(btn => {
       const row = btn.closest('tr');
-      const input = row.querySelector('.ql-photo-input');
-      const countEl = btn.querySelector('.ql-photo-count');
+      const input = row.querySelector('.tl-photo-input');
+      const countEl = btn.querySelector('.tl-photo-count');
+      const sid = row.dataset.sid;
+      const sObj = state.ledgerStudents.find(x => x.id === sid);
+      const sLessonMap = {};
+      (sObj && sObj.lessons || []).forEach(l => { if (l.date) sLessonMap[l.date] = l; });
+      const existing = (sLessonMap[targetDate] && sLessonMap[targetDate].imgs) || [];
+      if (window.__qlPhotos[sid]) countEl.textContent = ' ' + window.__qlPhotos[sid].length;
+      else if (existing.length) countEl.textContent = ' ' + existing.length;
+      
       btn.onclick = () => input.click();
       input.onchange = async e => {
         const files = e.target.files;
-        window.__qlPhotos = window.__qlPhotos || {};
-        const arr = window.__qlPhotos[row.dataset.sid] || [];
+        const arr = window.__qlPhotos[sid] || [];
         for (const f of files) { const d = await compressImage(f, 1280, 0.7); if (d) arr.push(d); }
-        window.__qlPhotos[row.dataset.sid] = arr;
+        window.__qlPhotos[sid] = arr;
         countEl.textContent = arr.length ? ' ' + arr.length : '';
         e.target.value = '';
       };
     });
-    // 预设分数按钮：点一下填入本格输入框（框仍可手填）
-    wrap.querySelectorAll('.ql-preset').forEach(btn => {
-      btn.onclick = () => {
-        const cell = btn.closest('.ql-score');
-        const inp = cell && cell.querySelector('.ql-hw, .ql-dict');
-        if (inp) inp.value = btn.dataset.v;
-      };
+
+    // ---- Picker 浮层绑定（▼按钮）----
+    bindTimelinePickers(wrap);
+
+    // ---- 自动滚动到"今天"列 ----
+    requestAnimationFrame(() => {
+      const todayTh = wrap.querySelector('.tl-date-group.today');
+      if (todayTh) {
+        todayTh.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
     });
   }
+
+  // 时间轴表格的 picker 绑定（统一入口）
+  function bindTimelinePickers(wrap) {
+    let activePicker = null;
+    const closePicker = () => { if (activePicker) { activePicker.remove(); activePicker = null; } };
+    const openPickerAt = (pk, btn) => {
+      closePicker();
+      pk._btn = btn;
+      document.body.appendChild(pk);
+      const rect = btn.getBoundingClientRect();
+      pk.style.left = Math.max(6, Math.min(rect.left - 20, window.innerWidth - 200)) + 'px';
+      pk.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      requestAnimationFrame(() => pk.classList.add('show'));
+      activePicker = pk;
+    };
+    const buildPicker = (label, opts) => {
+      const pk = document.createElement('div');
+      pk.className = 'ql-picker';
+      pk.innerHTML = '<div class="ql-pk-head">' + label + '</div>'
+        + '<div class="ql-picker-grid">'
+        + opts.map(o => '<button type="button" class="ql-pk-item" data-v="' + o + '">' + o + '</button>').join('')
+        + '</div>';
+      return pk;
+    };
+    // 文档关闭监听（只绑一次）
+    if (!window.__tlDocCloseBound) {
+      window.__tlDocCloseBound = true;
+      const onDown = (e) => {
+        if (!activePicker) return;
+        const t = e.target;
+        if (t === activePicker._btn) return;
+        if (activePicker.contains(t)) return;
+        closePicker();
+      };
+      document.addEventListener('touchstart', onDown, { passive: true });
+      document.addEventListener('click', onDown);
+    }
+    // 绑定所有 ▼ 按钮
+    wrap.querySelectorAll('.tl-pk-btn').forEach(btn => {
+      btn.onclick = e => {
+        e.stopPropagation();
+        if (activePicker && activePicker._btn === btn) { closePicker(); return; }
+        const cell = btn.closest('td');
+        const inp = cell && cell.querySelector('input');
+        if (!inp) return;
+        const forType = btn.dataset.for || 'hw';
+        let opts, label;
+        if (forType === 'entry') { opts = QL_ENTRY_OPTS; label = '入门测分数'; }
+        else if (forType === 'full') { opts = QL_FULL_OPTS; label = '满分'; }
+        else { opts = QL_HW_OPTS; label = forType === 'hw' ? '作业分数' : '听写分数'; }
+        const pk = buildPicker(label, opts);
+        openPickerAt(pk, btn);
+        pk.querySelectorAll('.ql-pk-item').forEach(item => {
+          item.onclick = (ev) => {
+            ev.stopPropagation();
+            inp.value = item.dataset.v;
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            closePicker();
+          };
+        });
+      };
+    });
+    // 滚动位置检测：右端时隐藏渐变提示
+    const onScroll = () => {
+      const atEnd = wrap.scrollLeft + wrap.clientWidth + 2 >= wrap.scrollWidth;
+      wrap.classList.toggle('scroll-end', atEnd);
+    };
+    wrap.addEventListener('scroll', onScroll, { passive: true });
+    requestAnimationFrame(onScroll);
+  }
+
+  // v4.0: 时间轴表格保存 —— 读取"今天列"的 .tl-* 输入框
   window.saveQuickLesson = async function () {
-    const date = (document.getElementById('qlDate') && document.getElementById('qlDate').value) || todayStr();
+    const dateEl = document.getElementById('qlDate');
+    const date = (dateEl && dateEl.value) || todayStr();
     const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
     let ok = 0;
+    try {
+      const sel = document.getElementById('qlClassSel');
+      localStorage.setItem('ql_last_class', sel ? sel.value : '');
+      localStorage.setItem('ql_last_date', date);
+    } catch(e){}
     for (const row of rows) {
       const sid = row.dataset.sid;
       const s = state.ledgerStudents.find(x => x.id === sid);
       if (!s) continue;
-      const er = row.querySelector('.ql-entry').value;
-      const hw = row.querySelector('.ql-hw').value;
-      const dict = row.querySelector('.ql-dict').value;
-      const note = row.querySelector('.ql-note').value.trim();
-      // 至少填了一项才保存（避免空行）
-      if (er === '' && !hw && !dict && !note) continue;
+      // 使用新的时间轴选择器 .tl-*
+      const er = (row.querySelector('.tl-entry') && row.querySelector('.tl-entry').value) || '';
+      const fullScore = (row.querySelector('.tl-full') && row.querySelector('.tl-full').value) || '';
+      const hw = (row.querySelector('.tl-hw') && row.querySelector('.tl-hw').value) || '';
+      const dict = (row.querySelector('.tl-dict') && row.querySelector('.tl-dict').value) || '';
+      const integral = (row.querySelector('.tl-integral') && row.querySelector('.tl-integral').value) || '';
+      const note = (row.querySelector('.tl-note') && row.querySelector('.tl-note').value.trim()) || '';
+      if (er === '' && !hw && !dict && !note && !fullScore && integral === '') continue;
       if (!Array.isArray(s.lessons)) s.lessons = [];
       const entryScore = er === '' ? '' : (Number(er) || 0);
+      const fullVal = fullScore === '' ? '' : (Number(fullScore) || 0);
+      const integralVal = integral === '' ? '' : (Number(integral) || 0);
       const imgs = (window.__qlPhotos && window.__qlPhotos[sid]) ? window.__qlPhotos[sid].slice() : [];
-      s.lessons.push({ id: uid(), date, entry: { score: entryScore, level: '', note: '' }, homework: { status: hw, note: '' }, dictation: { status: dict, note: '' }, note, imgs, ts: Date.now() });
+      // 查找是否已有同日期记录（时间轴模式支持覆写）
+      const existingIdx = s.lessons.findIndex(l => l.date === date);
+      const lessonData = { id: existingIdx >= 0 ? s.lessons[existingIdx].id : uid(), date, entry: { score: entryScore, fullScore: fullVal, level: '', note: '' }, homework: { status: hw, note: '' }, dictation: { status: dict, note: '' }, integral: integralVal, note, imgs, ts: Date.now() };
+      if (existingIdx >= 0) {
+        s.lessons[existingIdx] = lessonData;  // 覆写已有记录
+      } else {
+        s.lessons.push(lessonData);           // 新增
+      }
+      // 同步镜像到 entryTests / homeworks / scores / dictations
+      normalizeLedger(s);
+      if (!Array.isArray(s.entryTests)) s.entryTests = [];
+      if (!Array.isArray(s.homeworks)) s.homeworks = [];
+      if (!Array.isArray(s.scores)) s.scores = [];
+      if (!Array.isArray(s.dictations)) s.dictations = [];
+      // 移除同日期旧记录再添加（避免重复）
+      s.entryTests = s.entryTests.filter(e => e.date !== date);
+      s.homeworks = s.homeworks.filter(h => h.date !== date);
+      s.dictations = s.dictations.filter(d => d.date !== date);
+      s.scores = s.scores.filter(sc => sc.date !== date);
+      if (er !== '') {
+        s.entryTests.push({ date, subject: '入门测', score: Number(entryScore), fullScore: Number(fullVal) || undefined, note: note || '', img: (imgs || [])[0] || '' });
+      }
+      if (hw) {
+        s.homeworks.push({ date, content: '课后作业', status: hw === '100' ? '全对' : (Number(hw) >= 80 ? '已完成' : Number(hw) >= 60 ? '订正中' : '未完成'), score: Number(hw) || 0, comment: '', img: '' });
+      }
+      if (dict) {
+        s.dictations.push({ date, score: Number(dict) || 0, note: note || '', img: '' });
+      }
+      if (integral !== '') {
+        s.scores.push({ date, score: Number(integralVal) || 0, note: note || '', img: '' });
+      }
       await dbPut('ledgerStudents', s);
       ok++;
     }
@@ -15664,17 +16207,124 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     window.__qlPhotos = {};
     renderLedger();
     renderQuickLesson();
-    toast(ok > 0 ? '已保存 ' + ok + ' 名学员的本节课记录 ✓' : '没有填写任何数据，无需保存');
+    toast(ok > 0 ? '✅ 已保存 ' + ok + ' 名学员「' + date + '」的记录（历史成绩保留在表格中，可左右滑动查看）' : '没有填写任何数据，无需保存');
   };
+  // v4.0: 使用 .tl-note 选择器
   window.copySameComment = function () {
     const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
     let first = '';
-    for (const r of rows) { const v = r.querySelector('.ql-note').value.trim(); if (v) { first = v; break; } }
+    for (const r of rows) { const inp = r.querySelector('.tl-note'); if (inp && inp.value.trim()) { first = inp.value.trim(); break; } }
     if (!first) { toast('先在任意一行备注里输入要复制的内容'); return; }
     let n = 0;
-    rows.forEach(r => { const inp = r.querySelector('.ql-note'); if (!inp.value.trim()) { inp.value = first; n++; } });
-    toast('已为 ' + n + ' 行填充相同评语');
+    rows.forEach(r => { const inp = r.querySelector('.tl-note'); if (inp && !inp.value.trim()) { inp.value = first; n++; } });
+    toast('已为 ' + n + ' 行填充相同评语 ✓');
   };
+  // ===== v4.0: 语音批量录入（Web Speech API）=====
+  window.__voiceRec = null;
+  window.__voiceActive = false;
+  window.startVoiceInput = function() {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      alert('您的浏览器不支持语音识别，请使用 Chrome 或 Edge');
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (window.__voiceRec) { window.stopVoiceInput(); return; }
+    window.__voiceRec = new SR();
+    window.__voiceRec.continuous = false;
+    window.__voiceRec.lang = 'zh-CN';
+    window.__voiceRec.interimResults = false;
+    window.__voiceRec.maxAlternatives = 1;
+    
+    const btn = document.getElementById('qlVoiceBtn');
+    if (btn) { btn.classList.add('voice-recording'); btn.textContent = '🔴 停止录音'; }
+    window.__voiceActive = true;
+    
+    window.__voiceRec.onresult = function(event) {
+      const text = event.results[0][0].transcript || '';
+      window.stopVoiceInput();
+      if (text.trim()) {
+        window.parseVoiceScores(text.trim());
+        toast('🎤 识别到: ' + text.trim());
+      } else {
+        toast('没有识别到有效内容，请重试');
+      }
+    };
+    window.__voiceRec.onerror = function(e) {
+      console.warn('Voice error:', e.error);
+      window.stopVoiceInput();
+      let msg = '语音识别出错';
+      if (e.error === 'no-speech') msg = '没有检测到语音，请再说一次';
+      else if (e.error === 'audio-capture') msg = '无法访问麦克风，请检查权限';
+      else if (e.error === 'not-allowed') msg = '麦克风权限被拒绝，请在浏览器设置中允许';
+      toast(msg);
+    };
+    window.__voiceRec.onend = function() {
+      window.stopVoiceInput();
+    };
+    window.__voiceRec.start();
+    toast('🎤 请开始说话，例如："张三85，李四72，王五90"...');
+  };
+  
+  window.stopVoiceInput = function() {
+    try { if (window.__voiceRec) window.__voiceRec.stop(); } catch(e){}
+    window.__voiceRec = null;
+    window.__voiceActive = false;
+    const btn = document.getElementById('qlVoiceBtn');
+    if (btn) { btn.classList.remove('voice-recording'); btn.textContent = '🎤 语音录入'; }
+  };
+
+  // 解析语音文本 → 自动填入对应学生格子
+  // 支持格式："张三85 李四72 王五90"、"张三入门测85" 等
+  window.parseVoiceScores = function(text) {
+    const stu = state.ledgerStudents.filter(s => s.classId === qlCurrentClassId());
+    const nameMap = {};
+    stu.forEach(s => { nameMap[s.name.trim()] = s.id; });
+    
+    // 正则匹配：姓名(2-4字)+数字(分数)
+    // 兼容：张三85、张三 85、张三：85、张三入门测85
+    const pattern = /([\u4e00-\u9fa5]{2,4})[\s:：:]*((?:入门测?|作业?|听写?)?[\s:]*(\d{1,3}\.?\d*))/g;
+    let match;
+    let filled = 0;
+    while ((match = pattern.exec(text)) !== null) {
+      const name = match[1].trim();
+      const scoreStr = match[2].replace(/[^\d.]/g, '');
+      const sid = nameMap[name];
+      if (!sid) continue;
+      
+      const row = document.querySelector('#qlTable tr[data-sid="' + sid + '"]');
+      if (!row) continue;
+      
+      // 判断是哪个字段（默认入门测）
+      let field = 'entry';
+      const raw = match[2];
+      if (/作业/.test(raw)) field = 'hw';
+      else if (/听写/.test(raw)) field = 'dict';
+      
+      const selector = field === 'entry' ? '.tl-entry' : (field === 'hw' ? '.tl-hw' : '.tl-dict');
+      const inp = row.querySelector(selector);
+      if (inp) { inp.value = scoreStr; filled++; }
+    }
+    
+    if (filled > 0) {
+      toast('✅ 已自动填入 ' + filled + ' 条成绩，请核对后保存');
+    } else {
+      // 尝试简单格式 "张三85李四72"
+      const simplePattern = /([\u4e00-\u9fa5]{2,4})(\d{1,3})/g;
+      while ((match = simplePattern.exec(text)) !== null) {
+        const name = match[1].trim();
+        const scoreStr = match[2];
+        const sid = nameMap[name];
+        if (!sid) continue;
+        const row = document.querySelector('#qlTable tr[data-sid="' + sid + '"]');
+        if (!row) continue;
+        const inp = row.querySelector('.tl-entry');
+        if (inp) { inp.value = scoreStr; filled++; }
+      }
+      if (filled > 0) toast('✅ 已填入 ' + filled + ' 条入门测成绩（默认），请核对');
+      else toast('⚠️ 未匹配到学生姓名，请尝试说"张三85，李四72"的格式');
+    }
+  };
+
   window.__app.openLessonHistory = function (sid) {
     const s = state.ledgerStudents.find(x => x.id === sid);
     if (!s) return;
@@ -15690,11 +16340,13 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
           const entryTxt = (l.entry && l.entry.score !== '' && l.entry.score != null) ? (escapeHtml(String(l.entry.score)) + ' 分' + (l.entry.note ? '（' + escapeHtml(l.entry.note) + '）' : '')) : '—';
           const hwTxt = (l.homework && l.homework.status) ? escapeHtml(l.homework.status) + (l.homework.note ? '（' + escapeHtml(l.homework.note) + '）' : '') : '—';
           const dictTxt = (l.dictation && l.dictation.status) ? escapeHtml(l.dictation.status) : '—';
+          const integralTxt = (l.integral !== '' && l.integral != null) ? (Number(l.integral) > 0 ? '+' + l.integral : l.integral) : '—';
           const imgs = (l.imgs && l.imgs.length) ? '<div class="ql-lesson-imgs">' + l.imgs.map((im, j) => '<img src="' + im + '" class="ql-lesson-img" onclick="window.__app.viewLessonImg(\'' + sid + '\',\'' + l.id + '\',' + j + ')">').join('') + '</div>' : '';
           return '<div class="ql-lesson"><div class="ql-lesson-hd"><b>' + escapeHtml(l.date || '未注明日期') + '</b><button type="button" class="btn-ghost ql-lesson-del" data-lid="' + l.id + '">删除</button></div>'
             + '<div class="ql-lesson-row">入门测：' + entryTxt + '</div>'
             + '<div class="ql-lesson-row">作业：' + hwTxt + '</div>'
             + '<div class="ql-lesson-row">听写：' + dictTxt + '</div>'
+            + '<div class="ql-lesson-row">课堂积分：' + integralTxt + '</div>'
             + (l.note ? '<div class="ql-lesson-row">备注：' + escapeHtml(l.note) + '</div>' : '')
             + imgs + '</div>';
         }).join('') : '<div class="info-block">暂无本节课记录，去「本节课快速录入」登记吧</div>')
@@ -15769,45 +16421,423 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (!l || !l.imgs || !l.imgs[j]) return;
     openModal('查看图片', '<img src="' + l.imgs[j] + '" style="max-width:100%;border-radius:10px">', '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
   };
-  function buildFeedbackText(s, tpl) {
-    const lessons = (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
-    const lastEntry = lessons.find(l => l.entry && l.entry.score !== '' && l.entry.score != null);
-    const lastHw = lessons.find(l => l.homework && l.homework.status);
-    const lastDict = lessons.find(l => l.dictation && l.dictation.status);
-    const lastNote = lessons.find(l => l.note);
-    const entryTxt = lastEntry ? (lastEntry.entry.score + ' 分' + (lastEntry.entry.note ? '（' + lastEntry.entry.note + '）' : '')) : '—';
-    const hwTxt = lastHw ? lastHw.homework.status : '—';
-    const dictTxt = lastDict ? lastDict.dictation.status : '—';
-    const noteTxt = lastNote ? lastNote.note : '继续保持，加油！';
-    const timeline = lessons.map(l => (l.date || '某日') + '：入门测' + (l.entry && l.entry.score !== '' && l.entry.score != null ? l.entry.score + '分' : '—') + '，作业' + ((l.homework && l.homework.status) || '—') + '，听写' + ((l.dictation && l.dictation.status) || '—') + (l.note ? '，' + l.note : '')).join('\n');
-    const map = { '{姓名}': s.name || '', '{学生}': s.name || '', '{入门测}': entryTxt, '{作业}': hwTxt, '{听写}': dictTxt, '{备注}': noteTxt, '{时间线}': timeline };
+  // ========================================================================
+  // 课后反馈：纯模板变量替换（不调用 AI，严格套用模板 + 固定语气，仅填充台账数据）
+  // ========================================================================
+  const FB_VARS = ['学生姓名', '入门测_分数', '听写_情况', '学生备注', '本节课知识点', '课后作业', '课堂练习内容', '班级整体评价', '自动提取台账备注里面重点学生情况'];
+
+  function fbLatestLesson(s) {
+    return (s.lessons || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0))[0] || null;
+  }
+  function fbLastEntry(s) {
+    const l = fbLatestLesson(s);
+    if (l && l.entry && l.entry.score !== '' && l.entry.score != null) return Number(l.entry.score);
+    return null;
+  }
+  function fbLastDict(s) {
+    const l = fbLatestLesson(s);
+    if (l && l.dictation && l.dictation.status) return String(l.dictation.status);
+    return '';
+  }
+  function fbLastNote(s) {
+    const l = fbLatestLesson(s);
+    return l && l.note ? l.note : '';
+  }
+  function fbClassEntrySummary(stu) {
+    let latest = null;
+    stu.forEach(s => (s.lessons || []).forEach(l => { if (!latest || (l.date || '') > latest) latest = l.date; }));
+    if (!latest) return '本次暂未记录入门测数据';
+    const sc = [];
+    stu.forEach(s => { const l = (s.lessons || []).find(x => x.date === latest); if (l && l.entry && l.entry.score !== '' && l.entry.score != null) sc.push(Number(l.entry.score)); });
+    if (!sc.length) return '本次入门测数据待补充';
+    const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+    return '全班平均 ' + avg.toFixed(1) + ' 分（最高 ' + Math.max.apply(null, sc) + '，最低 ' + Math.min.apply(null, sc) + '），整体达成情况良好，少部分同学还需多加巩固。';
+  }
+  function fbClassDictSummary(stu) {
+    let latest = null;
+    stu.forEach(s => (s.lessons || []).forEach(l => { if (!latest || (l.date || '') > latest) latest = l.date; }));
+    if (!latest) return '';
+    const sc = [];
+    stu.forEach(s => { const l = (s.lessons || []).find(x => x.date === latest); if (l && l.dictation && l.dictation.status) { const n = Number(l.dictation.status); if (!isNaN(n)) sc.push(n); } });
+    if (!sc.length) return '';
+    const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+    return '本次听写全班平均 ' + avg.toFixed(1) + ' 分，多数同学掌握较好。';
+  }
+  // 班课群：自动提取重点学生情况（不点名，委婉表述）
+  const FB_KEY_WORDS = ['退步', '薄弱', '未完成', '未交', '缺', '需关注', '注意', '错', '差', '不理', '分心', '下降', '偏', '跟不上', '吃力', '马虎', '粗心', '漏', '忘'];
+  function fbExtractKeyNotes(stu) {
+    const notes = [];
+    stu.forEach(s => {
+      const l = fbLatestLesson(s);
+      if (!l) return;
+      const n = l.note || '';
+      const d = l.dictation && l.dictation.status ? String(l.dictation.status) : '';
+      const e = (l.entry && l.entry.score !== '' && l.entry.score != null) ? Number(l.entry.score) : null;
+      if (FB_KEY_WORDS.some(k => n.indexOf(k) >= 0)) notes.push(n);
+      else if (d && (d.indexOf('未完成') >= 0 || d.indexOf('未交') >= 0 || d.indexOf('订正') >= 0)) notes.push('有同学在听写环节' + d + '，需要多加巩固');
+      else if (e !== null && e < 60) notes.push('有同学入门测成绩偏弱，建议课后针对性辅导');
+    });
+    if (!notes.length) return '本次课堂整体专注度良好，同学们配合度高，知识吸收到位。';
+    const uniq = Array.from(new Set(notes));
+    return '有少部分同学在以下方面还需要多加巩固：\n' + uniq.map(t => '· ' + t).join('\n') + '\n建议家长配合，在家多关注孩子的学习习惯。';
+  }
+  function fbFill(tpl, map) {
     let t = tpl;
     Object.keys(map).forEach(k => { t = t.split(k).join(map[k]); });
+    // 清理残留未替换的变量
+    FB_VARS.forEach(v => { t = t.split('{{' + v + '}}').join(''); });
+    // 清理多余空行
+    t = t.split('\n').map(l => l.replace(/\s+$/, '')).filter((l, i, a) => !(l === '' && a[i + 1] === '')).join('\n').trim();
     return t;
   }
-  window.generateLessonFeedback = function () {
-    const rows = Array.from(document.querySelectorAll('#qlTable tr[data-sid]'));
-    if (!rows.length) { toast('没有学员数据'); return; }
-    const tpl = getFbTpl();
-    window.__fbCache = {};
-    let html = '';
-    for (const r of rows) {
-      const sid = r.dataset.sid;
-      const s = state.ledgerStudents.find(x => x.id === sid);
-      if (!s) continue;
-      normalizeLedger(s);
-      const text = buildFeedbackText(s, tpl);
-      window.__fbCache[sid] = text;
-      html += '<div class="fb-1to1"><div class="fb-1to1-hd">' + escapeHtml(s.name || '') + ' <button type="button" class="btn-ghost" onclick="window.copyText(window.__fbCache &amp;&amp; window.__fbCache[\'' + sid + '\'])">复制</button></div><pre class="fb-1to1-body">' + escapeHtml(text) + '</pre></div>';
+  function fbFillPrivate(tpl, s, cfg) {
+    const e = fbLastEntry(s);
+    const d = fbLastDict(s);
+    const note = fbLastNote(s) || '课堂表现积极，积极配合老师教学，继续保持。';
+    const map = {
+      '{{学生姓名}}': s.name || '同学',
+      '{{入门测_分数}}': e === null ? '本次暂未记录入门测' : (e + ' 分'),
+      '{{听写_情况}}': d || '本次暂未记录听写',
+      '{{学生备注}}': note,
+      '{{本节课知识点}}': cfg.knowledge || '（请补充本节课知识点）',
+      '{{课后作业}}': cfg.homework || '（请补充课后作业）',
+      '{{课堂练习内容}}': cfg.practice || '',
+      '{{班级整体评价}}': '',
+      '{{自动提取台账备注里面重点学生情况}}': ''
+    };
+    return fbFill(tpl, map);
+  }
+  function fbFillClass(tpl, stu, cfg) {
+    const map = {
+      '{{学生姓名}}': '全班同学',
+      '{{入门测_分数}}': fbClassEntrySummary(stu),
+      '{{听写_情况}}': fbClassDictSummary(stu) || '本次暂未记录听写',
+      '{{学生备注}}': '',
+      '{{本节课知识点}}': cfg.knowledge || '（请补充本节课知识点）',
+      '{{课后作业}}': cfg.homework || '（请补充课后作业）',
+      '{{课堂练习内容}}': cfg.practice || '（请补充课堂练习内容）',
+      '{{班级整体评价}}': cfg.classEval || '孩子们整体学习状态积极，课堂互动良好。',
+      '{{自动提取台账备注里面重点学生情况}}': fbExtractKeyNotes(stu)
+    };
+    return fbFill(tpl, map);
+  }
+  function fbSaveMaterial(text) {
+    if (!text) { toast('没有内容可保存'); return; }
+    const item = { id: uid(), text, ts: Date.now() };
+    dbPut('feedbackMaterials', item);
+    state.feedbackMaterials.push(item);
+    saveLocalCache();
+    if (typeof renderFeedbackMaterials === 'function') try { renderFeedbackMaterials(); } catch (e) {}
+    toast('已保存到课后反馈素材库 ✓');
+  }
+  // 生成课后反馈：先选模式
+
+  // ===== v4.0: 温情词库与档位系统 =====
+  window.__fbTone = 'warm'; // 默认温和温情版
+  
+  // 词库：每个条目 [温和版, 简洁版, 严谨版]
+  const FB_TONE_WORDS = {
+    // 开场白
+    greeting: ['家长您好～孩子本节课的表现跟您汇报一下：', '【学情反馈】', '您好，以下是本次课的正式学情记录：'],
+    // 整体评价-好
+    overall_good: ['孩子们这节课整体状态很不错，大部分同学能够跟上节奏，值得表扬👍', '整体表现良好', '本节课班级整体学习状态符合预期'],
+    // 整体评价-一般
+    overall_ok: ['孩子们整体表现还可以，不过有部分知识点还需要再巩固一下', '表现一般，需加强', '整体掌握程度中等，部分内容需复习'],
+    // 整体评价-差
+    overall_weak: ['这节课孩子们普遍感觉有些吃力，后续需要多花一些时间补基础', '表现偏弱，需关注', '整体掌握不理想，建议加强课后辅导'],
+    // 个人表扬
+    praise_good: ['孩子上课很认真，愿意主动思考，这点非常棒！值得肯定💪', '表现积极', '学习态度端正'],
+    praise_ok: ['孩子上课还是比较认真的，继续加油！', '表现平稳', '学习态度尚可'],
+    // 需要改进
+    improve: ['还有小部分知识点掌握得不够熟练，如果在家多花一点时间复习巩固，相信下次会有更大的进步空间🌱', '部分知识需巩固', '建议加强薄弱环节的练习'],
+    // 作业提醒  
+    hw_remind: ['今天的作业是之前内容的延伸，记得让孩子认真完成哦～有不懂的随时问我！', '请按时完成作业', '务必完成今日作业以巩固所学'],
+    // 结束语
+    closing: ['有任何问题随时跟我沟通，我们一起帮助孩子进步 ❤️', '— 任课老师', '以上为本次学情反馈记录'],
+    // 分数表述 - 高分
+    score_high: ['考得很不错呢！', '成绩优良', '得分率优秀'],
+    // 分数表述 - 中等
+    score_mid: ['还不错，继续加油！', '成绩中等', '得分率一般'],
+    // 分数表述 - 低分
+    score_low: ['这次有点小失误，下次注意就好～', '成绩待提高', '得分率偏低需努力'],
+  };
+
+  // 根据档位获取对应措辞
+  function fbToneWord(key) {
+    const words = FB_TONE_WORDS[key];
+    if (!words) return '';
+    const idx = window.__fbTone === 'warm' ? 0 : (window.__fbTone === 'clean' ? 1 : 2);
+    return words[idx] || words[0];
+  }
+
+  // 对生成的文本应用温情转换（只替换表达，不改结构）
+  function fbApplyTone(text) {
+    if (window.__fbTone === 'warm') return text; // 温和版保持原模板（模板本身已够温柔）
+    if (window.__fbTone === 'clean') {
+      // 简洁版：去掉 emoji、缩短修饰语
+      return text
+        .replace(/[❤️👍🌱💪✅📝📖💡🎯⭐️]/g, '')
+        .replace(/很不错的呢/g, '良好')
+        .replace(/非常棒/g, '好')
+        .replace(/值得表扬/g, '予以肯定')
+        .replace(/相信下次会有更大的进步空间/g, '望今后改进')
+        .replace(/随时跟我沟通/g, '可随时联系')
+        .replace(/我们一起帮助孩子进步/g, '共同促进学生发展')
+        .replace(/认真完成哦/g, '请认真完成')
+        .replace(/有不懂的随时问我/g, '有问题可咨询');
     }
-    const footer = '<button class="btn-ghost" onclick="window.__app.editFbTpl()">编辑模板</button><button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>';
-    openModal('一对一课堂反馈（全班）', '<div class="fb-1to1-list">' + html + '</div>', footer);
+    // 严谨版：更正式的表达
+    return text
+      .replace(/[❤️👍🌱💪✅📝📖💡🎯⭐️]/g, '')
+      .replace(/家长您好～/g, '尊敬的家长：')
+      .replace(/孩子/g, '学生')
+      .replace(/很不错的呢/g, '表现优异')
+      .replace(/非常棒/g, '表现突出')
+      .replace(/值得表扬/g, '提出表扬')
+      .replace(/相信下次会有更大的进步空间/g, '预期后续可有提升')
+      .replace(/随时跟我沟通/g, '如有疑问可随时沟通')
+      .replace(/我们一起帮助孩子进步/g, '家校共同配合以促进学业进步')
+      .replace(/认真完成哦/g, '请督促完成')
+      .replace(/有不懂的随时问我/g, '遇疑难问题可及时反馈');
+  }
+
+  window.generateLessonFeedback = function () {
+    const cid = qlCurrentClassId();
+    const stu = state.ledgerStudents.filter(s => s.classId === cid);
+    if (!stu.length) { toast('请先在上方选择有学员的班级'); return; }
+    const body = '<div class="fb-choice">'
+      + '<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px">本次录入完成后，选择生成方式：</p>'
+      + '<button type="button" class="btn-primary fb-choice-btn" data-mode="class">📣 生成班级群反馈</button>'
+      + '<button type="button" class="btn-primary fb-choice-btn" data-mode="private">💬 批量生成单人家长私聊反馈</button>'
+      + '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button></div>';
+    openModal('生成课后反馈', body, '');
+    document.querySelectorAll('.fb-choice-btn').forEach(b => {
+      b.onclick = () => { const mode = b.dataset.mode; fbOpenConfig(mode, stu); };
+    });
   };
-  window.__app.editFbTpl = function () {
-    const body = '<label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px">支持占位符：{姓名} {入门测} {作业} {听写} {备注} {时间线}</label><textarea id="fbTplInput" rows="10" style="width:100%">' + escapeHtml(getFbTpl()) + '</textarea>';
-    openModal('编辑反馈模板', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="fbTplSave">保存</button>');
-    document.getElementById('fbTplSave').onclick = () => { setFbTpl(document.getElementById('fbTplInput').value); closeModal(); toast('模板已保存'); window.generateLessonFeedback(); };
+  function fbOpenConfig(mode, stu) {
+    const type = mode === 'class' ? 'class' : 'private';
+    const tpls = state.fbTemplates.filter(t => t.type === type);
+    const opts = tpls.length ? tpls.map(t => '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>').join('') : '<option value="">（暂无模板，点「反馈模板」先新增）</option>';
+    const extra = mode === 'class'
+      ? '<label>课堂练习内容<textarea id="fbPractice" rows="2" placeholder="如：当堂完成《背影》段落仿写1篇"></textarea></label>'
+        + '<label>班级整体评价<textarea id="fbClassEval" rows="2" placeholder="如：孩子们整体学习状态积极，课堂互动良好"></textarea></label>'
+      : '';
+    const body = '<div class="fb-cfg">'
+      + '<div class="fb-tone-selector">'
+        + '<div class="fb-tone-btn fb-tone-warm active" data-tone="warm">🌸 温和温情<br><small style="font-size:10px;color:var(--text-muted)">日常默认</small></div>'
+        + '<div class="fb-tone-btn fb-tone-clean" data-tone="clean">📋 简洁客观<br><small style="font-size:10px;color:var(--text-muted)">快速通知</small></div>'
+        + '<div class="fb-tone-btn fb-tone-strict" data-tone="strict">📐 严谨严肃<br><small style="font-size:10px;color:var(--text-muted)">需提醒时</small></div>'
+      + '</div>'
+      + '<label>选择模板<select id="fbTplSel">' + opts + '</select></label>'
+      + '<label>本节课知识点<textarea id="fbKnowledge" rows="2" placeholder="如：第5讲 记叙文六要素 + 课文《背影》精读"></textarea></label>'
+      + '<label>课后作业<textarea id="fbHomework" rows="2" placeholder="如：完成练习册P23-25；背诵《春》第3段"></textarea></label>'
+      + extra
+      + '<div class="fb-cfg-actions"><button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button type="button" class="btn-primary" id="fbGenBtn">生成</button></div>'
+      + '</div>';
+    openModal(mode === 'class' ? '配置班级群反馈' : '配置单人私聊反馈', body, '');
+    
+    // 绑定档位切换按钮（必须在 openModal 之后，DOM 已插入）
+    document.querySelectorAll('.fb-tone-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.fb-tone-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        window.__fbTone = btn.dataset.tone || 'warm';
+      };
+    });
+    
+    const gen = document.getElementById('fbGenBtn');
+    if (!gen) return;
+    gen.onclick = () => {
+      const tplId = document.getElementById('fbTplSel').value;
+      const tpl = tpls.find(t => t.id === tplId);
+      if (!tpl) { toast('请先选择或新增一个模板'); return; }
+      const cfg = {
+        knowledge: (document.getElementById('fbKnowledge').value || '').trim(),
+        homework: (document.getElementById('fbHomework').value || '').trim(),
+        practice: mode === 'class' ? (document.getElementById('fbPractice').value || '').trim() : '',
+        classEval: mode === 'class' ? (document.getElementById('fbClassEval').value || '').trim() : '',
+        tone: window.__fbTone || 'warm'
+      };
+      if (mode === 'class') fbRenderClass(tpl, stu, cfg);
+      else fbRenderPrivate(tpl, stu, cfg);
+    };
+  }
+  function fbRenderClass(tpl, stu, cfg) {
+    let text = fbFillClass(tpl.content, stu, cfg);
+    text = fbApplyTone(text); // 应用温情档位转换
+    window.__fbClassText = text;
+    const body = '<pre class="fb-text" id="fbClassText">' + escapeHtml(text) + '</pre>';
+    const footer = '<button type="button" class="btn-ghost" onclick="window.copyText(window.__fbClassText)">复制全文</button>'
+      + '<button type="button" class="btn-ghost" onclick="window.__app.saveFbMaterial(window.__fbClassText)">保存到素材库</button>'
+      + '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>';
+    openModal('班级群反馈预览', body, footer);
+  }
+  function fbRenderPrivate(tpl, stu, cfg) {
+    window.__fbPrivate = {};
+    let html = '';
+    stu.forEach(s => {
+      let text = fbFillPrivate(tpl.content, s, cfg);
+      text = fbApplyTone(text); // 应用温情档位转换
+      window.__fbPrivate[s.id] = text;
+      html += '<div class="fb-1to1"><div class="fb-1to1-hd">' + escapeHtml(s.name || '') + ' <button type="button" class="btn-ghost" onclick="window.copyText(window.__fbPrivate &amp;&amp; window.__fbPrivate[\'' + s.id + '\'])">复制</button></div><pre class="fb-1to1-body">' + escapeHtml(text) + '</pre></div>';
+    });
+    const footer = '<button type="button" class="btn-ghost" onclick="window.__app.saveAllPrivateFb()">全部保存到素材库</button><button type="button" class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>';
+    openModal('单人家长私聊反馈（' + stu.length + '人）', '<div class="fb-1to1-list">' + html + '</div>', footer);
+  }
+  window.__app.saveFbMaterial = fbSaveMaterial;
+  window.__app.saveAllPrivateFb = function () {
+    const map = window.__fbPrivate || {};
+    let n = 0;
+    Object.keys(map).forEach(k => { if (map[k]) { fbSaveMaterial(map[k]); n++; } });
+    toast('已保存 ' + n + ' 条反馈到素材库 ✓');
   };
+  // 自定义反馈模板管理
+  window.__app.openFbTemplateManager = function () {
+    const list = state.fbTemplates.slice().sort((a, b) => (a.type === b.type ? 0 : (a.type === 'class' ? -1 : 1)));
+    const rows = list.length ? list.map(t => {
+      const badge = t.type === 'class' ? '班课群' : '一对一';
+      return '<div class="fb-tpl-row"><div class="fb-tpl-info"><b>' + escapeHtml(t.name) + '</b> <span class="badge">' + badge + '</span>' + (t.builtin ? ' <span class="badge builtin">默认</span>' : '') + '</div>'
+        + '<div class="fb-tpl-ops"><button type="button" class="btn-ghost" data-edit="' + t.id + '">编辑</button>'
+        + (t.builtin ? '' : '<button type="button" class="btn-ghost" data-del="' + t.id + '">删除</button>') + '</div></div>';
+    }).join('') : '<div class="info-block">还没有模板，点下方「＋ 新增模板」创建</div>';
+    const body = '<div class="fb-tpl-list">' + rows + '</div><button type="button" class="btn-primary" id="fbAddTplBtn" style="margin-top:10px">＋ 新增模板</button>';
+    openModal('自定义反馈模板管理', body, '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+    const add = document.getElementById('fbAddTplBtn');
+    if (add) add.onclick = () => fbEditTemplate(null);
+    document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => fbEditTemplate(b.dataset.edit));
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.del; const t = state.fbTemplates.find(x => x.id === id);
+      if (!t) return;
+      if (!confirm('确定删除模板「' + t.name + '」？')) return;
+      state.fbTemplates = state.fbTemplates.filter(x => x.id !== id);
+      await dbDel('fbTemplates', id);
+      saveLocalCache();
+      window.__app.openFbTemplateManager();
+    });
+  };
+  function fbEditTemplate(id) {
+    const t = id ? state.fbTemplates.find(x => x.id === id) : null;
+    const vars = FB_VARS.map(v => '<button type="button" class="ql-preset" data-var="{{' + v + '}}">{{' + v + '}}</button>').join('');
+    const body = '<label style="display:block;margin-bottom:6px">模板名称<input type="text" id="fbName" value="' + escapeHtml(t ? t.name : '') + '" placeholder="如：班课群反馈-期中"></label>'
+      + '<label style="display:block;margin-bottom:6px">模板类型<select id="fbType"><option value="class"' + (t && t.type === 'class' ? ' selected' : '') + '>班课群</option><option value="private"' + (t && t.type === 'private' ? ' selected' : '') + '>一对一私聊</option></select></label>'
+      + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">点击插入动态变量：</div><div class="fb-vars">' + vars + '</div>'
+      + '<textarea id="fbContent" rows="12" style="width:100%;margin-top:6px;font-family:inherit;box-sizing:border-box">' + escapeHtml(t ? t.content : '') + '</textarea>';
+    openModal(id ? '编辑模板' : '新增模板', body, '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button type="button" class="btn-primary" id="fbSaveTpl">保存</button>');
+    document.querySelectorAll('.fb-vars .ql-preset').forEach(b => b.onclick = () => {
+      const ta = document.getElementById('fbContent'); const v = b.dataset.var;
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus();
+      ta.selectionStart = ta.selectionEnd = s + v.length;
+    });
+    document.getElementById('fbSaveTpl').onclick = async () => {
+      const name = (document.getElementById('fbName').value || '').trim();
+      const type = document.getElementById('fbType').value;
+      const content = document.getElementById('fbContent').value;
+      if (!name) { toast('请填写模板名称'); return; }
+      if (t) { t.name = name; t.type = type; t.content = content; await dbPut('fbTemplates', t); }
+      else { const nt = { id: uid(), name, type, content, builtin: false, ts: Date.now() }; state.fbTemplates.push(nt); await dbPut('fbTemplates', nt); }
+      saveLocalCache();
+      window.__app.openFbTemplateManager();
+      toast('模板已保存 ✓');
+    };
+  }
+  // 批量勾选填充备注
+  window.qlSelectAll = function () {
+    const all = Array.from(document.querySelectorAll('#qlTable tbody .ql-check'));
+    if (!all.length) return;
+    const anyUnchecked = all.some(c => !c.checked);
+    all.forEach(c => {
+      c.checked = anyUnchecked;
+      const tr = c.closest('tr');
+      if (tr) tr.classList.toggle('ql-row-hl', anyUnchecked);
+    });
+    const checkAll = document.getElementById('qlCheckAll');
+    if (checkAll) checkAll.checked = anyUnchecked;
+  };
+  window.qlBatchRemark = function () {
+    const checked = Array.from(document.querySelectorAll('#qlTable tr[data-sid] .ql-check:checked'));
+    if (!checked.length) { toast('请先在左侧勾选学生'); return; }
+    openBatchRemarkSheet(checked);
+  };
+  // 常用备注标签
+  const QUICK_REMARKS = ['进步明显', '需重点关注', '基础扎实', '态度端正', '作业认真', '听讲专注', '思维活跃', '书写工整'];
+  // 批量备注底部弹层（A 底部弹层 + B 快捷标签 + C 分数段自动生成）
+  function openBatchRemarkSheet(checked) {
+    document.getElementById('remarkSheetMask')?.remove();
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask mobile-modal';
+    mask.id = 'remarkSheetMask';
+    mask.innerHTML =
+      '<div class="modal remark-sheet">'
+      + '<div class="modal-header"><h3>批量填写备注</h3><button class="modal-close" id="remarkSheetClose">×</button></div>'
+      + '<div class="modal-body">'
+      + '<p class="remark-sheet-count">已选 <b>' + checked.length + '</b> 名学生</p>'
+      + '<span class="remark-sheet-label">常用标签（点一下填入下方）：</span>'
+      + '<div class="remark-sheet-tags">' + QUICK_REMARKS.map(r => '<button type="button" class="remark-tag" data-id="' + r + '">' + r + '</button>').join('') + '</div>'
+      + '<textarea id="remarkSheetInput" placeholder="输入要批量填充的备注，或点上方标签快速填入…"></textarea>'
+      + '</div>'
+      + '<div class="modal-footer">'
+      + '<button class="btn-ghost" id="remarkSheetAuto">📊 按分数段自动生成</button>'
+      + '<button class="btn-ghost" id="remarkSheetCancel">取消</button>'
+      + '<button class="btn-primary" id="remarkSheetOk">确定填充</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    const input = mask.querySelector('#remarkSheetInput');
+    const close = () => mask.remove();
+
+    mask.querySelector('#remarkSheetClose').onclick = close;
+    mask.querySelector('#remarkSheetCancel').onclick = close;
+    mask.onclick = e => { if (e.target === mask) close(); };
+
+    // B. 快捷标签：追加到输入框
+    mask.querySelectorAll('.remark-tag').forEach(tag => {
+      tag.onclick = () => {
+        const v = tag.dataset.id;
+        const cur = input.value.trim();
+        input.value = cur ? cur + ' ' + v : v;
+        input.focus();
+      };
+    });
+
+    // 确定填充：统一内容到勾选行
+    mask.querySelector('#remarkSheetOk').onclick = () => {
+      const t = input.value.trim();
+      if (!t) { toast('备注内容为空'); return; }
+      let n = 0;
+      checked.forEach(c => { const inp = c.closest('tr').querySelector('.tl-note'); if (inp) { inp.value = t; n++; } });
+      close();
+      toast('已为 ' + n + ' 名学生填充备注 ✓');
+    };
+
+    // C. 按分数段自动生成（入门测优先，缺则取作业分）
+    mask.querySelector('#remarkSheetAuto').onclick = () => {
+      let n = 0, skip = 0;
+      checked.forEach(c => {
+        const tr = c.closest('tr');
+        const inp = tr.querySelector('.tl-note');
+        const entryEl = tr.querySelector('.tl-entry');
+        const hwEl = tr.querySelector('.tl-hw');
+        let score = NaN;
+        if (entryEl && entryEl.value !== '') score = Number(entryEl.value);
+        else if (hwEl && hwEl.value !== '') score = Number(hwEl.value);
+        let remark = '';
+        if (!isNaN(score)) {
+          if (score >= 90) remark = '优秀，继续保持';
+          else if (score >= 80) remark = '良好，稳步提升';
+          else if (score >= 60) remark = '合格，仍需努力';
+          else remark = '需重点辅导';
+        } else skip++;
+        if (remark && inp) { inp.value = remark; n++; }
+      });
+      close();
+      if (n > 0) toast('已按分数段生成 ' + n + ' 条备注' + (skip ? '（' + skip + ' 名无分数跳过）' : ''));
+      else toast('勾选学生均无分数，无法自动生成');
+    };
+
+    setTimeout(() => input.focus(), 120);
+  }
   function parseVoiceText(t) {
     const t0 = (t || '').trim();
     const cid = qlCurrentClassId();

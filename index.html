@@ -3352,7 +3352,7 @@ label input, label select, label textarea { margin-top: 4px; }
     /* 表头 + 数据行共用网格列 */
     .tl-grid-head, .tl-grid-row {
       display: grid;
-      grid-template-columns: 58px 1fr 1fr 48px 1.3fr;
+      grid-template-columns: 26px 56px 1fr 1fr 48px 1.3fr;
       gap: 0; align-items: stretch;
     }
     .tl-grid-head {
@@ -3362,6 +3362,11 @@ label input, label select, label textarea { margin-top: 4px; }
     .tl-grid-head .tg-cell {
       font-size: 11px; font-weight: 700; color: var(--text-muted);
       padding: 7px 3px; text-align: center;
+    }
+    /* 勾选列（全选 + 行勾选） */
+    .tl-grid-head .tg-check, .tl-grid-row .tg-check { padding: 4px 2px; }
+    .tl-grid-head #qlGridCheckAll, .tl-grid-row .tl-grid-check {
+      width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;
     }
     .tl-grid-row { border-bottom: 1px solid var(--border); }
     .tl-grid-row:last-child { border-bottom: none; }
@@ -4473,12 +4478,14 @@ label input, label select, label textarea { margin-top: 4px; }
   overflow-y: auto;   /* 每个面板内部纵向滚动 */
   -webkit-overflow-scrolling: touch;
 }
-/* 表格区域允许横向触摸滑动 */
-#page-ledger .ql-table-wrap {
-  touch-action: pan-x;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
+/* 表格区域允许横向触摸滑动（仅桌面端时间轴需要；移动端紧凑网格用 pan-y 纵向滚动） */
+@media (min-width: 721px) {
+  #page-ledger .ql-table-wrap {
+    touch-action: pan-x;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
 }
 /* 面板内的按钮/输入等交互元素只响应纵向手势（避免误触切面板），
    但表格区域除外（上面已单独设 pan-x） */
@@ -6430,6 +6437,7 @@ label input, label select, label textarea { margin-top: 4px; }
           <button class="btn-ghost" id="qlTplBtn">反馈模板</button>
           <button class="btn-ghost" id="qlFbBtn">生成课后反馈</button>
           <button class="btn-ghost" id="qlRefreshBtn">刷新名单</button>
+          <button class="btn-ghost" id="qlImportTableBtn">📥 导入表</button>
           <button class="btn-primary" id="qlVoiceBtn">🎤 语音录入</button>
           <button class="btn-primary" id="qlSaveBtn">💾 保存到台账</button>
         </div>
@@ -8161,6 +8169,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const qlSelAllBtn = document.getElementById('qlSelAllBtn'); if (qlSelAllBtn) qlSelAllBtn.onclick = window.qlSelectAll;
     const qlBatchRemarkBtn = document.getElementById('qlBatchRemarkBtn'); if (qlBatchRemarkBtn) qlBatchRemarkBtn.onclick = window.qlBatchRemark;
     const qlRefreshBtn = document.getElementById('qlRefreshBtn'); if (qlRefreshBtn) qlRefreshBtn.onclick = renderQuickLesson;
+    const qlImportTableBtn = document.getElementById('qlImportTableBtn'); if (qlImportTableBtn) qlImportTableBtn.onclick = window.openImportTableModal;
     const ledgerClassFilter2 = document.getElementById('ledgerClassFilter'); if (ledgerClassFilter2) ledgerClassFilter2.onchange = () => { renderLedger(); renderQuickLesson(); };
     const ledgerBatchGradeBtn = $('#ledgerBatchGradeBtn');
     if (ledgerBatchGradeBtn) ledgerBatchGradeBtn.onclick = () => window.openBatchGrade();
@@ -16874,6 +16883,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       cardHtml = '<div class="tl-mobile-grid">';
       // 表头
       cardHtml += '<div class="tl-grid-head">'
+        + '<div class="tg-cell tg-check"><input type="checkbox" id="qlGridCheckAll" title="全选"></div>'
         + '<div class="tg-cell tg-name">学员</div>'
         + '<div class="tg-cell tg-entry">入门</div>'
         + '<div class="tg-cell tg-hw">作业</div>'
@@ -16890,6 +16900,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         const iv = (cur.integral !== '' && cur.integral != null) ? cur.integral : '';
 
         cardHtml += '<div class="tl-grid-row" data-sid="' + s.id + '">';
+        // 勾选框（配合顶部全选，用于批量备注/复制评语）
+        cardHtml += '<div class="tg-cell tg-check"><input type="checkbox" class="tl-grid-check" data-sid="' + s.id + '"></div>';
         // 学员名（点击查看历史时间线）
         cardHtml += '<div class="tg-cell tg-name" onclick="window.__app.openLessonHistory(\'' + s.id + '\')" title="点击看历史">' + escapeHtml(s.name || '') + '</div>';
         // 入门测
@@ -16958,6 +16970,26 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     }
     function syncCheckAll() {
       if (checkAll) checkAll.checked = Array.from(rowChecks).length > 0 && Array.from(rowChecks).every(c => c.checked);
+    }
+
+    // ---- 移动端紧凑网格勾选框（全选 + 行高亮），与桌面端 tbody 勾选互不干扰 ----
+    const gridCheckAll = document.getElementById('qlGridCheckAll');
+    const gridChecks = wrap.querySelectorAll('.tl-grid-check');
+    if (gridCheckAll) {
+      gridCheckAll.onclick = () => {
+        const checked = gridCheckAll.checked;
+        gridChecks.forEach(c => { c.checked = checked; toggleGridHl(c); });
+      };
+    }
+    gridChecks.forEach(c => {
+      c.addEventListener('change', () => { toggleGridHl(c); syncGridCheckAll(); });
+    });
+    function toggleGridHl(chk) {
+      const row = chk.closest('.tl-grid-row');
+      if (row) row.classList.toggle('ql-row-hl', chk.checked);
+    }
+    function syncGridCheckAll() {
+      if (gridCheckAll) gridCheckAll.checked = gridChecks.length > 0 && Array.from(gridChecks).every(c => c.checked);
     }
 
     // ---- 绑定照片按钮 ----
@@ -17847,19 +17879,140 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   }
   // 批量勾选填充备注
   window.qlSelectAll = function () {
-    const all = Array.from(document.querySelectorAll('#qlTable tbody .ql-check'));
+    const all = Array.from(document.querySelectorAll('#qlTable tbody .ql-check, #qlTable .tl-grid-check'));
     if (!all.length) return;
     const anyUnchecked = all.some(c => !c.checked);
     all.forEach(c => {
       c.checked = anyUnchecked;
-      const tr = c.closest('tr');
-      if (tr) tr.classList.toggle('ql-row-hl', anyUnchecked);
+      const row = c.closest('tr') || c.closest('.tl-grid-row');
+      if (row) row.classList.toggle('ql-row-hl', anyUnchecked);
     });
     const checkAll = document.getElementById('qlCheckAll');
     if (checkAll) checkAll.checked = anyUnchecked;
+    const gridAll = document.getElementById('qlGridCheckAll');
+    if (gridAll) gridAll.checked = anyUnchecked;
   };
+  // ===== 导入表：粘贴外部表格（学员×日期），按日期自动定位填入门测 =====
+  window.openImportTableModal = function () {
+    const cid = qlCurrentClassId();
+    if (!cid) { toast('请先在上方选择一个班级'); return; }
+    const body =
+      '<div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:8px">'
+      + '把 Excel / Numbers 里的成绩表<b>复制粘贴</b>到下面（第一列是学员姓名，第一行是日期表头，交叉格是入门测分数）。系统会按<b>姓名 + 日期</b>自动匹配，填到对应那天的入门测里。</div>'
+      + '<textarea id="importTableText" placeholder="粘贴示例：\n姓名\t8月6日\t8月7日\t8月14日\n张三\t90\t88\t95\n李四\t85\t82\t90" style="width:100%;height:200px;font-size:13px;font-family:monospace;white-space:pre;padding:8px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box"></textarea>'
+      + '<div id="importTablePreview" style="margin-top:10px"></div>';
+    const footer =
+      '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>'
+      + '<button class="btn-ghost" onclick="window.__parseImportTable()">解析预览</button>'
+      + '<button class="btn-primary" id="importTableConfirm" style="display:none" onclick="window.__applyImportTable()">确认导入</button>';
+    openModal('导入表 · 按日期自动定位', body, footer);
+    window.__importParseResult = null;
+    setTimeout(() => { const ta = document.getElementById('importTableText'); if (ta) ta.focus(); }, 120);
+  };
+  window.__parseImportTable = function () {
+    const ta = document.getElementById('importTableText');
+    const text = (ta && ta.value || '').trim();
+    if (!text) { toast('请先粘贴表格'); return; }
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { toast('至少需要表头行 + 1 行数据'); return; }
+    const delim = lines[0].includes('\t') ? '\t' : (lines[0].includes(',') ? ',' : (/\s{2,}/.test(lines[0]) ? /\s{2,}/ : ' '));
+    const rows = lines.map(l => (Array.isArray(l) ? l : l.split(delim).map(c => c.trim())));
+    const header = rows[0];
+    const dateCols = [];
+    header.forEach((h, i) => {
+      if (i === 0) return;
+      const iso = parseImportDate(h);
+      if (iso) dateCols.push({ idx: i, raw: h, iso });
+    });
+    if (!dateCols.length) { toast('未识别到日期列，表头需含如 8月6日 / 8/6 / 2026-08-06'); return; }
+    const cid = qlCurrentClassId();
+    const roster = state.ledgerStudents.filter(s => s.classId === cid);
+    const nameMap = {};
+    roster.forEach(s => { nameMap[(s.name || '').trim()] = s; });
+    const dataRows = rows.slice(1).map(r => {
+      const name = r[0];
+      const sObj = nameMap[name] || roster.find(s => { const n = (s.name || '').trim(); return n && (n.includes(name) || name.includes(n)); });
+      const scores = dateCols.map(dc => ({ iso: dc.iso, raw: dc.raw, val: r[dc.idx] !== undefined ? r[dc.idx] : '' }));
+      return { name, sObj, scores };
+    });
+    const matched = dataRows.filter(r => r.sObj);
+    const unmatched = dataRows.filter(r => !r.sObj);
+    window.__importParseResult = { cid, dateCols, dataRows, matched, unmatched };
+    let html = '<div style="font-size:13px">识别到 <b>' + dateCols.length + '</b> 个日期列：' + dateCols.map(d => escapeHtml(d.raw) + '→' + d.iso).join('，') + '</div>';
+    html += '<div style="margin:6px 0;font-size:13px">匹配学员 <b style="color:#27ae60">' + matched.length + '</b> ；未匹配 <b style="color:#e74c3c">' + unmatched.length + '</b>'
+      + (unmatched.length ? '（' + unmatched.map(u => escapeHtml(u.name)).join('、') + '）' : '') + '</div>';
+    html += '<div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<tr><th style="padding:4px;border-bottom:1px solid var(--border);text-align:left">学员</th>' + dateCols.map(d => '<th style="padding:4px;border-bottom:1px solid var(--border)">' + escapeHtml(d.raw) + '</th>').join('') + '</tr>';
+    dataRows.forEach(r => {
+      html += '<tr style="' + (r.sObj ? '' : 'color:#e74c3c') + '">'
+        + '<td style="padding:4px;border-bottom:1px solid rgba(0,0,0,.05)">' + escapeHtml(r.name) + (r.sObj ? '' : ' ⚠') + '</td>'
+        + r.scores.map(sc => '<td style="padding:4px;border-bottom:1px solid rgba(0,0,0,.05);text-align:center">' + escapeHtml(sc.val) + '</td>').join('')
+        + '</tr>';
+    });
+    html += '</table></div>';
+    const pv = document.getElementById('importTablePreview');
+    if (pv) pv.innerHTML = html;
+    const cf = document.getElementById('importTableConfirm');
+    if (cf) cf.style.display = matched.length ? 'inline-block' : 'none';
+    if (!matched.length) toast('没有匹配到班级里的学员，请检查姓名');
+  };
+  window.__applyImportTable = async function () {
+    const res = window.__importParseResult;
+    if (!res || !res.matched.length) { toast('请先解析预览'); return; }
+    let students = 0, total = 0;
+    for (const r of res.matched) {
+      const s = r.sObj;
+      if (!s.lessons) s.lessons = [];
+      r.scores.forEach(sc => {
+        const v = (sc.val === '' || sc.val == null) ? null : Number(sc.val);
+        if (v === null || isNaN(v)) return;
+        let lesson = s.lessons.find(l => l.date === sc.iso);
+        if (!lesson) { lesson = { id: 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: sc.iso, entry: { score: '', fullScore: '', level: '', note: '' }, homework: { status: '', note: '' }, integral: 0, note: '', imgs: [], ts: Date.now() }; s.lessons.push(lesson); }
+        if (!lesson.entry) lesson.entry = { score: '', fullScore: '', level: '', note: '' };
+        lesson.entry.score = v;
+        total++;
+      });
+      students++;
+      await dbPut('ledgerStudents', s);
+    }
+    const cf = document.getElementById('importTableConfirm');
+    if (cf) cf.style.display = 'none';
+    closeModal();
+    renderQuickLesson();
+    toast('已导入 ' + students + ' 名学员的 ' + total + ' 条入门测成绩（按日期自动定位）');
+  };
+  function parseImportDate(raw) {
+    if (!raw) return null;
+    raw = raw.replace(/[（(]/g, ' ').replace(/[)）]/g, ' ').trim();
+    let m;
+    // 1) 完整日期：2026-08-06 / 2026.8.6 / 2026/8/6（年份优先，绝不写死）
+    m = raw.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,3})/);
+    if (m) return ymd(+m[1], +m[2], +m[3]);
+    // 2) 中文年：2026年8月6日 / 2025年8月6号（保留真实年份）
+    m = raw.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?/);
+    if (m) return ymd(+m[1], +m[2], +m[3]);
+    // 3) 无年份：8月6日 / 8.6 / 08.6 / 8/6 / 8-6（用日期选择器或当前年份兜底）
+    m = raw.match(/(\d{1,2})\s*[月\.\-\/]\s*(\d{1,2})\s*[日号]?/);
+    if (m) return ymd(refYear(), +m[1], +m[2]);
+    // 4) 只有日：6日 / 6号（用日期选择器或当前年月兜底）
+    m = raw.match(/(\d{1,2})\s*[日号]/);
+    if (m) return ymd(refYear(), refMonth(), +m[1]);
+    return null;
+  }
+  function ymd(y, mo, d) { return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+  function refYear() {
+    const dv = document.getElementById('qlDate');
+    if (dv && dv.value) return +dv.value.slice(0, 4);
+    return new Date().getFullYear();
+  }
+  function refMonth() {
+    const dv = document.getElementById('qlDate');
+    if (dv && dv.value) return +dv.value.slice(5, 7);
+    return new Date().getMonth() + 1;
+  }
   window.qlBatchRemark = function () {
-    const checked = Array.from(document.querySelectorAll('#qlTable tr[data-sid] .ql-check:checked'));
+    const checked = Array.from(document.querySelectorAll('#qlTable tr[data-sid] .ql-check:checked, #qlTable .tl-grid-row[data-sid] .tl-grid-check:checked'));
     if (!checked.length) { toast('请先在左侧勾选学生'); return; }
     openBatchRemarkSheet(checked);
   };
@@ -17909,7 +18062,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       const t = input.value.trim();
       if (!t) { toast('备注内容为空'); return; }
       let n = 0;
-      checked.forEach(c => { const inp = c.closest('tr').querySelector('.tl-note'); if (inp) { inp.value = t; n++; } });
+      checked.forEach(c => { const inp = c.closest('tr, .tl-grid-row').querySelector('.tl-note'); if (inp) { inp.value = t; n++; } });
       close();
       toast('已为 ' + n + ' 名学生填充备注 ✓');
     };
@@ -17918,7 +18071,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     mask.querySelector('#remarkSheetAuto').onclick = () => {
       let n = 0, skip = 0;
       checked.forEach(c => {
-        const tr = c.closest('tr');
+        const tr = c.closest('tr, .tl-grid-row');
         const inp = tr.querySelector('.tl-note');
         const entryEl = tr.querySelector('.tl-entry');
         const hwEl = tr.querySelector('.tl-hw');

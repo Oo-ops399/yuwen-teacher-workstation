@@ -3181,6 +3181,8 @@ label input, label select, label textarea { margin-top: 4px; }
 /* v3.6: 图片移除按钮（修复重新编辑/生成时旧图残留） */
 .row-imgdel, .ls-imgdel { padding: 2px 6px !important; font-size: 12px; line-height: 1; color: var(--danger, #e11d48); border-color: var(--danger, #e11d48); }
 .row-imgdel:hover, .ls-imgdel:hover { background: var(--danger, #e11d48); color: #fff; }
+.row-img-item { position: relative; display: inline-block; }
+.row-img-item .row-imgdel { position: absolute; top: -7px; right: -7px; padding: 1px 4px !important; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); border: 1px solid var(--danger,#e11d48); }
 
 @media (max-width: 768px) {
   .ledger-class-header { flex-direction: column; align-items: flex-start; }
@@ -4846,12 +4848,16 @@ label input, label select, label textarea { margin-top: 4px; }
 .bg-confirm { margin-top: 6px; max-height: 46vh; overflow: auto; }
 .bg-hint { font-size: 12px; color: var(--text-muted, #6b7280); line-height: 1.6; }
 .bg-table { display: flex; flex-direction: column; gap: 4px; }
-.bg-thead, .bg-row { display: grid; grid-template-columns: 56px 1.4fr 0.7fr 0.7fr 0.9fr 0.5fr 28px; gap: 5px; align-items: center; }
+.bg-thead, .bg-row { display: grid; grid-template-columns: 52px 1.2fr 0.8fr 0.65fr 0.65fr 0.9fr 0.5fr 28px; gap: 5px; align-items: center; }
+/* 表格模式（整班成绩表展开后多一列日期） */
+.bg-thead.has-datecol, .bg-row.bg-row-table { grid-template-columns: 52px 1.1fr 0.75fr 0.65fr 0.6fr 0.6fr 0.85fr 0.45fr 28px; }
 .bg-thead { font-size: 11px; color: var(--text-muted, #6b7280); padding: 0 2px; }
 .bg-row { padding: 6px 2px; border-bottom: 1px solid var(--border-light, #eef0f3); }
+.bg-row-table { background: rgba(59,130,246,0.03); border-left: 3px solid rgba(59,130,246,0.25); }
 .bg-th img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); }
 .bg-name { display: flex; flex-direction: column; gap: 3px; }
-.bg-name input, .bg-row input[type="number"], .bg-row select { width: 100%; padding: 5px 6px; border: 1px solid var(--border, #e5e7eb); border-radius: 7px; font-size: 12px; box-sizing: border-box; }
+.bg-name input, .bg-row input[type="number"], .bg-row select, .bg-datecol input { width: 100%; padding: 5px 6px; border: 1px solid var(--border, #e5e7eb); border-radius: 7px; font-size: 12px; box-sizing: border-box; }
+.bg-datecol input { font-size: 11px; color: var(--primary, #2563eb); font-weight: 500; }
 .bg-row select { padding: 5px 4px; }
 .bg-del { border: none; background: transparent; color: var(--danger, #e11d48); font-size: 15px; cursor: pointer; line-height: 1; }
 
@@ -9757,14 +9763,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   };
 
   // v3.4: 学员详情行内图片单元格
-  function rowImgCell(img, kind, idx) {
-    return `<span class="row-imgcell">
-      <input type="hidden" class="row-img" value="${escapeHtml(img || '')}">
-      <button type="button" class="btn-ghost row-imgbtn" title="添加图片">📷</button>
-      <input type="file" class="row-file" accept="image/*" hidden>
-      <img class="row-thumb" src="${img || ''}" ${img ? '' : 'style="display:none"'}>
-      <button type="button" class="btn-ghost row-imgdel" title="移除图片" ${img ? '' : 'style="display:none"'}>✕</button>
-    </span>`;
+  function rowImgCell(rec, kind, idx) {
+    const imgs = (Array.isArray(rec.imgs) && rec.imgs.length) ? rec.imgs : (rec.img ? [rec.img] : []);
+    const items = imgs.map((src, k) => `
+      <span class="row-img-item">
+        <img class="row-thumb" src="${src}" onclick="window.__app.viewImg('${encodeURIComponent(src)}')">
+        <button type="button" class="row-imgdel" title="删除此图" onclick="window.__app.delRowImg('${kind}',${idx},${k})">✕</button>
+      </span>`).join('');
+    return `<span class="row-imgcell">${items}<button type="button" class="btn-ghost row-imgbtn" title="添加图片">📷</button><input type="file" class="row-file" accept="image/*" hidden></span>`;
   }
   function bindRowImages() {
     $$('.row-imgbtn').forEach(btn => {
@@ -9773,59 +9779,56 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       if (file) btn.onclick = () => file.click();
     });
     $$('.row-file').forEach(file => {
-      file.onchange = e => {
+      file.onchange = async e => {
         const f = e.target.files[0];
         if (!f) return;
-        const cell = file.closest('.row-imgcell');
-        const hidden = cell.querySelector('.row-img');
-        const thumb = cell.querySelector('.row-thumb');
-        const del = cell.querySelector('.row-imgdel');
-        const reader = new FileReader();
-        reader.onload = () => {
-          hidden.value = reader.result;
-          thumb.src = reader.result;
-          thumb.style.display = '';
-          if (del) del.style.display = '';
-          const s = state.students.find(x => x.id === currentStudentId);
-          if (!s) return;
-          const tr = file.closest('tr');
-          let arr, i;
-          if (tr.dataset.etIdx != null) { arr = s.entryTests; i = +tr.dataset.etIdx; }
-          else if (tr.dataset.hwIdx != null) { arr = s.homework; i = +tr.dataset.hwIdx; }
-          else if (tr.dataset.idx != null) { arr = s.scores; i = +tr.dataset.idx; }
-          if (arr && arr[i]) { arr[i].img = reader.result; saveStudentSilent(s); }
-        };
-        reader.readAsDataURL(f);
-      };
-    });
-    // v3.6: 移除图片（修复重新编辑/生成条目时旧图残留）
-    $$('.row-imgdel').forEach(del => {
-      del.onclick = () => {
-        const cell = del.closest('.row-imgcell');
-        const hidden = cell.querySelector('.row-img');
-        const thumb = cell.querySelector('.row-thumb');
-        const file = cell.querySelector('.row-file');
-        if (file) file.value = '';
-        hidden.value = '';
-        thumb.src = '';
-        thumb.style.display = 'none';
-        del.style.display = 'none';
+        let dataUrl = '';
+        try { dataUrl = await compressImage(f, 1280, 0.7); } catch (err) { dataUrl = ''; }
+        if (!dataUrl) return;
         const s = state.students.find(x => x.id === currentStudentId);
         if (!s) return;
-        const tr = cell.closest('tr');
+        const tr = file.closest('tr');
         let arr, i;
         if (tr.dataset.etIdx != null) { arr = s.entryTests; i = +tr.dataset.etIdx; }
         else if (tr.dataset.hwIdx != null) { arr = s.homework; i = +tr.dataset.hwIdx; }
+        else if (tr.dataset.dictIdx != null) { arr = s.dictations; i = +tr.dataset.dictIdx; }
         else if (tr.dataset.idx != null) { arr = s.scores; i = +tr.dataset.idx; }
-        if (arr && arr[i]) { arr[i].img = ''; saveStudentSilent(s); }
-        toast('已移除图片');
+        if (!arr || !arr[i]) return;
+        const rec = arr[i];
+        rec.imgs = (Array.isArray(rec.imgs) && rec.imgs.length) ? rec.imgs.slice() : (rec.img ? [rec.img] : []);
+        rec.imgs.push(dataUrl);
+        rec.img = rec.imgs[0];
+        saveStudentSilent(s);
+        renderStudentDetail();
       };
     });
   }
+  // v5.0: 档案记录内单张图片单独删除（不删整条记录）
+  window.__app = window.__app || {};
+  window.__app.delRowImg = function (kind, idx, imgIdx) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    const map = { sc: 'scores', et: 'entryTests', hw: 'homework' };
+    const arr = s[map[kind]];
+    if (!arr || !arr[idx]) return;
+    const rec = arr[idx];
+    const imgs = (Array.isArray(rec.imgs) && rec.imgs.length) ? rec.imgs.slice() : (rec.img ? [rec.img] : []);
+    imgs.splice(imgIdx, 1);
+    rec.imgs = imgs;
+    rec.img = imgs[0] || '';
+    saveStudentSilent(s);
+    renderStudentDetail();
+    toast('已删除该图片');
+  };
+  window.__app.viewImg = function (src) {
+    try { src = decodeURIComponent(src); } catch (e) {}
+    openModal('图片查看', '<img src="' + src + '" style="width:100%;border-radius:8px">', '<button class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+  };
 
   // v3.6: 行 HTML 辅助函数（初始渲染与就地追加共用，去掉分条序号后缀）
   function scoreRowHtml(sc, i) {
     return `<tr data-idx="${i}">
+      <td class="rec-sel"><input type="checkbox" class="rec-check" data-kind="sc" data-idx="${i}"></td>
       <td>
         <select data-score-field="type">
           <option ${sc.type==='月考'?'selected':''}>月考</option>
@@ -9836,22 +9839,24 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       </td>
       <td><input type="date" data-score-field="date" value="${sc.date||''}"></td>
       <td><input type="number" data-score-field="score" value="${sc.score||0}"></td>
-      <td>${rowImgCell(sc.img, 'sc', i)}</td>
+      <td>${rowImgCell(sc, 'sc', i)}</td>
       <td><button class="btn-ghost" onclick="window.__app.delScore(${i})">删除</button></td>
     </tr>`;
   }
   function entryTestRowHtml(et, i) {
     return `<tr data-et-idx="${i}">
+      <td class="rec-sel"><input type="checkbox" class="rec-check" data-kind="et" data-idx="${i}"></td>
       <td><input type="date" data-et-field="date" value="${et.date||''}"></td>
       <td><input type="text" data-et-field="subject" value="${escapeHtml(et.subject||'')}" placeholder="例：字词基础"></td>
       <td><input type="number" data-et-field="score" value="${et.score||0}"></td>
       <td><input type="text" data-et-field="note" value="${escapeHtml(et.note||'')}" placeholder="备注"></td>
-      <td>${rowImgCell(et.img, 'et', i)}</td>
+      <td>${rowImgCell(et, 'et', i)}</td>
       <td><button class="btn-ghost" onclick="window.__app.delEntryTest(${i})">删除</button></td>
     </tr>`;
   }
   function homeworkRowHtml(hw, i) {
     return `<tr data-hw-idx="${i}">
+      <td class="rec-sel"><input type="checkbox" class="rec-check" data-kind="hw" data-idx="${i}"></td>
       <td><input type="date" data-hw-field="date" value="${hw.date||''}"></td>
       <td><input type="text" data-hw-field="content" value="${escapeHtml(hw.content||'')}" placeholder="例：抄写生字"></td>
       <td>
@@ -9862,8 +9867,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         </select>
       </td>
       <td><input type="text" data-hw-field="comment" value="${escapeHtml(hw.comment||'')}" placeholder="评价"></td>
-      <td>${rowImgCell(hw.img, 'hw', i)}</td>
+      <td>${rowImgCell(hw, 'hw', i)}</td>
       <td><button class="btn-ghost" onclick="window.__app.delHomework(${i})">删除</button></td>
+    </tr>`;
+  }
+  function dictationRowHtml(d, i) {
+    return `<tr data-dict-idx="${i}">
+      <td class="rec-sel"><input type="checkbox" class="rec-check" data-kind="dict" data-idx="${i}"></td>
+      <td><input type="date" data-dict-field="date" value="${d.date||''}"></td>
+      <td><input type="text" data-dict-field="content" value="${escapeHtml(d.content||'')}" placeholder="听写内容"></td>
+      <td><input type="number" data-dict-field="score" value="${d.score||0}"></td>
+      <td><input type="text" data-dict-field="comment" value="${escapeHtml(d.comment||'')}" placeholder="评价"></td>
+      <td>${rowImgCell(d, 'dict', i)}</td>
+      <td><button class="btn-ghost" onclick="window.__app.delDictation(${i})">删除</button></td>
     </tr>`;
   }
 
@@ -9906,7 +9922,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <div style="overflow-x:auto;max-width:100%">
             <table class="score-table">
             <thead>
-              <tr><th>类型</th><th>日期</th><th>分数</th><th>图片</th><th>操作</th></tr>
+              <tr><th>选</th><th>类型</th><th>日期</th><th>分数</th><th>图片</th><th>操作</th></tr>
             </thead>
             <tbody id="scoreBody">
               ${(s.scores||[]).map((sc, i) => scoreRowHtml(sc, i)).join('')}
@@ -9923,7 +9939,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <div style="overflow-x:auto;max-width:100%">
           <table class="score-table">
             <thead>
-              <tr><th>日期</th><th>科目/内容</th><th>得分</th><th>备注</th><th>操作</th></tr>
+              <tr><th>选</th><th>日期</th><th>科目/内容</th><th>得分</th><th>备注</th><th>操作</th></tr>
             </thead>
             <tbody id="entryTestBody">
               ${(s.entryTests||[]).map((et, i) => entryTestRowHtml(et, i)).join('')}
@@ -9940,7 +9956,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <div style="overflow-x:auto;max-width:100%">
           <table class="score-table">
             <thead>
-              <tr><th>日期</th><th>作业内容</th><th>完成度</th><th>评价</th><th>操作</th></tr>
+              <tr><th>选</th><th>日期</th><th>作业内容</th><th>完成度</th><th>评价</th><th>操作</th></tr>
             </thead>
             <tbody id="homeworkBody">
               ${(s.homework||[]).map((hw, i) => homeworkRowHtml(hw, i)).join('')}
@@ -9950,6 +9966,23 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <button class="btn-ghost" onclick="window.__app.addHomework()">＋ 添加作业</button>
         <button class="btn-primary" onclick="window.__app.saveHomework()">保存</button>
         <button class="btn-ghost" onclick="window.__app.openAIGrade('${s.id}')">🤖 AI 批改作业</button>
+      </div>
+
+      <div class="sd-section">
+        <h3>听写记录</h3>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">可逐次追加学员每次听写情况（拍照识别亦可自动归档）</p>
+        <div style="overflow-x:auto;max-width:100%">
+          <table class="score-table">
+            <thead>
+              <tr><th>选</th><th>日期</th><th>听写内容</th><th>得分</th><th>评价</th><th>操作</th></tr>
+            </thead>
+            <tbody id="dictationBody">
+              ${(s.dictations||[]).map((d, i) => dictationRowHtml(d, i)).join('')}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn-ghost" onclick="window.__app.addDictation()">＋ 添加听写</button>
+        <button class="btn-primary" onclick="window.__app.saveDictation()">保存</button>
       </div>
       <h4 style="margin:14px 0 6px;font-size:13px;color:var(--text-soft)">AI 批改记录（存专属档案）</h4>
       <ul class="report-list" id="aiGradeList">
@@ -9991,6 +10024,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           <button class="btn-primary" onclick="window.__app.saveReport()">保存报告</button>
         </div>
       </div>
+
+      <div class="sd-section">
+        <h3>🩺 学情诊断报告</h3>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">勾选上方任意一条或多条历史记录（入门测 / 听写 / 作业 / 成绩，可跨日期多选），再点生成，AI 会综合分数、OCR 文字与附图产出诊断报告。<b>不勾选不会自动生成。</b></p>
+        <button class="btn-primary" id="genDiagBtn" onclick="window.__app.genDiagnosis()">🩺 生成学情诊断报告</button>
+        <ul class="report-list" id="diagList"></ul>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-ghost" onclick="window.__app.profileExport()">📄 导出整份档案</button>
+          <button class="btn-ghost" onclick="window.__app.profilePrint()">🖨 A4 打印整份档案</button>
+        </div>
+      </div>
     `;
 
     // 绑定信息修改
@@ -10010,6 +10054,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     renderStudentComm(s);
     renderStudentLeave(s);
     renderStudentReport(s);
+    renderDiagList(s);
 
     // 渲染图表
     setTimeout(() => renderScoreChart(s), 50);
@@ -10044,12 +10089,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   window.saveScores = function () {
     const s = state.students.find(x => x.id === currentStudentId);
     const rows = $$('#scoreBody tr');
-    s.scores = rows.map(tr => ({
-      type: tr.querySelector('[data-score-field="type"]').value,
-      date: tr.querySelector('[data-score-field="date"]').value,
-      score: parseFloat(tr.querySelector('[data-score-field="score"]').value) || 0,
-      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
-    }));
+    s.scores = rows.map((tr, idx) => {
+      const old = s.scores[idx] || {};
+      return {
+        type: tr.querySelector('[data-score-field="type"]').value,
+        date: tr.querySelector('[data-score-field="date"]').value,
+        score: parseFloat(tr.querySelector('[data-score-field="score"]').value) || 0,
+        imgs: old.imgs || (old.img ? [old.img] : []),
+        img: old.img || '',
+        ocrText: old.ocrText || ''
+      };
+    });
     saveStudentSilent(s);
     renderScoreChart(s);
     toast('成绩已保存');
@@ -10080,13 +10130,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function saveEntryTests() {
     const s = state.students.find(x => x.id === currentStudentId);
     const rows = $$('#entryTestBody tr');
-    s.entryTests = rows.map(tr => ({
-      date: tr.querySelector('[data-et-field="date"]').value,
-      subject: tr.querySelector('[data-et-field="subject"]').value,
-      score: parseFloat(tr.querySelector('[data-et-field="score"]').value) || 0,
-      note: tr.querySelector('[data-et-field="note"]').value,
-      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
-    }));
+    s.entryTests = rows.map((tr, idx) => {
+      const old = s.entryTests[idx] || {};
+      return {
+        date: tr.querySelector('[data-et-field="date"]').value,
+        subject: tr.querySelector('[data-et-field="subject"]').value,
+        score: parseFloat(tr.querySelector('[data-et-field="score"]').value) || 0,
+        note: tr.querySelector('[data-et-field="note"]').value,
+        imgs: old.imgs || (old.img ? [old.img] : []),
+        img: old.img || '',
+        ocrText: old.ocrText || ''
+      };
+    });
     saveStudentSilent(s);
     toast('入门测已保存');
   }
@@ -10116,16 +10171,232 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function saveHomework() {
     const s = state.students.find(x => x.id === currentStudentId);
     const rows = $$('#homeworkBody tr');
-    s.homework = rows.map(tr => ({
-      date: tr.querySelector('[data-hw-field="date"]').value,
-      content: tr.querySelector('[data-hw-field="content"]').value,
-      status: tr.querySelector('[data-hw-field="status"]').value,
-      comment: tr.querySelector('[data-hw-field="comment"]').value,
-      img: tr.querySelector('.row-img') ? tr.querySelector('.row-img').value : ''
-    }));
+    s.homework = rows.map((tr, idx) => {
+      const old = s.homework[idx] || {};
+      return {
+        date: tr.querySelector('[data-hw-field="date"]').value,
+        content: tr.querySelector('[data-hw-field="content"]').value,
+        status: tr.querySelector('[data-hw-field="status"]').value,
+        comment: tr.querySelector('[data-hw-field="comment"]').value,
+        imgs: old.imgs || (old.img ? [old.img] : []),
+        img: old.img || '',
+        ocrText: old.ocrText || ''
+      };
+    });
     saveStudentSilent(s);
     toast('作业记录已保存');
   }
+  // v5.0: 听写逐次追加/删除/保存
+  function addDictation() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    s.dictations = s.dictations || [];
+    s.dictations.push({ date: todayStr(), content: '', score: 0, comment: '', img: '' });
+    saveStudentSilent(s);
+    const body = $('#dictationBody');
+    if (!body) { renderStudentDetail(); return; }
+    const i = s.dictations.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = dictationRowHtml(s.dictations[i], i);
+    body.appendChild(tr);
+    bindRowImages();
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function delDictation(idx) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    s.dictations.splice(idx, 1);
+    saveStudentSilent(s);
+    renderStudentDetail();
+  }
+  function saveDictation() {
+    const s = state.students.find(x => x.id === currentStudentId);
+    const rows = $$('#dictationBody tr');
+    s.dictations = rows.map((tr, idx) => {
+      const old = s.dictations[idx] || {};
+      return {
+        date: tr.querySelector('[data-dict-field="date"]').value,
+        content: tr.querySelector('[data-dict-field="content"]').value,
+        score: parseFloat(tr.querySelector('[data-dict-field="score"]').value) || 0,
+        comment: tr.querySelector('[data-dict-field="comment"]').value,
+        imgs: old.imgs || (old.img ? [old.img] : []),
+        img: old.img || '',
+        ocrText: old.ocrText || ''
+      };
+    });
+    saveStudentSilent(s);
+    toast('听写已保存');
+  }
+  // v5.0: 学情诊断（手动勾选触发，不自动生成）
+  window.__app.genDiagnosis = async function () {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    const checks = Array.from(document.querySelectorAll('.rec-check:checked'));
+    if (!checks.length) { toast('请先在上方勾选至少一条记录'); return; }
+    const map = { sc: 'scores', et: 'entryTests', hw: 'homework', dict: 'dictations' };
+    const typeName = { sc: '固定成绩', et: '入门测', hw: '作业', dict: '听写' };
+    const records = [];
+    const imgs = [];
+    checks.forEach(c => {
+      const kind = c.dataset.kind, idx = +c.dataset.idx;
+      const arr = s[map[kind]];
+      if (!arr || !arr[idx]) return;
+      const r = arr[idx];
+      const recImgs = (Array.isArray(r.imgs) && r.imgs.length) ? r.imgs : (r.img ? [r.img] : []);
+      records.push({ type: typeName[kind], date: r.date || '', score: r.score, fullScore: r.fullScore, status: r.status || '', note: r.note || r.comment || r.content || '', ocrText: r.ocrText || '' });
+      recImgs.forEach(im => imgs.push(im));
+    });
+    const btn = document.getElementById('genDiagBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '诊断生成中…'; }
+    const prompt = '你是资深中小学语文教师。以下是学员「' + (s.name || '') + '」被老师勾选的多条历史学情记录（含日期、类型、分数、备注、OCR文字、附图）：\n' + JSON.stringify(records, null, 2) + '\n请综合这些信息输出一份学情诊断报告，严格只返回 JSON：\n{"diagnosis":"学情综合诊断：指出语文薄弱点、错题共性问题","comment":"老师评语","advice":"针对性提升学习建议"}\n要求：diagnosis 具体指出薄弱项和共性问题；comment 亲切专业；advice 给可操作的提升建议。只返回 JSON，不要解释。';
+    try {
+      const text = await callAIVision(prompt, imgs, '你是资深中小学语文教师，擅长学情诊断与教学建议');
+      let j = extractJSON(text);
+      if (!j || !j.diagnosis) throw new Error('AI 返回格式异常');
+      openDiagEditor(s, records, imgs, j, null);
+    } catch (e) {
+      openDiagEditor(s, records, imgs, { diagnosis: '', comment: '', advice: '' }, null, e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🩺 生成学情诊断报告'; }
+    }
+  };
+  window.__app.genDiagnosisFromRecords = async function (s, records, imgs, prevId) {
+    const btn = document.getElementById('genDiagBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '重新生成中…'; }
+    try {
+      const text = await callAIVision('你是资深中小学语文教师。基于以下已勾选学情记录重新生成诊断报告，严格只返回 JSON：\n{"diagnosis":"...","comment":"...","advice":"..."}\n' + JSON.stringify(records, null, 2), imgs, '你是资深中小学语文教师');
+      let j = extractJSON(text);
+      if (j && j.diagnosis) openDiagEditor(s, records, imgs, j, prevId);
+      else toast('重新生成失败：返回格式异常');
+    } catch (e2) { toast('重新生成失败：' + (e2.message || '')); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = '🩺 生成学情诊断报告'; } }
+  };
+  function openDiagEditor(s, records, imgs, data, prevId, errMsg) {
+    const recHtml = records.map(r => '<li style="font-size:12px;margin:3px 0">' + escapeHtml((r.type || '') + ' · ' + (r.date || '') + ' · ' + (r.score != null ? r.score + '分' : '') + (r.note ? ' · ' + r.note : '')) + '</li>').join('') || '<li style="color:#999">（无记录）</li>';
+    const imgsHtml = imgs.length ? imgs.map(im => '<img src="' + im + '" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin:2px">').join('') : '';
+    const body = '<div style="max-height:60vh;overflow:auto">' +
+      (errMsg ? '<p style="color:var(--danger,#e11d48);font-size:12px">⚠ AI 生成失败：' + escapeHtml(errMsg) + '，已生成空白模板，可手动填写。</p>' : '') +
+      '<p style="font-size:12px;color:#6b7280;margin:4px 0 2px">已勾选 ' + records.length + ' 条记录：</p><ul style="margin:0 0 8px;padding-left:18px">' + recHtml + '</ul>' +
+      (imgsHtml ? '<div style="margin-bottom:8px">' + imgsHtml + '</div>' : '') +
+      '<label style="font-size:12px;font-weight:600">① 学情综合诊断<textarea id="diagDiagnosis" rows="4" style="width:100%">' + escapeHtml(data.diagnosis || '') + '</textarea></label>' +
+      '<label style="font-size:12px;font-weight:600">② 老师评语<textarea id="diagComment" rows="3" style="width:100%">' + escapeHtml(data.comment || '') + '</textarea></label>' +
+      '<label style="font-size:12px;font-weight:600">③ 针对性提升建议<textarea id="diagAdvice" rows="3" style="width:100%">' + escapeHtml(data.advice || '') + '</textarea></label>' +
+      '</div>';
+    openModal('学情诊断报告', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button class="btn-primary" id="diagRegenerate">重新生成</button><button class="btn-primary" id="diagSaveBtn">保存到档案</button>');
+    const saveBtn = document.getElementById('diagSaveBtn');
+    if (saveBtn) saveBtn.onclick = () => {
+      const d = { diagnosis: document.getElementById('diagDiagnosis').value, comment: document.getElementById('diagComment').value, advice: document.getElementById('diagAdvice').value };
+      saveDiag(s, records, imgs, d, prevId);
+      closeModal();
+    };
+    const regen = document.getElementById('diagRegenerate');
+    if (regen) regen.onclick = () => window.__app.genDiagnosisFromRecords(s, records, imgs, prevId);
+  }
+  function saveDiag(s, records, imgs, data, prevId) {
+    s.diagnoses = s.diagnoses || [];
+    const rec = {
+      id: prevId || uid(), date: todayStr(),
+      records: records.map(r => ({ type: r.type, date: r.date, score: r.score, fullScore: r.fullScore, status: r.status, note: r.note, ocrText: r.ocrText })),
+      imgs: imgs.slice(),
+      diagnosis: data.diagnosis, comment: data.comment, advice: data.advice
+    };
+    if (prevId) { const k = s.diagnoses.findIndex(d => d.id === prevId); if (k >= 0) s.diagnoses[k] = rec; else s.diagnoses.push(rec); }
+    else s.diagnoses.push(rec);
+    dbPut('students', s); saveLocalCache(); renderStudentDetail();
+    toast('诊断报告已存入档案');
+  }
+  function renderDiagList(s) {
+    const ul = document.getElementById('diagList');
+    if (!ul) return;
+    if (!s.diagnoses || !s.diagnoses.length) { ul.innerHTML = '<li style="color:#999;font-size:12px">暂无诊断报告，勾选记录后点上方按钮生成</li>'; return; }
+    ul.innerHTML = s.diagnoses.slice().reverse().map(d => `
+      <li class="report-item" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b>${escapeHtml(d.date || '')}</b>
+          <span class="student-tag">${d.records ? d.records.length + ' 条记录' : ''}</span>
+        </div>
+        <p style="white-space:pre-wrap;font-size:12px;margin:4px 0"><b>诊断：</b>${escapeHtml(d.diagnosis || '')}</p>
+        <p style="white-space:pre-wrap;font-size:12px;margin:4px 0"><b>评语：</b>${escapeHtml(d.comment || '')}</p>
+        <p style="white-space:pre-wrap;font-size:12px;margin:4px 0"><b>建议：</b>${escapeHtml(d.advice || '')}</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn-ghost" onclick="window.__app.diagExport('${d.id}')">导出文档</button>
+          <button class="btn-ghost" onclick="window.__app.diagPrint('${d.id}')">A4 打印</button>
+          <button class="btn-ghost" onclick="window.__app.diagRegen('${d.id}')">重新生成</button>
+          <button class="btn-ghost" onclick="window.__app.diagDel('${d.id}')">删除</button>
+        </div>
+      </li>`).join('');
+  }
+  window.__app.diagRegen = function (id) { const s = state.students.find(x => x.id === currentStudentId); if (s) { const d = (s.diagnoses || []).find(x => x.id === id); if (d) window.__app.genDiagnosisFromRecords(s, d.records, d.imgs, id); } };
+  window.__app.diagDel = function (id) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    s.diagnoses = (s.diagnoses || []).filter(d => d.id !== id);
+    dbPut('students', s); saveLocalCache(); renderStudentDetail();
+    toast('已删除诊断报告');
+  };
+  // v5.0: A4 导出 / 打印（单学生，图片自动缩放防溢出）
+  function a4Style() {
+    return '<style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;color:#222;line-height:1.6;margin:0;padding:0}h1{font-size:21px;margin:0 0 4px}h2{font-size:16px;border-left:4px solid #4f46e5;padding-left:8px;margin:18px 0 8px}.meta{color:#666;font-size:13px;margin-bottom:10px}.section{page-break-inside:avoid;margin:10px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:5px 7px;text-align:left;vertical-align:top}img{max-width:150px;max-height:150px;object-fit:cover;border-radius:4px;margin:2px}.blk{white-space:pre-wrap;background:#f7f7f9;padding:8px 10px;border-radius:6px;font-size:13px;margin:4px 0}</style>';
+  }
+  function buildDiagA4(s, d) {
+    const recRows = (d.records || []).map(r => '<tr><td>' + (r.type || '') + '</td><td>' + (r.date || '') + '</td><td>' + (r.score != null ? r.score : '') + '</td><td>' + (r.note || '') + '</td><td>' + (r.ocrText || '') + '</td></tr>').join('');
+    const recImgs = (d.imgs || []).map(im => '<img src="' + im + '">').join('');
+    return '<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>诊断报告</title>' + a4Style() + '</head><body>' +
+      '<h1>学情诊断报告 · ' + (s.name || '学员') + '</h1><div class="meta">生成日期：' + (d.date || '') + ' ｜ 基于 ' + (d.records ? d.records.length : 0) + ' 条勾选记录</div>' +
+      '<div class="section"><h2>勾选记录</h2><table><thead><tr><th>类型</th><th>日期</th><th>分数</th><th>备注</th><th>OCR文字</th></tr></thead><tbody>' + recRows + '</tbody></table>' + (recImgs ? '<div class="section">' + recImgs + '</div>' : '') + '</div>' +
+      '<div class="section"><h2>① 学情综合诊断</h2><div class="blk">' + (d.diagnosis || '') + '</div></div>' +
+      '<div class="section"><h2>② 老师评语</h2><div class="blk">' + (d.comment || '') + '</div></div>' +
+      '<div class="section"><h2>③ 针对性提升建议</h2><div class="blk">' + (d.advice || '') + '</div></div>' +
+      '</body></html>';
+  }
+  function buildProfileA4(s) {
+    const recOf = (arr, type) => (arr || []).map(r => '<tr><td>' + type + '</td><td>' + (r.date || '') + '</td><td>' + (r.score != null ? r.score : '') + '</td><td>' + (r.note || r.comment || r.content || '') + '</td><td>' + ((Array.isArray(r.imgs) && r.imgs.length) ? r.imgs.length : (r.img ? 1 : 0)) + ' 张</td></tr>').join('');
+    const allRec = recOf(s.entryTests, '入门测') + recOf(s.dictations, '听写') + recOf(s.homework, '作业') + recOf(s.scores, '成绩');
+    const diags = (s.diagnoses || []).map(d => '<div class="section"><h2>诊断报告 ' + (d.date || '') + '（' + (d.records ? d.records.length : 0) + '条记录）</h2><div class="blk"><b>诊断：</b>' + (d.diagnosis || '') + '</div><div class="blk"><b>评语：</b>' + (d.comment || '') + '</div><div class="blk"><b>建议：</b>' + (d.advice || '') + '</div></div>').join('');
+    return '<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>学员档案</title>' + a4Style() + '</head><body>' +
+      '<h1>学员档案 · ' + (s.name || '') + '</h1><div class="meta">年级：' + (s.grade || '') + ' ｜ 班级：' + (s.className || '') + ' ｜ 学校：' + (s.school || '') + '</div>' +
+      '<div class="section"><h2>基本信息</h2><p>薄弱项：' + (s.weakness || '') + '</p><p>标签：' + ((s.tags || []).join('、') || '无') + '</p></div>' +
+      '<div class="section"><h2>全部学情记录</h2><table><thead><tr><th>类型</th><th>日期</th><th>分数</th><th>备注</th><th>图片</th></tr></thead><tbody>' + (allRec || '<tr><td colspan="5">暂无记录</td></tr>') + '</tbody></table></div>' +
+      diags +
+      '</body></html>';
+  }
+  function downloadHtml(name, html) {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }
+  function openPrint(html) {
+    const w = window.open('', '_blank');
+    if (!w) { toast('打印被浏览器拦截，请允许弹出窗口'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    w.onload = () => { setTimeout(() => { try { w.print(); } catch (e) {} }, 300); };
+  }
+  window.__app.diagExport = function (id) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    const d = (s.diagnoses || []).find(x => x.id === id);
+    if (!d) { toast('报告不存在'); return; }
+    downloadHtml('诊断报告_' + (s.name || '学员') + '_' + (d.date || '') + '.html', buildDiagA4(s, d));
+    toast('已导出文档（可用 WPS 打开编辑）');
+  };
+  window.__app.diagPrint = function (id) {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    const d = (s.diagnoses || []).find(x => x.id === id);
+    if (!d) { toast('报告不存在'); return; }
+    openPrint(buildDiagA4(s, d));
+  };
+  window.__app.profileExport = function () {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    downloadHtml('学员档案_' + (s.name || '学员') + '.html', buildProfileA4(s));
+    toast('已导出整份档案（WPS 可编辑）');
+  };
+  window.__app.profilePrint = function () {
+    const s = state.students.find(x => x.id === currentStudentId);
+    if (!s) return;
+    openPrint(buildProfileA4(s));
+  };
 
   // v3.7: AI 作业批改 + 改错 + 存档案
   function readFileAsDataURL(file) {
@@ -14172,10 +14443,57 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   let bgRows = [];
   let bgMode = 'ai';
 
+  // v4.1: 解析中文日期格式 → YYYY-MM-DD
+  // 支持: "8月6日"/"8月13日"/"08-06"/"8/6" 等，年份默认当年
+  function parseChineseDate(str) {
+    if (!str) return null;
+    const s = String(str).trim();
+    // 格式0: 已是 YYYY-MM-DD（优先匹配，防止被后面的短格式截断）
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // 格式1: "8月6日" / "08月13日"
+    let m = s.match(/(\d{1,2})月(\d{1,2})日?/);
+    if (m) {
+      const y = new Date().getFullYear();
+      const mon = String(m[1]).padStart(2, '0');
+      const day = String(m[2]).padStart(2, '0');
+      return `${y}-${mon}-${day}`;
+    }
+    // 格式2: "8-6" / "08-13" / "8/13"（排除已含4位年份的情况）
+    m = s.match(/(\d{1,2})[-\/](\d{1,2})$/);
+    if (m) {
+      const y = new Date().getFullYear();
+      const mon = String(m[1]).padStart(2, '0');
+      const day = String(m[2]).padStart(2, '0');
+      return `${y}-${mon}-${day}`;
+    }
+    return null;
+  }
+
+  // v4.1: 增强版姓名匹配 —— 支持精确匹配 + 包含匹配 + 去空格/常见OCR错字容错
   function bgMatchStudent(name) {
-    const n = (name || '').trim().toLowerCase();
+    const n = (name || '').trim();
     if (!n) return null;
-    return state.ledgerStudents.find(x => (x.name || '').trim().toLowerCase() === n) || null;
+    const nLow = n.toLowerCase().replace(/\s+/g, '');
+    // 1. 精确匹配（去空格后）
+    let found = state.ledgerStudents.find(x => (x.name || '').trim().toLowerCase().replace(/\s+/g, '') === nLow);
+    if (found) return found;
+    // 2. 包含匹配：AI识别的姓名包含在台账姓名中，或反之
+    found = state.ledgerStudents.find(x => {
+      const sn = (x.name || '').trim().toLowerCase().replace(/\s+/g, '');
+      return sn.includes(nLow) || nLow.includes(sn);
+    });
+    if (found) return found;
+    // 3. 单字差异容错（OCR常把"佳"认成"住"、"轩"认成"斩"等）
+    found = state.ledgerStudents.find(x => {
+      const sn = (x.name || '').trim().toLowerCase().replace(/\s+/g, '');
+      if (sn.length !== nLow.length || sn.length < 2) return false;
+      let diff = 0;
+      for (let i = 0; i < sn.length; i++) {
+        if (sn[i] !== nLow[i]) diff++;
+      }
+      return diff <= 1; // 允许1个字不同
+    });
+    return found || null;
   }
 
   function openBatchGrade() {
@@ -14210,7 +14528,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         <div class="bg-preview" id="bgPreview"></div>
         <div class="bg-status" id="bgStatus"></div>
         <div class="bg-confirm" id="bgConfirm">
-          <p class="bg-hint">先拍照或选图：<b>智能识别</b>模式会读姓名与分数自动归位；<b>按名单顺序</b>模式请先选班级，再按名单顺序连拍，照片自动对应到每位学员。</p>
+          <p class="bg-hint">先拍照或选图：<b>智能识别</b>模式支持两种场景——<br>① 整班成绩表（一张图含全班姓名+分数，AI自动逐行提取）；<br>② 逐人拍照（每张图一名学生）。<br><b>按名单顺序</b>模式请先选班级，再按名单顺序连拍，照片自动对应到每位学员。</p>
         </div>
       </div>`;
     openModal('📷 批量拍照登分', body, `
@@ -14242,13 +14560,13 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       if (classSel) classSel.hidden = bgMode !== 'order';
       if (recBtn) recBtn.hidden = bgMode !== 'ai';
       if (tip) tip.textContent = bgMode === 'ai'
-        ? '让学生把姓名写在作业/试卷上，拍照或选图后点「识别」，AI 自动读出姓名与分数并归位到对应学员。'
+        ? '支持整班成绩表（一张图全班分数）或逐人拍照，AI 自动读出姓名与分数并归位到对应学员。'
         : '先选班级，再按名单顺序连拍或选图：第 1 张归第 1 名学员，依次对应，无需 AI 也能快速登分。';
       // 切换模式时清空已识别/匹配的行（图片保留），避免两种模式串味
       bgRows = [];
       bgRenderRows();
     });
-    if (tip) tip.textContent = '让学生把姓名写在作业/试卷上，拍照或选图后点「识别」，AI 自动读出姓名与分数并归位到对应学员。';
+    if (tip) tip.textContent = '支持整班成绩表（一张图全班分数）或逐人拍照，AI 自动读出姓名与分数并归位到对应学员。';
     if (recBtn) recBtn.onclick = bgRecognize;
     if (storeAll) storeAll.onchange = () => { bgRows.forEach(r => r.store = storeAll.checked); bgRenderRows(); };
     if (writeBtn) writeBtn.onclick = bgWrite;
@@ -14297,6 +14615,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     });
   }
 
+  // v4.1: 增强版批量拍照登分 —— 同时支持「整班成绩表单图」和「逐人拍照」两种模式
   async function bgRecognize() {
     const status = $('#bgStatus');
     const recBtn = $('#bgRecBtn');
@@ -14310,26 +14629,114 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (recBtn) { recBtn.disabled = true; recBtn.textContent = '识别中…'; }
     if (status) { status.textContent = `AI 正在识别 ${bgImages.length} 张…`; status.style.color = ''; }
     const images = bgImages.map(x => x.dataUrl);
-    const prompt = '你是一名语文老师助教。下面是一批学生的作业或试卷照片，每张照片对应一名学生，照片上学生通常写有自己的姓名（手写或打印），以及本次的得分、满分，或完成状态（如"全对""已完成""未完成""订正"等）。\n请逐张识别，按图片顺序返回一个 JSON 数组，数组长度必须等于图片数量，第 i 个元素对应第 i 张图：\n{"name": 姓名（识别不到留空字符串）, "score": 数字或 null, "fullScore": 数字或 null, "status": "已完成"|"未完成"|"部分完成"|"订正中"|"未交" 或空字符串, "note": 简短备注或空字符串}\n要求：\n1. 只返回 JSON 数组，不要任何解释、不要 markdown 代码块标记。\n2. 数组长度必须等于图片数量。\n3. 完全无法识别的元素 name 留空、其余留空或 null。\n4. 不要编造信息，识别不到的字段就留空或 null。';
+
+    // ===== 核心改进：智能判断图片类型并分别处理 =====
+    const prompt = `你是一名语文老师助教，擅长从手写/打印的成绩表中精准提取学生姓名和分数。
+
+【重要】请先判断每张图片的类型：
+类型A——整班成绩表/记分册：一张图包含多名学生的姓名和分数（通常是表格形式，有"序号/学生姓名"列和多个日期列，分数是手写红色/黑色笔迹）。
+类型B——单人作业/试卷：一张图只有一名学生的作业或试卷（上面写着该生姓名和得分）。
+
+【输出要求】
+对每一张图片，返回一个 JSON 对象，所有对象组成一个 JSON 数组（数组长度 = 图片数量）：
+
+{
+  "imageType": "A" 或 "B",
+  "students": [
+    {
+      "name": "学生姓名（最优先识别图片顶部手写/打印的姓名，手写汉字也要尽量认出，认不出留空）",
+      "type": "记录类型：从图片顶部标签判断，取值 入门测 | 听写 | 作业 | 未知（标签认不出填 未知）",
+      "score": 分数数字（如 85, 92.5, 若该格是"√"或打勾则填 100, 没分则 null）,
+      "ocrText": "图片中可辨认的全部文字（含姓名、分数、批改评语、订正痕迹），尽量完整转录，无则空字符串",
+      "fullScore": 满分数字（如有则填, 否则 null）,
+      "dateCol": "日期列名（如'8月6日''8月13日', 类型A必填, 类型B留空）",
+      "status": "已完成/未完成/部分完成/订正中/未交 或空字符串",
+      "note": "备注（如'缺考''补考''进步明显'等, 或空字符串）"
+    }
+  ]
+}
+
+【针对类型A（整班成绩表）的特殊指令】
+1. 表格通常有这些列：序号 | 学生姓名 | 日期1 | 日期2 | 日期3 | ...
+2. 每一行对应一名学生，请把每一行都提取为 students 数组中的一个元素
+3. 手写分数常见形式：纯数字(85)、带斜杠(85/100)、勾号(√=100分)、横线(—=未考/缺考)
+4. 如果同一学生在多列都有分数，每个日期各生成一条记录（name 相同但 dateCol 不同）
+5. 姓名列可能在最左侧，注意区分"序号"列和"姓名"列
+
+【针对类型B（单人照片）的特殊指令】
+1. students 数组只有 1 个元素
+2. 尽量从照片中找到手写或打印的姓名
+
+【通用要求】
+1. 只返回 JSON 数组，不要任何解释、不要 markdown 代码块标记。
+2. 外层数组长度必须等于图片数量。
+3. name 字段尽量准确识别手写中文姓名，宁可多认也不要漏认。
+4. 不要编造信息，真的认不出就留空。`;
+
     try {
-      const text = await callAIVision(prompt, images, '你是 OCR 与成绩提取助手，只输出结构化 JSON 数组，不要解释。');
+      const text = await callAIVision(prompt, images, '你是 OCR 与成绩提取助手，特别擅长识别中文手写姓名和表格分数。只输出结构化 JSON 数组，不要解释。');
       let arr = extractJSON(text);
       if (!Array.isArray(arr)) arr = [];
-      const known = ['全对', '已完成', '订正中', '未完成', '未交'];
-      bgRows = bgImages.map((img, i) => {
-        const r = arr[i] || {};
-        const name = String(r.name || '').trim();
-        const sc = (r.score == null || r.score === '') ? '' : (isNaN(Number(r.score)) ? '' : Number(r.score));
-        const fs = (r.fullScore == null || r.fullScore === '') ? '' : (isNaN(Number(r.fullScore)) ? '' : Number(r.fullScore));
-        let st = String(r.status || '').trim();
-        if (!known.includes(st)) st = (fs !== '' && sc !== '' && Number(sc) === Number(fs)) ? '全对' : (sc !== '' && fs !== '' && Number(sc) / Number(fs) < 0.6 ? '订正中' : '已完成');
-        const matched = bgMatchStudent(name);
-        return { imgIndex: i, dataUrl: img.dataUrl, name, sid: matched ? matched.id : '', type: 'hw', score: sc, fullScore: fs, status: st, store: true };
+
+      // ===== 展平：类型A的图片可能返回多条学生记录 =====
+      let flatRows = [];
+      arr.forEach((imgResult, imgIdx) => {
+        const imgData = bgImages[imgIdx];
+        if (!imgData) return;
+        const imageType = String(imgResult.imageType || 'B').toUpperCase();
+        const students = Array.isArray(imgResult.students) ? imgResult.students : [imgResult];
+
+        if (imageType === 'A' && students.length > 1) {
+          // 类型A：一张图多人 → 展平为多行
+          students.forEach((stu, si) => {
+            const name = String(stu.name || '').trim();
+            const sc = (stu.score == null || stu.score === '') ? '' : (isNaN(Number(stu.score)) ? '' : Number(stu.score));
+            const fs = (stu.fullScore == null || stu.fullScore === '') ? '' : (isNaN(Number(stu.fullScore)) ? '' : Number(stu.fullScore));
+            const dateCol = String(stu.dateCol || '').trim();
+            const st = String(stu.status || '').trim();
+            const note = String(stu.note || '').trim();
+            const matched = bgMatchStudent(name);
+            const rawType = String(stu.type || '未知').trim();
+            const recType = ({ '入门测': 'entry', '听写': 'dict', '作业': 'hw' })[rawType] || 'hw';
+            flatRows.push({
+              imgIndex: imgIdx, dataUrl: imgData.dataUrl, name,
+              sid: matched ? matched.id : '', type: recType,
+              score: sc, fullScore: fs, status: st || '已完成',
+              store: true, dateCol, note, ocrText: String(stu.ocrText || '').trim(),
+              _isTableMode: true
+            });
+          });
+        } else {
+          // 类型B：一张图一人（或类型A但只识别出1人）
+          const r = students[0] || {};
+          const name = String(r.name || '').trim();
+          const sc = (r.score == null || r.score === '') ? '' : (isNaN(Number(r.score)) ? '' : Number(r.score));
+          const fs = (r.fullScore == null || r.fullScore === '') ? '' : (isNaN(Number(r.fullScore)) ? '' : Number(r.fullScore));
+          let st = String(r.status || '').trim();
+          const known = ['全对', '已完成', '订正中', '未完成', '未交'];
+          if (!known.includes(st)) st = (fs !== '' && sc !== '' && Number(sc) === Number(fs)) ? '全对' : (sc !== '' && fs !== '' && Number(sc) / Number(fs) < 0.6 ? '订正中' : '已完成');
+          const matched = bgMatchStudent(name);
+          const rawType = String(r.type || '未知').trim();
+          const recType = ({ '入门测': 'entry', '听写': 'dict', '作业': 'hw' })[rawType] || 'hw';
+          flatRows.push({
+            imgIndex: imgIdx, dataUrl: imgData.dataUrl, name,
+            sid: matched ? matched.id : '', type: recType,
+            score: sc, fullScore: fs, status: st,
+            store: true, dateCol: '', note: String(r.note || '').trim(), ocrText: String(r.ocrText || '').trim()
+          });
+        }
       });
+
+      bgRows = flatRows;
       bgRenderRows();
-      const unmatched = bgRows.filter(r => !r.sid).length;
-      if (status) { status.textContent = `✅ 识别完成，共 ${bgRows.length} 张${unmatched ? '，' + unmatched + ' 张未匹配到学员（可在下拉手动指定）' : ''}`; status.style.color = 'var(--success,#16a34a)'; }
-      toast('识别完成');
+      const totalStudents = bgRows.length;
+      const missing = bgRows.filter(r => !r.sid && r.name);
+      if (status) {
+        status.textContent = `✅ 识别完成，共 ${totalStudents} 条记录${missing.length ? '，' + missing.length + ' 名学生不在档案中（可点弹窗一键新建）' : ''}`;
+        status.style.color = 'var(--success,#16a34a)';
+      }
+      toast(`识别到 ${totalStudents} 条记录`);
+      if (missing.length) bgPromptCreateMissing(missing);
     } catch (err) {
       if (status) { status.textContent = '❌ 识别失败：' + (err && err.message ? err.message : '请检查 AI 配置是否支持图片输入'); status.style.color = 'var(--danger,#e11d48)'; }
       toast('识别失败：' + (err && err.message ? err.message : '未知错误'));
@@ -14345,8 +14752,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (!wrap) return;
     if (!bgRows.length) {
       const hint = bgImages.length
-        ? `已添加 ${bgImages.length} 张照片${bgMode === 'ai' ? '，点上方「识别」按钮自动读出姓名与分数，并归位到对应学员' : '，选择班级后照片会按顺序对应到每位学员'}。`
-        : '先拍照或选图：<b>智能识别</b>模式会读姓名与分数自动归位；<b>按名单顺序</b>模式请先选班级，再按名单顺序连拍，照片自动对应到每位学员。';
+        ? `已添加 ${bgImages.length} 张照片${bgMode === 'ai' ? '，点上方「识别」按钮（支持整班成绩表/逐人拍照两种模式）' : '，选择班级后照片会按顺序对应到每位学员'}。`
+        : '先拍照或选图：<b>智能识别</b>模式支持整班成绩表和逐人拍照；<b>按名单顺序</b>模式请先选班级。';
       wrap.innerHTML = '<p class="bg-hint">' + hint + '</p>';
       if (global) global.hidden = true;
       if (writeBtn) writeBtn.disabled = true;
@@ -14356,13 +14763,15 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (writeBtn) writeBtn.disabled = false;
     const statusOpts = ['全对', '已完成', '订正中', '未完成', '未交'];
     const stuSorted = state.ledgerStudents.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
+    // 检测是否有表格模式（整班成绩表展开的行）
+    const hasTableMode = bgRows.some(r => r._isTableMode);
     wrap.innerHTML = `
       <div class="bg-table">
-        <div class="bg-thead">
-          <span>照片</span><span>学员（可改派）</span><span>分数</span><span>满分</span><span>状态</span><span>存图</span><span></span>
+        <div class="bg-thead${hasTableMode ? ' has-datecol' : ''}">
+          <span>照片</span><span>学员</span><span>类型</span>${hasTableMode ? '<span>日期列</span>' : ''}<span>分数</span><span>满分</span><span>状态</span><span>存图</span><span></span>
         </div>
         ${bgRows.map((r, i) => `
-          <div class="bg-row" data-i="${i}">
+          <div class="bg-row${r._isTableMode ? ' bg-row-table' : ''}" data-i="${i}">
             <span class="bg-th"><img src="${r.dataUrl}" onerror="this.style.display='none'"></span>
             <span class="bg-name">
               <input type="text" class="bg-iname" value="${escapeHtml(r.name || '')}" placeholder="姓名">
@@ -14371,6 +14780,12 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
                 ${stuSorted.map(s => `<option value="${s.id}" ${s.id === r.sid ? 'selected' : ''}>${escapeHtml(s.name || '')}</option>`).join('')}
               </select>
             </span>
+            <span class="bg-typecol"><select class="bg-itype">
+              <option value="entry" ${r.type==='entry'?'selected':''}>入门测</option>
+              <option value="dict" ${r.type==='dict'?'selected':''}>听写</option>
+              <option value="hw" ${r.type==='hw'?'selected':''}>作业</option>
+            </select></span>
+            ${hasTableMode ? `<span class="bg-datecol"><input type="text" class="bg-idatecol" value="${escapeHtml(r.dateCol || '')}" placeholder="日期" title="从成绩表识别出的日期列名"></span>` : ''}
             <span><input type="number" class="bg-iscore" value="${r.score !== '' && r.score != null ? r.score : ''}" step="0.5" placeholder="分"></span>
             <span><input type="number" class="bg-ifull" value="${r.fullScore !== '' && r.fullScore != null ? r.fullScore : ''}" step="0.5" placeholder="满"></span>
             <span><select class="bg-istatus">${statusOpts.map(o => `<option ${r.status === o ? 'selected' : ''}>${o}</option>`).join('')}</select></span>
@@ -14388,22 +14803,24 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
   }
 
   async function bgWrite() {
-    const type = $('#bgType') ? $('#bgType').value : 'hw';
-    const date = ($('#bgDate') ? $('#bgDate').value : '').trim() || todayStr();
     const wrap = $('#bgConfirm');
     if (!wrap) return;
     const rows = Array.from(wrap.querySelectorAll('.bg-row'));
     if (!rows.length) { toast('没有可写入的记录'); return; }
-    const typeName = type === 'entry' ? '入门测' : '作业';
+    const baseDate = ($('#bgDate') ? $('#bgDate').value : '').trim() || todayStr();
     let ok = 0, skip = 0;
     for (const el of rows) {
       const i = +el.dataset.i;
       const nameTxt = el.querySelector('.bg-iname').value.trim();
       const sidSel = el.querySelector('.bg-isid').value;
+      const rowType = el.querySelector('.bg-itype') ? el.querySelector('.bg-itype').value : ((bgRows[i] && bgRows[i].type) || 'hw');
       const scoreRaw = el.querySelector('.bg-iscore').value;
       const fullRaw = el.querySelector('.bg-ifull').value;
       const status = el.querySelector('.bg-istatus').value;
       const store = el.querySelector('.bg-istore').checked;
+      // 表格模式：读取日期列
+      const dateColEl = el.querySelector('.bg-idatecol');
+      const dateColText = dateColEl ? dateColEl.value.trim() : '';
       const score = scoreRaw === '' ? 0 : (Number(scoreRaw) || 0);
       const fullScore = fullRaw === '' ? null : (Number(fullRaw) || 0);
       const dataUrl = (bgRows[i] && bgRows[i].dataUrl) || '';
@@ -14413,26 +14830,68 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       const s = state.ledgerStudents.find(x => x.id === sid);
       if (!s) { skip++; continue; }
       normalizeLedger(s);
+      // 解析日期：表格模式用识别出的日期列，否则用全局日期
+      let recDate = baseDate;
+      if (dateColText) {
+        const parsed = parseChineseDate(dateColText);
+        if (parsed) recDate = parsed;
+      }
       const img = store ? dataUrl : '';
       const imgs = (store && dataUrl) ? [dataUrl] : [];
+      const rowNote = (bgRows[i] && bgRows[i].note) || '';
+      const ocrText = (bgRows[i] && bgRows[i].ocrText) || '';
       let rec;
-      if (type === 'entry') {
-        rec = { date, subject: nameTxt ? (nameTxt + ' 的入门测') : '入门测', score, fullScore, note: img ? '📷附图' : '', img, imgs };
+      if (rowType === 'entry') {
+        rec = { date: recDate, subject: nameTxt ? (nameTxt + ' 的入门测') : '入门测', score, fullScore, note: (rowNote || (img ? '📷附图' : '')), img, imgs, ocrText };
         s.entryTests = s.entryTests || [];
         s.entryTests.push(rec);
+      } else if (rowType === 'dict') {
+        rec = { date: recDate, content: nameTxt ? (nameTxt + ' 的听写') : '听写', status, score, fullScore, comment: (rowNote || (img ? '📷附图' : '')), img, imgs, ocrText };
+        s.dictations = s.dictations || [];
+        s.dictations.push(rec);
       } else {
-        rec = { date, content: nameTxt ? (nameTxt + ' 的作业') : '作业', status, score, fullScore, comment: img ? '📷附图' : '', img, imgs };
+        rec = { date: recDate, content: nameTxt ? (nameTxt + ' 的作业') : '作业', status, score, fullScore, comment: (rowNote || (img ? '📷附图' : '')), img, imgs, ocrText };
         s.homeworks = s.homeworks || [];
         s.homeworks.push(rec);
       }
       await dbPut('ledgerStudents', s);
-      await mirrorToStudentProfile(s, type, rec);
+      await mirrorToStudentProfile(s, rowType, rec);
       ok++;
     }
     saveLocalCache();
     renderLedger();
     closeModal();
-    toast(`已写入 ${ok} 条${typeName}${skip ? '，跳过 ' + skip + ' 条（未匹配学员）' : ''}`);
+    toast(`已写入 ${ok} 条${skip ? '，跳过 ' + skip + ' 条（未匹配学员）' : ''}`);
+  }
+  // v5.0: 未匹配学生 → 弹窗一键新建档案
+  function bgCreateStudent(name) {
+    const id = uid();
+    const ls = { id, classId: '', name: (name || '').trim(), lessons: [] };
+    state.ledgerStudents = state.ledgerStudents || [];
+    state.ledgerStudents.push(ls);
+    const st = { id, name: (name || '').trim(), entryTests: [], homework: [], homeworks: [], dictations: [], scores: [], aiGrades: [], reports: [], comm: [], leave: [], tags: [] };
+    state.students = state.students || [];
+    state.students.push(st);
+    dbPut('ledgerStudents', ls);
+    dbPut('students', st);
+    saveLocalCache();
+    if (typeof renderStudentList === 'function') renderStudentList();
+    return id;
+  }
+  function bgPromptCreateMissing(missing) {
+    const names = [...new Set(missing.map(r => r.name).filter(Boolean))];
+    if (!names.length) return;
+    const body = '<p style="font-size:13px;margin-bottom:8px">以下 ' + names.length + ' 名学生未在当前档案中找到，是否自动新建档案并归档本次识别结果？</p>' +
+      '<div style="max-height:40vh;overflow:auto">' + names.map(n => '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border,#eee)"><input type="checkbox" class="bgNewChk" data-name="' + escapeHtml(n) + '" checked> <span>' + escapeHtml(n) + '</span></label>').join('') + '</div>';
+    openModal('未找到学生', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">暂不新建</button><button class="btn-primary" id="bgCreateSel">新建所选并归档</button>');
+    const btn = document.getElementById('bgCreateSel');
+    if (btn) btn.onclick = () => {
+      const sel = Array.from(document.querySelectorAll('.bgNewChk:checked')).map(c => c.dataset.name);
+      sel.forEach(nm => { const id = bgCreateStudent(nm); bgRows.forEach(r => { if (!r.sid && r.name === nm) r.sid = id; }); });
+      bgRenderRows();
+      closeModal();
+      toast('已新建 ' + sel.length + ' 名学生');
+    };
   }
   window.openBatchGrade = openBatchGrade;
 
@@ -16982,7 +17441,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         sp = {
           id: uid(), name: name, grade: '', className: clsName,
           weakness: '', tags: [], hours: 0,
-          scores: [], entryTests: [], homework: [], reports: [],
+          scores: [], entryTests: [], homework: [], dictations: [], reports: [],
           ts: Date.now()
         };
         state.students.push(sp);
@@ -16990,12 +17449,19 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       }
       if (!Array.isArray(sp.entryTests)) sp.entryTests = [];
       if (!Array.isArray(sp.homework)) sp.homework = [];
+      if (!Array.isArray(sp.dictations)) sp.dictations = [];
       // 档案与台账共用同一条记录内容（档案侧字段名为 homework）
       if (type === 'entry') {
         sp.entryTests.push({
           date: rec.date, subject: rec.subject || '', score: rec.score,
           fullScore: rec.fullScore, note: rec.note || '', img: rec.img || '',
           fromLedger: true
+        });
+      } else if (type === 'dict') {
+        sp.dictations.push({
+          date: rec.date, content: rec.content || '', status: rec.status || '',
+          score: rec.score, fullScore: rec.fullScore, comment: rec.comment || '',
+          img: rec.img || '', ocrText: rec.ocrText || '', fromLedger: true
         });
       } else {
         sp.homework.push({

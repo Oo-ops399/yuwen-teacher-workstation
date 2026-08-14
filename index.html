@@ -3236,6 +3236,10 @@ label input, label select, label textarea { margin-top: 4px; }
     color: var(--primary-dark, #1a7a3a);
   }
   .tl-date-group.today::after { content: ' 📝'; font-size: 10px; }
+  /* 今天列高亮：横滑时一眼定位录入列 */
+  .tl-today-col { background: rgba(39,174,96,0.07); }
+  .ql-table-wrap { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .tl-date-group { scroll-snap-align: start; }
   /* 子字段行 */
   .tl-sub-head { 
     font-size: 10px; color: var(--text-muted); font-weight: 500; 
@@ -3330,17 +3334,90 @@ label input, label select, label textarea { margin-top: 4px; }
     transition: opacity 0.3s;
   }
   .ql-table-wrap.scroll-end::after { opacity: 0; }
-  /* 手机端卡片式降级 */
+  /* ===== 移动端：全班紧凑录入网格（替代横向滚动表格） ===== */
   @media (max-width: 720px) {
-    .ql-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; } /* 保持横滑 */
-    .ql-timeline-table { min-width: 620px; } /* 保证最小宽度触发横滑 */
-    .tl-date-group { min-width: 95px; font-size: 11px; }
-    .tl-cell { min-width: 38px; font-size: 12px; }
-    .tl-cell.editable input { width: 36px; height: 26px; font-size: 12px; }
-    .stu-name-col { min-width: 58px !important; font-size: 13px; }
-    .tl-integral-col { min-width: 42px; }
-    .tl-note-col { min-width: 56px; }
-    .tl-action-col { min-width: 44px; }
+    /* 隐藏桌面端表格（仅供 JS 读取），显示紧凑网格 */
+    .ql-table-wrap:has(.ql-timeline-table) .ql-timeline-table { display: none; }
+    .ql-table-wrap:has(.ql-timeline-table) { overflow-x: visible; border: none; background: none; padding: 0; }
+    .ql-table-wrap::after { display: none; }
+    /* 移动端：网格纵向滚、横向手势交给外层面板切换（覆盖桌面端 pan-x） */
+    #page-ledger .ql-table-wrap { touch-action: pan-y; overflow-x: visible; }
+    .tl-mobile-grid { touch-action: pan-y; }
+
+    .tl-mobile-grid {
+      display: flex; flex-direction: column;
+      border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+      background: var(--card);
+    }
+    /* 表头 + 数据行共用网格列 */
+    .tl-grid-head, .tl-grid-row {
+      display: grid;
+      grid-template-columns: 58px 1fr 1fr 48px 1.3fr;
+      gap: 0; align-items: stretch;
+    }
+    .tl-grid-head {
+      background: var(--bg); position: sticky; top: 0; z-index: 2;
+      border-bottom: 2px solid var(--primary);
+    }
+    .tl-grid-head .tg-cell {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      padding: 7px 3px; text-align: center;
+    }
+    .tl-grid-row { border-bottom: 1px solid var(--border); }
+    .tl-grid-row:last-child { border-bottom: none; }
+    .tg-cell {
+      padding: 4px 3px; border-right: 1px solid rgba(0,0,0,0.06);
+      display: flex; align-items: center; justify-content: center; gap: 2px;
+      min-width: 0;
+    }
+    .tg-cell:last-child { border-right: none; }
+    /* 学员名列：左对齐、可点看历史 */
+    .tg-name {
+      justify-content: flex-start; font-weight: 700; font-size: 13px;
+      color: var(--text); cursor: pointer; padding-left: 6px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* 输入框样式（复用原有 class） */
+    .tl-grid-row input.tl-entry,
+    .tl-grid-row input.tl-hw,
+    .tl-grid-row input.tl-full {
+      width: 100%; min-width: 0; height: 30px; font-size: 14px; font-weight: 700;
+      text-align: center; border: 1.5px solid var(--primary); border-radius: 6px;
+      padding: 0 2px; box-sizing: border-box; background: #fff; color: var(--text);
+      -webkit-appearance: none;
+    }
+    .tl-grid-row input.tl-entry:focus,
+    .tl-grid-row input.tl-hw:focus,
+    .tl-grid-row input.tl-full:focus {
+      outline: none; box-shadow: 0 0 0 2px rgba(74,144,226,0.25);
+    }
+    .tl-grid-row input.tl-integral {
+      width: 100%; min-width: 0; height: 28px; font-size: 13px; text-align: center;
+      border: 1px solid var(--border); border-radius: 5px; box-sizing: border-box;
+    }
+    .tl-grid-row .tl-edit-btn {
+      font-size: 9px; padding: 1px 3px; margin-left: 1px; flex-shrink: 0;
+      border: 1px solid var(--border); border-radius: 3px; background: var(--bg);
+    }
+    /* 备注列：输入框 + 🏷 */
+    .tg-note { justify-content: flex-start; gap: 3px; padding-left: 5px; }
+    .tg-note .tl-note {
+      flex: 1; min-width: 0; font-size: 12px; padding: 5px 6px;
+      border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;
+    }
+    .tg-note .tl-tag-btn {
+      padding: 4px 7px; font-size: 13px; flex-shrink: 0;
+      border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+    }
+    /* 照片列按钮 */
+    .tl-grid-row .tg-photo { padding: 4px 2px; }
+    .tl-grid-row .tg-photo .tl-photo-btn {
+      font-size: 15px; padding: 4px 6px; line-height: 1; border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .tl-grid-row .tg-photo .tl-photo-count {
+      font-size: 10px; font-weight: 700; margin-left: 1px;
+    }
   }
   /* 快捷工具栏 */
   .ql-toolbar { 
@@ -3461,6 +3538,8 @@ label input, label select, label textarea { margin-top: 4px; }
     /* 勾选框隐藏（手机上不需要批量勾选） */
     .ql-table td.ql-sel { display: none; }
   }
+  /* 时间轴表格容器：始终作为横滑 + 吸附容器（覆盖可能的 overflow:visible 兜底，确保手机/桌面都能左右滑动并吸附到日期列） */
+  .ql-table-wrap:has(.ql-timeline-table) { overflow-x: auto; scroll-snap-type: x proximity; }
   .ql-hist { display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow-y: auto; }
   .ql-lesson { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .ql-lesson-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -4384,6 +4463,77 @@ label input, label select, label textarea { margin-top: 4px; }
 }
 .pg-dots .pg-dot.active { opacity: 1; width: 18px; border-radius: 4px; background: var(--primary); }
 .pg-hint { font-size: 11px; color: var(--text-muted); text-align: center; padding: 2px 0 4px; letter-spacing: .5px; }
+
+/* 学情台账：双层滑动架构
+   外层：整屏左右滑动切换面板（补录 / 录入 / 台账），带圆点指示器
+   内层：快速录入面板内的时间轴表格独立横向滑动查看往期成绩
+   手势分流：手指落在表格区域且偏水平滑动时 → 表格横滑；否则 → 面板切换 */
+#page-ledger .own-body.pg-swipe { /* 保持 pg-swipe 默认行为 */ }
+#page-ledger .own-body.pg-swipe > .panel {
+  overflow-y: auto;   /* 每个面板内部纵向滚动 */
+  -webkit-overflow-scrolling: touch;
+}
+/* 表格区域允许横向触摸滑动 */
+#page-ledger .ql-table-wrap {
+  touch-action: pan-x;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+/* 面板内的按钮/输入等交互元素只响应纵向手势（避免误触切面板），
+   但表格区域除外（上面已单独设 pan-x） */
+#page-ledger .own-body.pg-swipe .panel-header,
+#page-ledger .own-body.pg-swipe .ledger-class-header,
+#page-ledger .own-body.pg-swipe .ledger-class-block > h4,
+#page-ledger .own-body.pg-swipe .row-item,
+#page-ledger .own-body.pg-swipe .row-del,
+#page-ledger .own-body.pg-swipe button:not(.tl-tag-btn):not(.lq-tag-btn),
+#page-ledger .own-body.pg-swipe select,
+#page-ledger .own-body.pg-swipe input:not(.tl-note):not(.tl-entry):not(.tl-hw):not(.tl-full):not(.tl-integral),
+#page-ledger .own-body.pg-swipe textarea,
+#page-ledger .own-body.pg-swipe a { touch-action: pan-y; }
+/* 标签按钮也要能点，不拦 */
+
+/* 学情诊断标签弹窗 */
+.tagpick { padding: 6px 4px; max-height: 60vh; overflow: auto; }
+.tagpick-group { margin-bottom: 12px; }
+.tagpick-gtitle { font-size: 13px; font-weight: 600; color: var(--text-soft); margin: 4px 0 6px; }
+.tagpick-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tagpick-chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 16px; padding: 7px 13px; font-size: 13px; cursor: pointer; user-select: none; transition: all .12s; }
+.tagpick-chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tagpick-custom { display: flex; gap: 6px; margin-top: 6px; }
+.tagpick-custom input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
+.tagpick-custom button { padding: 0 14px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: #fff; cursor: pointer; }
+.lq-tag-btn, .tl-tag-btn { flex-shrink: 0; border: 1px solid var(--primary); background: var(--primary); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+.lq-tag-btn:hover, .tl-tag-btn:hover { opacity: .9; }
+
+/* 虚线边框开关（个性化设置 → 卡片与圆角 → 边框样式） */
+.bs-dashed .card,
+.bs-dashed .panel,
+.bs-dashed .own-page,
+.bs-dashed #page-ledger .panel,
+.bs-dashed .row-item,
+.bs-dashed .info-block,
+.bs-dashed .lq-stu-panel,
+.bs-dashed .memo-item,
+.bs-dashed .ql-lesson,
+.bs-dashed .fb-1to1,
+.bs-dashed .ocr-row,
+.bs-dashed .ex-lib-item,
+.bs-dashed .renew-plan-item,
+.bs-dashed .sg-group,
+.bs-dashed .setting-item,
+.bs-dashed .modal,
+.bs-dashed .pop-modal,
+.bs-dashed .cm-member,
+.bs-dashed .reason-chip,
+.bs-dashed .quick-chips .chip,
+.bs-dashed .lq-stu-btn { border-style: dashed !important; }
+.ap-select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 14px; }
+.ledger-quick-form .lq-tag-btn { margin-left: 6px; align-self: center; }
+.ql-timeline-table td.tl-note-col { white-space: nowrap; vertical-align: middle; min-width: 140px; }
+.ql-timeline-table .tl-note { width: 100px; min-width: 90px; }
+.ql-timeline-table .tl-tag-btn { padding: 4px 9px; font-size: 13px; margin-left: 5px; }
 
 /* 紧凑列表（一行一条，可点开详情） */
 .row-list { list-style: none; margin: 0; padding: 0; }
@@ -6252,7 +6402,8 @@ label input, label select, label textarea { margin-top: 4px; }
           </div>
         </div>
         <div class="lq-row">
-          <label class="lq-note">备注<input type="text" id="lqNote" placeholder="选填（如：进步明显 / 需重点关注）"></label>
+          <label class="lq-note">备注<input type="text" id="lqNote" placeholder="选填，或点 🏷 选诊断标签"></label>
+          <button type="button" class="lq-tag-btn" onclick="window.openTagPicker(document.getElementById('lqNote'), window.__lqType || 'entry')">🏷 标签</button>
         </div>
         <div class="lq-row lq-photo-row">
           <button type="button" class="btn-ghost" id="lqCamBtn">📷 拍照</button>
@@ -6284,7 +6435,7 @@ label input, label select, label textarea { margin-top: 4px; }
         </div>
       </div>
       <div id="qlTable" class="ql-table-wrap"></div>
-      <p class="ql-tip">📊 <b>横向时间轴</b>：纵向是学生姓名（固定），横向是上课日期（每来一节课自动新增一列，历史成绩全部保留，可左右滑动查看往期）。最右侧「今天」列直接填分，点 ▼ 快捷选分，填完点「💾 保存到台账」即可。🎤 语音录入可一次性口述多人分数自动填入；框选备注可批量复制。点学员名查看个人时间线，点「生成课后反馈」一键出家长反馈（支持温和/简洁/严谨三档语气）。</p>
+      <p class="ql-tip">📊 <b>横向时间轴</b>：纵向是学生姓名（固定），横向是上课日期（每来一节课自动新增一列，历史成绩全部保留，可左右滑动查看往期）。<b>首列「今天」高亮列直接填分</b>，无需滑到最右；点 ▼ 快捷选分，填完点「💾 保存到台账」即可。🎤 语音录入可一次性口述多人分数自动填入；框选备注可批量复制。点学员名查看个人时间线，点「生成课后反馈」一键出家长反馈（支持温和/简洁/严谨三档语气）。</p>
     </div>
 
     <div class="panel">
@@ -6316,6 +6467,7 @@ label input, label select, label textarea { margin-top: 4px; }
           <button class="btn-ghost" id="ledgerSummaryAllBtn">生成全量汇总图</button>
           <button class="btn-ghost" id="ledgerReportClassBtn">导出班级报表图</button>
           <button class="btn-ghost" id="ledgerReportAllBtn">导出全量报表图</button>
+          <button class="btn-primary" id="exportStudentSummaryBtn">📄 导出学生学情汇总</button>
         </div>
       </div>
       <div id="ledgerSummary" class="ledger-summary-area"></div>
@@ -6604,7 +6756,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   // ================= IndexedDB 存储 =================
   const DB_NAME = 'yuwen_teacher_db';
-  const DB_VER = 7;
+  const DB_VER = 8;
   const STORES = ['settings', 'card', 'classes', 'students', 'communications', 'templates', 'callbacks', 'library', 'mindmaps', 'todos', 'clips', 'sticky', 'express', 'memos', 'countdowns', 'feedbacks', 'feedbackMaterials', 'classFeedbacks', 'accounting', 'ledgerStudents', 'prepFiles', 'attendance', 'exLib', 'exHistory', 'fbTemplates'];
 
   // ===== 底栏可配置项（方案B 圆形胶囊）=====
@@ -7121,6 +7273,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // ================= 整页不滚 + 左右滑动栏目（v3.9） =================
   // 把一个多栏目的 own-body 变成整屏横滑的卡片流，并加小圆点
   function buildSwipeTrack(body) {
+    if (!body || body.classList.contains('pg-swipe')) return null; // 已初始化则跳过，避免重复圆点
     const panels = Array.from(body.children).filter(c => c.classList.contains('panel'));
     if (panels.length < 2) return null;
     body.classList.add('pg-swipe');
@@ -7151,6 +7304,89 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
   function initSwipeAll() {
     $$('.own-body').forEach(buildSwipeTrack);
+    // ledger 双层滑动：表格区域水平滑动时锁定外层面板切换
+    initLedgerTableSwipe();
+  }
+  // 学情台账手势处理：
+  // 桌面端：时间轴表格可横向滑动查看往期 → 手指落在表格区且偏水平滑动时临时锁定外层面板切换
+  // 移动端：录入改为纵向紧凑网格（无内层横滑），水平手势直接交给外层面板切换，无需劫持
+  function initLedgerTableSwipe() {
+    if (window.innerWidth <= 720) return; // 移动端网格无横滑，跳过手势劫持
+    let body = document.querySelector('#page-ledger .own-body.pg-swipe');
+    const wrap = document.querySelector('#page-ledger .ql-table-wrap');
+    if (!wrap) return;
+    
+    // 如果 pg-swipe 未初始化（initSwipeAll 启动时 ledger 可能 hidden/未渲染完），
+    // 则在此处主动补建：把 own-body 转为整屏横滑容器
+    if (!body) {
+      body = document.querySelector('#page-ledger .own-body');
+      if (!body) return;
+      const panels = Array.from(body.children).filter(c => c.classList.contains('panel'));
+      if (panels.length >= 2) {
+        body.classList.add('pg-swipe');
+        const dots = document.createElement('div');
+        dots.className = 'pg-dots';
+        panels.forEach((_, i) => {
+          const d = document.createElement('button'); d.type = 'button';
+          d.className = 'pg-dot' + (i === 0 ? ' active' : '');
+          d.addEventListener('click', () => { body.scrollTo({ left: i * body.clientWidth, behavior: 'smooth' }); });
+          dots.appendChild(d);
+        });
+        const hint = document.createElement('div');
+        hint.className = 'pg-hint'; hint.textContent = '← 左右滑动切换栏目 →';
+        body.parentNode.insertBefore(hint, body);
+        body.parentNode.insertBefore(dots, body);
+        const sync = () => {
+          const idx = Math.round(body.scrollLeft / Math.max(1, body.clientWidth));
+          dots.querySelectorAll('.pg-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+        };
+        body.addEventListener('scroll', sync, { passive: true }); body._pgSync = sync; sync();
+      }
+    }
+    
+    if (!body || !body.classList.contains('pg-swipe')) return;
+    let _lx = 0, _ly = 0, _locked = false, _tid = null;
+    const LOCK_THRESHOLD = 8;   /* 水平超过此像素才判定为"想横滑表格" */
+    const UNLOCK_DELAY = 120;   /* 触摸结束后延迟恢复外层横滑(ms) */
+    wrap.addEventListener('touchstart', e => {
+      _lx = e.touches[0].clientX; _ly = e.touches[0].clientY; _locked = false;
+      clearTimeout(_tid); _tid = null;
+    }, { passive: true });
+    wrap.addEventListener('touchmove', e => {
+      if (_locked) return;  /* 已锁定，不再重复处理 */
+      const dx = e.touches[0].clientX - _lx;
+      const dy = e.touches[0].clientY - _ly;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > LOCK_THRESHOLD) {
+        _locked = true;
+        /* 临时隐藏外层横向溢出滚动，让浏览器把水平手势全交给表格 */
+        body.style.overflowX = 'hidden';
+        body.style.scrollSnapType = 'none';
+      }
+    }, { passive: true });
+    const unlock = () => {
+      clearTimeout(_tid);
+      _tid = setTimeout(() => {
+        if (body) { body.style.overflowX = ''; body.style.scrollSnapType = ''; }
+        _tid = null;
+      }, UNLOCK_DELAY);
+    };
+    wrap.addEventListener('touchend', unlock, { passive: true });
+    wrap.addEventListener('touchcancel', unlock, { passive: true });
+    /* 也监听表格的 scroll 事件：用户用触控板/鼠标滚轮横滑时也需保护 */
+    let _scrolling = false;
+    wrap.addEventListener('scroll', () => {
+      if (!_scrolling) {
+        _scrolling = true;
+        body.style.overflowX = 'hidden';
+        body.style.scrollSnapType = 'none';
+      }
+      clearTimeout(_tid);
+      _tid = setTimeout(() => {
+        _scrolling = false;
+        if (body) { body.style.overflowX = ''; body.style.scrollSnapType = ''; }
+        _tid = null;
+      }, UNLOCK_DELAY);
+    }, { passive: true });
   }
     function resetSwipe(page) {
       const body = $('#page-' + page + ' .own-body.pg-swipe');
@@ -7907,6 +8143,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (ledgerImportInput) ledgerImportInput.onchange = e => handleImportLedgerStudents(e.target.files[0]);
     const exportLedgerBtn = $('#exportLedgerBtn');
     if (exportLedgerBtn) exportLedgerBtn.onclick = exportLedgerToWPS;
+    const exportStudentSummaryBtn = $('#exportStudentSummaryBtn');
+    if (exportStudentSummaryBtn) exportStudentSummaryBtn.onclick = openStudentSummaryExport;
     const ledgerSummaryClassBtn = $('#ledgerSummaryClassBtn');
     if (ledgerSummaryClassBtn) ledgerSummaryClassBtn.onclick = () => openLedgerImageModal('class');
     const ledgerSummaryAllBtn = $('#ledgerSummaryAllBtn');
@@ -8083,6 +8321,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     setVar('--bg', getSetting('bgColor', '') || null);
     setVar('--card-bg', getSetting('cardBg', '') || null);
     setVar('--border', getSetting('borderColor', '') || null);
+    if (getSetting('borderStyle', 'solid') === 'dashed') document.documentElement.classList.add('bs-dashed');
+    else document.documentElement.classList.remove('bs-dashed');
     setVar('--glass-border', getSetting('borderColor', '') || null);
 
     // ===== 液态玻璃：一键开关 + 浓度滑块 =====
@@ -8401,6 +8641,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       {
         title: '卡片与圆角',
         items: [
+          { key: 'borderStyle', type: 'select', label: '边框样式', def: 'solid', options: [{ v: 'solid', t: '实线' }, { v: 'dashed', t: '虚线' }] },
           { key: 'radiusSize', type: 'range', label: '卡片圆角', min: 4, max: 32, step: 1, def: 12, unit: 'px' },
           { key: 'imgRadius', type: 'range', label: '图片圆角', min: 0, max: 28, step: 1, def: 12, unit: 'px' },
           { key: 'cardShadow', type: 'range', label: '阴影强度', min: 0, max: 0.2, step: 0.01, def: 0.06, unit: '' }
@@ -8430,6 +8671,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             <input type="range" data-key="${it.key}" min="${it.min}" max="${it.max}" step="${it.step}" value="${val}">
           </div>`;
         }
+        else if (it.type === 'select') {
+          const val = getSetting(it.key, it.def);
+          return `<div class="ap-row"><label>${it.label}</label><select class="ap-select" data-key="${it.key}">${it.options.map(o => `<option value="${o.v}"${o.v === val ? ' selected' : ''}>${o.t}</option>`).join('')}</select></div>`;
+        }
         const cval = getSetting(it.key, it.def);
         return `<div class="ap-color-item">
           <span>${it.label}</span>
@@ -8458,9 +8703,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     box.querySelectorAll('input[type=color]').forEach(inp => {
       inp.oninput = e => updateSetting(e.target.dataset.key, e.target.value);
     });
+    box.querySelectorAll('select.ap-select').forEach(sel => {
+      sel.onchange = e => { updateSetting(e.target.dataset.key, e.target.value); };
+    });
     const apReset = $('#apResetBtn');
     if (apReset) apReset.onclick = () => {
-      const defs = { bnavSize: '54', bnavIcon: '24', bnavFont: '10', bnavGap: '8', bnavActive: '#1a1a1a', bnavInactiveBg: '#ebebed', bnavInactiveIco: '#999999', radiusSize: '12', imgRadius: '12', cardShadow: '0.06', textPrimary: '#1a1a1a', textSecondary: '#555555', textMuted: '#999999', cardBg: '#ffffff', borderColor: '#ececef', fontWeightTitle: '700', fontWeightBody: '400' };
+      const defs = { bnavSize: '54', bnavIcon: '24', bnavFont: '10', bnavGap: '8', bnavActive: '#1a1a1a', bnavInactiveBg: '#ebebed', bnavInactiveIco: '#999999', radiusSize: '12', imgRadius: '12', cardShadow: '0.06', textPrimary: '#1a1a1a', textSecondary: '#555555', textMuted: '#999999', cardBg: '#ffffff', borderColor: '#ececef', borderStyle: 'solid', fontWeightTitle: '700', fontWeightBody: '400' };
       Object.keys(defs).forEach(k => updateSetting(k, defs[k]));
       buildAppearanceControls();
       toast('已恢复默认外观');
@@ -9881,7 +10129,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       <td><input type="date" data-dict-field="date" value="${d.date||''}"></td>
       <td><input type="text" data-dict-field="content" value="${escapeHtml(d.content||'')}" placeholder="听写内容"></td>
       <td><input type="number" data-dict-field="score" value="${d.score||0}"></td>
-      <td><input type="text" data-dict-field="comment" value="${escapeHtml(d.comment||'')}" placeholder="评价"></td>
+      <td><input type="text" data-dict-field="comment" value="${escapeHtml(d.comment||'')}" placeholder="评价"><button type="button" class="tl-tag-btn" onclick="window.openTagPicker(this.previousElementSibling, 'dict')">🏷</button></td>
       <td>${rowImgCell(d, 'dict', i)}</td>
       <td><button class="btn-ghost" onclick="window.__app.delDictation(${i})">删除</button></td>
     </tr>`;
@@ -15890,6 +16138,136 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     reader.readAsText(file);
   }
 
+  // ====== 学情诊断标签库（按记录类型分开：入门册 / 作业 / 听写） ======
+  const DIAG_TAGS = {
+    entry: [  // 入门册
+      { short: '有待提升', title: '🔸 入门册 · 有待提升｜问题不足类', items: [
+        { name: '文言字词仍需巩固', desc: '部分实词、虚词词义记忆不够牢固，遇到一词多义容易混淆，课外迁移推断还需要多加练习。' },
+        { name: '翻译答题还需细化', desc: '大致句意能够理解，个别重点字词容易忽略漏译，答题可以更贴合考试踩分要求。' },
+        { name: '背诵默写存在小漏洞', desc: '整体可以完成背诵，默写时偶有错字、漏字，易错内容还需要反复巩固。' },
+        { name: '课外迁移能力有待加强', desc: '课内知识基本掌握，面对课外文言文时，灵活运用课内知识点的能力还可以继续提升。' },
+        { name: '答题表达还可以优化', desc: '内心能够理解题意，答题表述偏零散，还可以多积累规范答题语言。' }
+      ]},
+      { short: '进步鼓励', title: '🔹 入门册 · 进步鼓励类', items: [
+        { name: '文言字词掌握有进步', desc: '实词虚词识记准确率稳步上涨，对待字词听写态度认真，继续坚持会更加熟练。' },
+        { name: '翻译答题逐步改善', desc: '翻译可以关注到重点词义，漏译情况变少，答题越来越贴合考试规范。' },
+        { name: '背诵默写状态向好', desc: '背诵熟练度有所提高，错字逐步减少，能够主动订正错题，学习态度踏实。' },
+        { name: '知识迁移意识在增强', desc: '课内基础掌握扎实，尝试把课内所学运用到课外文言阅读，思考能力有所成长。' },
+        { name: '学习习惯值得肯定', desc: '作业完成情况较好，愿意纠错反思，保持当前训练节奏，后续会看到更大提升。' }
+      ]}
+    ],
+    hw: [  // 作业
+      { short: '有待提升', title: '🔸 作业 · 有待提升｜问题不足类', items: [
+        { name: '作业完成质量待提升', desc: '订正不够及时，错题反复出现，建议当天完成、当天订正，不留到第二天。' },
+        { name: '书写工整度需加强', desc: '卷面有涂改、字迹偏潦草，影响阅卷观感，提笔即认真，写慢一点也值得。' },
+        { name: '审题习惯需培养', desc: '独立完成前先读清题目要求，减少看错、漏做的低级失误。' },
+        { name: '作业速度偏慢', desc: '限时训练不足，在家可计时完成，逐步提升做题节奏。' },
+        { name: '错题复盘不到位', desc: '订正流于形式，未真正理解为啥错，建议用一句话写出"错因"。' }
+      ]},
+      { short: '进步鼓励', title: '🔹 作业 · 进步鼓励类', items: [
+        { name: '作业完成质量高', desc: '按时保量、书写工整，订正认真及时，学习态度让人放心。' },
+        { name: '书写越来越工整', desc: '卷面整洁度明显提升，观感更好，继续保持。' },
+        { name: '订正习惯好', desc: '错题能主动改、主动问，错题闭环做得扎实。' },
+        { name: '作业速度有提升', desc: '限时完成能力增强，做题节奏更稳，考试更从容。' },
+        { name: '学习主动性值得肯定', desc: '能自觉完成作业并提前预习，保持当前节奏会有更大进步。' }
+      ]}
+    ],
+    dict: [  // 听写
+      { short: '有待提升', title: '🔸 听写 · 有待提升｜问题不足类', items: [
+        { name: '错字仍需巩固', desc: '形近字、同音字容易混淆，易错字词还需要反复听写、反复过关。' },
+        { name: '易错字词较多', desc: '课后巩固不足，建议每天固定量复习，把高频错字单独建本。' },
+        { name: '书写规范性待加强', desc: '个别字笔顺、结构不规范，需按田字格规范书写，养成好习惯。' },
+        { name: '听写速度偏慢', desc: '反应不够快，课下可多做速记、跟读练习，提升反应灵敏度。' },
+        { name: '前后鼻音/平翘舌易混', desc: '拼音基础需补强，建议每天跟读正音、对比朗读易混音节。' }
+      ]},
+      { short: '进步鼓励', title: '🔹 听写 · 进步鼓励类', items: [
+        { name: '听写进步明显', desc: '准确率稳步上升，错字明显减少，认真的态度看到了成效。' },
+        { name: '易错字词已巩固', desc: '之前常错的字现在基本写对，保持节奏会越来越稳。' },
+        { name: '书写规范度提升', desc: '字形结构更端正，卷面更清爽，值得肯定。' },
+        { name: '听写速度快了', desc: '反应更敏捷，课堂跟写更从容，信心也上来了。' },
+        { name: '复习习惯好', desc: '能主动反复巩固易错字词，踏实的态度是进步的关键。' }
+      ]}
+    ]
+  };
+  const DIAG_TITLE = { entry: '入门册', hw: '作业', dict: '听写' };
+  let __tagType = 'entry';
+  let __customTags = [];   // 临时自定义标签（不计入固定两类，仅本次勾选可用）
+  let __tagInput = null;
+  const __tagSel = new Set();
+  let __tagGroups = [];
+  let __tagTitlePrefix = '通用';
+  function openTagPicker(inputEl, type) {
+    __tagInput = inputEl; __tagSel.clear(); __customTags = [];
+    __tagType = type || 'entry';
+    let groups, titlePrefix;
+    if (type === 'lesson') {
+      // 快速录入：本节课通常同时含入门测 + 作业，标签合并展示两类
+      groups = (DIAG_TAGS.entry || []).concat(DIAG_TAGS.hw || []);
+      titlePrefix = '本节课 · 入门册+作业';
+    } else {
+      groups = DIAG_TAGS[__tagType] || DIAG_TAGS.entry || [];
+      titlePrefix = DIAG_TITLE[__tagType] || '通用';
+    }
+    __tagGroups = groups;
+    __tagTitlePrefix = titlePrefix;
+    const body = '<div class="tagpick">' + groups.map((g, gi) =>
+      '<div class="tagpick-group"><div class="tagpick-gtitle">' + g.title + '</div><div class="tagpick-chips">' +
+      g.items.map((t, ti) => '<button type="button" class="tagpick-chip" data-g="' + gi + '" data-i="' + ti + '" onclick="window.__tagToggle(this)">' + escapeHtml(t.name) + '</button>').join('') +
+      '</div></div>').join('') +
+      '<div class="tagpick-custom"><input type="text" id="tagCustom" placeholder="自定义标签，回车或点＋添加" onkeydown="if(event.key===\'Enter\'){event.preventDefault();window.__tagAddCustom();}"><button type="button" onclick="window.__tagAddCustom()">＋</button></div>';
+    const footer = '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>' +
+      '<button class="btn-ghost" onclick="window.__tagCopy()">复制诊断文案</button>' +
+      '<button class="btn-primary" onclick="window.__tagFill()">填入备注</button>';
+    openModal('学情诊断标签 · ' + titlePrefix, body, footer);
+  }
+  window.openTagPicker = openTagPicker;
+  function __getTag(g, i) {
+    if (g === 'C') return __customTags[+i];
+    return __tagGroups[+g] && __tagGroups[+g].items[+i];
+  }
+  window.__tagToggle = function (btn) {
+    const k = btn.dataset.g + '-' + btn.dataset.i;
+    if (__tagSel.has(k)) { __tagSel.delete(k); btn.classList.remove('on'); }
+    else { __tagSel.add(k); btn.classList.add('on'); }
+  };
+  window.__tagAddCustom = function () {
+    const inp = document.getElementById('tagCustom'); const v = (inp && inp.value || '').trim(); if (!v) return;
+    const idx = __customTags.length; __customTags.push({ name: v, desc: '' });
+    const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'tagpick-chip on';
+    chip.textContent = v; chip.dataset.g = 'C'; chip.dataset.i = String(idx);
+    chip.onclick = () => window.__tagToggle(chip);
+    const box = document.querySelector('.tagpick-custom'); if (box) box.parentNode.insertBefore(chip, box);
+    __tagSel.add('C-' + idx); inp.value = '';
+  };
+  window.__tagFill = function () {
+    if (!__tagInput) return;
+    const names = [];
+    __tagSel.forEach(k => { const p = k.split('-'); const t = __getTag(p[0], p[1]); if (t) names.push(t.name); });
+    if (!names.length) { toast('请先勾选标签'); return; }
+    const cur = (__tagInput.value || '').trim();
+    __tagInput.value = cur ? (cur + ' · ' + names.join(' · ')) : names.join(' · ');
+    if (__tagInput.dispatchEvent) __tagInput.dispatchEvent(new Event('input', { bubbles: true }));
+    toast('已填入 ' + names.length + ' 条标签');
+    window.__app.closeModal();
+  };
+  window.__tagCopy = function () {
+    if (!__tagSel.size) { toast('请先勾选标签'); return; }
+    let txt = '【学情诊断 · ' + __tagTitlePrefix + '】\n';
+    __tagGroups.forEach((g, gi) => {
+      const items = []; __tagSel.forEach(k => { if (k.startsWith(gi + '-')) { const i = +k.split('-')[1]; if (g.items[i]) items.push(g.items[i]); } });
+      if (items.length) {
+        txt += (g.short === '有待提升' ? '🔸 ' : '🔹 ') + g.short + '（' + items.length + '条）\n';
+        items.forEach((t, n) => { txt += (n + 1) + '. ' + t.name + (t.desc ? ('：' + t.desc) : '') + '\n'; });
+      }
+    });
+    const customItems = []; __tagSel.forEach(k => { if (k.startsWith('C-')) { const i = +k.split('-')[1]; if (__customTags[i]) customItems.push(__customTags[i].name); } });
+    if (customItems.length) { txt += '🏷 自定义（' + customItems.length + '条）\n'; customItems.forEach((n, m) => { txt += (m + 1) + '. ' + n + '\n'; }); }
+    const done = () => toast('诊断文案已复制，可直接发家长');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(fallback);
+    else fallback();
+    function fallback() { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); done(); }
+  };
+
   // ================= 班级学员学情台账 =================
   // v3.4: 学情台账数据兼容——将旧版单字段迁移为可追加数组
   function normalizeLedger(s) {
@@ -16379,7 +16757,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     // 限制显示的最近 N 节课（避免列太多），默认全部显示但提供折叠
     const MAX_VISIBLE_DATES = 8;
     const showAll = window.__qlShowAllDates === true;
-    const visibleDates = showAll ? dates : dates.slice(-MAX_VISIBLE_DATES);
+    // 把"今天/目标日期"列固定放在最前，录入分数无需滑到最右；其余历史按最近 N 节排在其后
+    const histDates = dates.filter(d => d !== targetDate);
+    const recentHist = showAll ? histDates : histDates.slice(-(MAX_VISIBLE_DATES - 1));
+    const visibleDates = [targetDate, ...recentHist];
     const hiddenCount = dates.length - visibleDates.length;
 
     // ---- 构建时间轴表格 HTML ----
@@ -16433,7 +16814,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         // 入门测
         if (isTarget) {
           const ev = (cur.entry && cur.entry.score !== '' && cur.entry.score != null) ? cur.entry.score : '';
-          html += '<td class="tl-cell editable"><input type="number" class="tl-entry" step="0.5" min="0" placeholder="—" value="' + ev + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="entry">▼</button></td>';
+          html += '<td class="tl-cell editable tl-today-col"><input type="number" class="tl-entry" step="0.5" min="0" placeholder="—" value="' + ev + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="entry">▼</button></td>';
         } else {
           const val = lesson && lesson.entry && lesson.entry.score !== '' && lesson.entry.score != null ? lesson.entry.score : '';
           const cls = val !== '' ? (Number(val) >= 90 ? ' full-mark' : (Number(val) < 60 ? ' low-mark' : '')) : ' empty';
@@ -16442,7 +16823,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         // 作业
         if (isTarget) {
           const hv = (cur.homework && cur.homework.status !== '' && cur.homework.status != null) ? cur.homework.status : '';
-          html += '<td class="tl-cell editable"><input type="number" class="tl-hw" step="5" min="0" max="100" placeholder="—" value="' + hv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="hw">▼</button></td>';
+          html += '<td class="tl-cell editable tl-today-col"><input type="number" class="tl-hw" step="5" min="0" max="100" placeholder="—" value="' + hv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="hw">▼</button></td>';
         } else {
           const val = lesson && lesson.homework && lesson.homework.status ? lesson.homework.status : '';
           const cls = val !== '' && Number(val) >= 90 ? ' full-mark' : (val !== '' && Number(val) < 60 ? ' low-mark' : '');
@@ -16451,7 +16832,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         // 满分
         if (isTarget) {
           const fv = (cur.entry && cur.entry.fullScore !== '' && cur.entry.fullScore != null) ? cur.entry.fullScore : '';
-          html += '<td class="tl-cell editable"><input type="number" class="tl-full" step="1" min="0" placeholder="—" value="' + fv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="full">▼</button></td>';
+          html += '<td class="tl-cell editable tl-today-col"><input type="number" class="tl-full" step="1" min="0" placeholder="—" value="' + fv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="full">▼</button></td>';
         } else {
           const val = lesson && lesson.entry && lesson.entry.fullScore != null && lesson.entry.fullScore !== '' ? lesson.entry.fullScore : '';
           html += '<td class="tl-cell' + (val === '' ? ' empty' : '') + '">' + (val !== '' ? val : '—') + '</td>';
@@ -16463,7 +16844,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       html += '<td class="tl-integral-col"><input type="number" class="tl-integral" step="1" min="0" placeholder="—" value="' + (curLesson.integral !== '' && curLesson.integral != null ? curLesson.integral : '') + '"></td>';
       
       // 备注
-      html += '<td class="tl-note-col"><input type="text" class="tl-note" placeholder="备注" value="' + escapeAttr(curLesson.note || '') + '"></td>';
+      html += '<td class="tl-note-col"><input type="text" class="tl-note" placeholder="备注" value="' + escapeAttr(curLesson.note || '') + '"><button type="button" class="tl-tag-btn" onclick="window.openTagPicker(this.previousElementSibling, \'lesson\')">🏷</button></td>';
       
       // 操作（照片+时间线）
       html += '<td class="tl-action-col">';
@@ -16484,7 +16865,80 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         + '</div>';
     }
 
-    wrap.innerHTML = html;
+    // ---- 移动端紧凑录入网格（≤720px 自动启用） ----
+    // 设计原则：同一屏不滚动即可录入全班「今天」的入门册+作业，零横滑
+    // 行 = 学员，列 = [学员|入门|作业|满|积分|备注🏷]
+    const isMobile = window.innerWidth <= 720;
+    let cardHtml = '';
+    if (isMobile) {
+      cardHtml = '<div class="tl-mobile-grid">';
+      // 表头
+      cardHtml += '<div class="tl-grid-head">'
+        + '<div class="tg-cell tg-name">学员</div>'
+        + '<div class="tg-cell tg-entry">入门</div>'
+        + '<div class="tg-cell tg-hw">作业</div>'
+        + '<div class="tg-cell tg-photo">照片</div>'
+        + '<div class="tg-cell tg-note">备注</div>'
+        + '</div>';
+      stu.forEach(s => {
+        const lessonMap = {};
+        (s.lessons || []).forEach(l => { if (l.date) lessonMap[l.date] = l; });
+        const cur = lessonMap[targetDate] || {};
+        const ev = (cur.entry && cur.entry.score !== '' && cur.entry.score != null) ? cur.entry.score : '';
+        const hv = (cur.homework && cur.homework.status !== '' && cur.homework.status != null) ? cur.homework.status : '';
+        const fv = (cur.entry && cur.entry.fullScore !== '' && cur.entry.fullScore != null) ? cur.entry.fullScore : '';
+        const iv = (cur.integral !== '' && cur.integral != null) ? cur.integral : '';
+
+        cardHtml += '<div class="tl-grid-row" data-sid="' + s.id + '">';
+        // 学员名（点击查看历史时间线）
+        cardHtml += '<div class="tg-cell tg-name" onclick="window.__app.openLessonHistory(\'' + s.id + '\')" title="点击看历史">' + escapeHtml(s.name || '') + '</div>';
+        // 入门测
+        cardHtml += '<div class="tg-cell tg-entry"><input type="number" class="tl-entry" step="0.5" min="0" placeholder="—" value="' + ev + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="entry">▼</button></div>';
+        // 作业
+        cardHtml += '<div class="tg-cell tg-hw"><input type="number" class="tl-hw" step="5" min="0" max="100" placeholder="—" value="' + hv + '"><button type="button" class="tl-edit-btn tl-pk-btn" data-for="hw">▼</button></div>';
+        // 照片（区分入门册 / 作业，拍照 / 相册导入，可随台账导出）
+        const mEntryImgs = (window.__qlEntryImgs && window.__qlEntryImgs[s.id] && window.__qlEntryImgs[s.id].length)
+          || (cur.entryImgs && cur.entryImgs.length) || 0;
+        const mHwImgs = (window.__qlHwImgs && window.__qlHwImgs[s.id] && window.__qlHwImgs[s.id].length)
+          || (cur.hwImgs && cur.hwImgs.length) || 0;
+        const mPhotoBadge = (mEntryImgs || mHwImgs) ? (' 入' + mEntryImgs + '·作' + mHwImgs) : '';
+        // 隐藏表（桌面）通用照片也并入角标
+        const mLegacy = (window.__qlPhotos && window.__qlPhotos[s.id] && window.__qlPhotos[s.id].length) || 0;
+        const mTotal = mEntryImgs + mHwImgs + mLegacy;
+        cardHtml += '<div class="tg-cell tg-photo">'
+          + '<button type="button" class="btn-ghost tl-photo-btn" data-mphoto="1" data-sid="' + s.id + '" onclick="window.__openPhotoSource(this)" title="' + (mPhotoBadge ? mPhotoBadge.trim() : '添加照片') + '">📷<span class="tl-photo-count">' + (mTotal ? ' ' + mTotal : '') + '</span></button>'
+          + '</div>';
+        // 备注 + 🏷
+        cardHtml += '<div class="tg-cell tg-note"><input type="text" class="tl-note" placeholder="备注" value="' + escapeAttr(cur.note || '') + '"><button type="button" class="tl-tag-btn" onclick="window.openTagPicker(this.previousElementSibling, \'lesson\')">🏷</button></div>';
+        cardHtml += '</div>';
+      });
+      cardHtml += '</div>';
+    }
+
+    // 组合最终 HTML：桌面端只有表格；移动端有隐藏表格(供JS逻辑) + 可见紧凑网格
+    wrap.innerHTML = html + (isMobile ? cardHtml : '');
+
+    // ---- 移动端：将可见网格的输入实时同步到隐藏表格（保证保存逻辑不变） ----
+    if (isMobile) {
+      const syncFields = ['tl-entry', 'tl-hw', 'tl-note'];
+      stu.forEach(s => {
+        const gridRow = wrap.querySelector('.tl-grid-row[data-sid="' + s.id + '"]');
+        const tableRow = wrap.querySelector('tr[data-sid="' + s.id + '"]');
+        if (!gridRow || !tableRow) return;
+        syncFields.forEach(cls => {
+          const g = gridRow.querySelector('.' + cls);
+          const t = tableRow.querySelector('.' + cls);
+          if (g && t) {
+            g.addEventListener('input', () => { t.value = g.value; });
+            g.addEventListener('change', () => { t.value = g.value; });
+          }
+        });
+      });
+    }
+
+    // ---- 确保学情台账整页横滑（左右切换面板）已初始化 ----
+    const ledgerBody = document.querySelector('#page-ledger .own-body');
+    if (ledgerBody) buildSwipeTrack(ledgerBody);
 
     // ---- 绑定勾选框（全选 + 行高亮）----
     const checkAll = document.getElementById('qlCheckAll');
@@ -16509,6 +16963,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     // ---- 绑定照片按钮 ----
     window.__qlPhotos = window.__qlPhotos || {};
     wrap.querySelectorAll('.tl-photo-btn').forEach(btn => {
+      if (btn.dataset.mphoto) return; // 移动端紧凑网格的照片按钮走 window.__openPhotoSource
       const row = btn.closest('tr');
       const input = row.querySelector('.tl-photo-input');
       const countEl = btn.querySelector('.tl-photo-count');
@@ -16542,6 +16997,74 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       }
     });
   }
+
+  // ===== 快速录入网格「照片」列：区分入门册/作业，拍照 / 相册导入（存 lesson.entryImgs / hwImgs，可随台账导出） =====
+  function ensureQlPhotoInputs() {
+    if (!window.__qlCamInput) {
+      window.__qlCamInput = document.createElement('input');
+      window.__qlCamInput.type = 'file';
+      window.__qlCamInput.accept = 'image/*';
+      window.__qlCamInput.setAttribute('capture', 'environment');
+      window.__qlCamInput.hidden = true;
+      document.body.appendChild(window.__qlCamInput);
+      window.__qlCamInput.onchange = e => { handleQlPhotos(e.target.files, window.__qlPhotoSid, window.__qlPhotoType, e.target); };
+    }
+    if (!window.__qlAlbumInput) {
+      window.__qlAlbumInput = document.createElement('input');
+      window.__qlAlbumInput.type = 'file';
+      window.__qlAlbumInput.accept = 'image/*';
+      window.__qlAlbumInput.multiple = true;
+      window.__qlAlbumInput.hidden = true;
+      document.body.appendChild(window.__qlAlbumInput);
+      window.__qlAlbumInput.onchange = e => { handleQlPhotos(e.target.files, window.__qlPhotoSid, window.__qlPhotoType, e.target); };
+    }
+  }
+  function getPhotoStore(sid, type) {
+    const key = (type === 'hw') ? '__qlHwImgs' : '__qlEntryImgs';
+    if (!window[key]) window[key] = {};
+    if (!window[key][sid]) window[key][sid] = [];
+    return window[key][sid];
+  }
+  async function handleQlPhotos(files, sid, type, inputEl) {
+    if (!sid || !files || !files.length) return;
+    const arr = getPhotoStore(sid, type || 'entry');
+    for (const f of files) { const d = await compressImage(f, 1280, 0.7); if (d) arr.push(d); }
+    // 更新该学员所有照片计数（移动端网格 + 桌面表格）
+    const eN = (window.__qlEntryImgs && window.__qlEntryImgs[sid]) ? window.__qlEntryImgs[sid].length : 0;
+    const hN = (window.__qlHwImgs && window.__qlHwImgs[sid]) ? window.__qlHwImgs[sid].length : 0;
+    const lN = (window.__qlPhotos && window.__qlPhotos[sid]) ? window.__qlPhotos[sid].length : 0;
+    const total = eN + hN + lN;
+    document.querySelectorAll('.tl-photo-btn[data-sid="' + sid + '"] .tl-photo-count').forEach(el => { el.textContent = total ? ' ' + total : ''; });
+    const gridBtn = document.querySelector('.tl-grid-row[data-sid="' + sid + '"] .tg-photo .tl-photo-btn');
+    if (gridBtn) gridBtn.title = '入' + eN + '·作' + hN;
+    if (typeof toast === 'function') toast('已添加 ' + files.length + ' 张照片（' + (type === 'hw' ? '作业' : '入门册') + '）');
+    if (inputEl) inputEl.value = '';
+  }
+  window.__openPhotoSource = function (btn) {
+    const sid = btn.dataset.sid;
+    if (!sid) return;
+    window.__qlPhotoSid = sid;
+    const body = '<div style="display:flex;flex-direction:column;gap:10px;padding:4px">'
+      + '<div style="font-size:13px;color:var(--text-muted);font-weight:700">📷 入门册照片</div>'
+      + '<div style="display:flex;gap:10px">'
+      +   '<button type="button" class="btn-primary" style="flex:1;padding:13px;font-size:15px" onclick="window.__qlPhotoPick(\'entry\',\'camera\')">📷 拍照</button>'
+      +   '<button type="button" class="btn-ghost" style="flex:1;padding:13px;font-size:15px" onclick="window.__qlPhotoPick(\'entry\',\'album\')">🖼 相册</button>'
+      + '</div>'
+      + '<div style="font-size:13px;color:var(--text-muted);font-weight:700;margin-top:4px">📷 作业照片</div>'
+      + '<div style="display:flex;gap:10px">'
+      +   '<button type="button" class="btn-primary" style="flex:1;padding:13px;font-size:15px" onclick="window.__qlPhotoPick(\'hw\',\'camera\')">📷 拍照</button>'
+      +   '<button type="button" class="btn-ghost" style="flex:1;padding:13px;font-size:15px" onclick="window.__qlPhotoPick(\'hw\',\'album\')">🖼 相册</button>'
+      + '</div>'
+      + '</div>';
+    openModal('添加照片 · 入门册 / 作业', body, '<button class="btn-ghost" onclick="window.__app.closeModal()">取消</button>');
+  };
+  window.__qlPhotoPick = function (type, source) {
+    window.__qlPhotoType = type;
+    ensureQlPhotoInputs();
+    if (typeof closeModal === 'function') closeModal();
+    if (source === 'camera') window.__qlCamInput.click();
+    else window.__qlAlbumInput.click();
+  };
 
   // 时间轴表格的 picker 绑定（统一入口）
   function bindTimelinePickers(wrap) {
@@ -16584,7 +17107,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       btn.onclick = e => {
         e.stopPropagation();
         if (activePicker && activePicker._btn === btn) { closePicker(); return; }
-        const cell = btn.closest('td');
+        const cell = btn.closest('td') || btn.closest('.tg-cell');
         const inp = cell && cell.querySelector('input');
         if (!inp) return;
         const forType = btn.dataset.for || 'hw';
@@ -16604,13 +17127,15 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         });
       };
     });
-    // 滚动位置检测：右端时隐藏渐变提示
-    const onScroll = () => {
-      const atEnd = wrap.scrollLeft + wrap.clientWidth + 2 >= wrap.scrollWidth;
-      wrap.classList.toggle('scroll-end', atEnd);
-    };
-    wrap.addEventListener('scroll', onScroll, { passive: true });
-    requestAnimationFrame(onScroll);
+    // 滚动位置检测：右端时隐藏渐变提示（仅桌面端表格需要，移动端网格无横滑）
+    if (window.innerWidth > 720) {
+      const onScroll = () => {
+        const atEnd = wrap.scrollLeft + wrap.clientWidth + 2 >= wrap.scrollWidth;
+        wrap.classList.toggle('scroll-end', atEnd);
+      };
+      wrap.addEventListener('scroll', onScroll, { passive: true });
+      requestAnimationFrame(onScroll);
+    }
   }
 
   // v4.0: 时间轴表格保存 —— 读取"今天列"的 .tl-* 输入框
@@ -16639,10 +17164,13 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       const entryScore = er === '' ? '' : (Number(er) || 0);
       const fullVal = fullScore === '' ? '' : (Number(fullScore) || 0);
       const integralVal = integral === '' ? '' : (Number(integral) || 0);
-      const imgs = (window.__qlPhotos && window.__qlPhotos[sid]) ? window.__qlPhotos[sid].slice() : [];
+      const entryImgs = (window.__qlEntryImgs && window.__qlEntryImgs[sid]) ? window.__qlEntryImgs[sid].slice() : [];
+      const hwImgs = (window.__qlHwImgs && window.__qlHwImgs[sid]) ? window.__qlHwImgs[sid].slice() : [];
+      const legacyImgs = (window.__qlPhotos && window.__qlPhotos[sid]) ? window.__qlPhotos[sid].slice() : [];
+      const imgs = [...entryImgs, ...hwImgs, ...legacyImgs];
       // 查找是否已有同日期记录（时间轴模式支持覆写）
       const existingIdx = s.lessons.findIndex(l => l.date === date);
-      const lessonData = { id: existingIdx >= 0 ? s.lessons[existingIdx].id : uid(), date, entry: { score: entryScore, fullScore: fullVal, level: '', note: '' }, homework: { status: hw, note: '' }, integral: integralVal, note, imgs, ts: Date.now() };
+      const lessonData = { id: existingIdx >= 0 ? s.lessons[existingIdx].id : uid(), date, entry: { score: entryScore, fullScore: fullVal, level: '', note: '' }, homework: { status: hw, note: '' }, integral: integralVal, note, entryImgs, hwImgs, imgs, ts: Date.now() };
       if (existingIdx >= 0) {
         s.lessons[existingIdx] = lessonData;  // 覆写已有记录
       } else {
@@ -16978,6 +17506,28 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     const uniq = Array.from(new Set(notes));
     return '有少部分同学在以下方面还需要多加巩固：\n' + uniq.map(t => '· ' + t).join('\n') + '\n建议家长配合，在家多关注孩子的学习习惯。';
   }
+  // v4.3: 汇总该生往期学情（最近 N 次入门测/听写/作业），含趋势，供课后反馈综合参考
+  function fbHistorySummary(s, n) {
+    n = n || 5;
+    normalizeLedger(s);
+    const trend = arr => {
+      if (arr.length < 2) return '';
+      const recent = arr.slice(-Math.min(3, arr.length));
+      const first = recent[0].score, last = recent[recent.length - 1].score;
+      if (last > first + 3) return '整体呈上升↑';
+      if (last < first - 3) return '有下滑需关注↓';
+      return '基本平稳→';
+    };
+    const entries = (s.entryTests || []).filter(r => r.date && (r.score != null && r.score !== '')).map(r => ({ date: r.date, score: Number(r.score) }));
+    const dicts = (s.dictations || []).filter(r => r.date && (r.score != null && r.score !== '')).map(r => ({ date: r.date, score: Number(r.score) }));
+    const hws = (s.homeworks || []).filter(r => r.date).map(r => ({ date: r.date, status: (r.status || (r.score != null ? r.score + '分' : '') || '').trim() }));
+    const fmt = arr => arr.length ? arr.slice(-n).map(x => x.date.slice(5) + (x.score != null ? ' ' + x.score + '分' : ' ' + (x.status || ''))).join('、') : '暂无记录';
+    const parts = [];
+    parts.push('【入门测】' + (entries.length ? fmt(entries.slice().sort((a, b) => a.date.localeCompare(b.date))) + '，' + trend(entries.slice().sort((a, b) => a.date.localeCompare(b.date))) + '，平均' + (entries.reduce((a, b) => a + b.score, 0) / entries.length).toFixed(1) + '分' : '近期暂无记录'));
+    parts.push('【听写】' + (dicts.length ? fmt(dicts.slice().sort((a, b) => a.date.localeCompare(b.date))) + '，' + trend(dicts.slice().sort((a, b) => a.date.localeCompare(b.date))) : '近期暂无记录'));
+    parts.push('【作业】' + (hws.length ? fmt(hws.slice().sort((a, b) => a.date.localeCompare(b.date))) : '近期暂无记录'));
+    return parts.join('\n');
+  }
   function fbFill(tpl, map) {
     let t = tpl;
     Object.keys(map).forEach(k => { t = t.split(k).join(map[k]); });
@@ -16991,6 +17541,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     const e = fbLastEntry(s);
     const d = fbLastDict(s);
     const note = fbLastNote(s) || '课堂表现积极，积极配合老师教学，继续保持。';
+    const hist = fbHistorySummary(s, 5);
     const map = {
       '{{学生姓名}}': s.name || '同学',
       '{{入门测_分数}}': e === null ? '本次暂未记录入门测' : (e + ' 分'),
@@ -17000,9 +17551,15 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       '{{课后作业}}': cfg.homework || '（请补充课后作业）',
       '{{课堂练习内容}}': cfg.practice || '',
       '{{班级整体评价}}': '',
-      '{{自动提取台账备注里面重点学生情况}}': ''
+      '{{自动提取台账备注里面重点学生情况}}': '',
+      '{{历史学情}}': hist
     };
-    return fbFill(tpl, map);
+    let text = fbFill(tpl, map);
+    // 模板未使用 {{历史学情}} 时，自动把往期学情回顾附在文末，确保家长能看到综合情况
+    if (/入门测】|听写】|作业】/.test(hist) && !tpl.includes('{{历史学情}}')) {
+      text += '\n\n📚 近期学情回顾（综合往期台账）：\n' + hist;
+    }
+    return text;
   }
   function fbFillClass(tpl, stu, cfg) {
     const map = {
@@ -17130,10 +17687,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       + '<label>本节课知识点<textarea id="fbKnowledge" rows="2" placeholder="如：第5讲 记叙文六要素 + 课文《背影》精读"></textarea></label>'
       + '<label>课后作业<textarea id="fbHomework" rows="2" placeholder="如：完成练习册P23-25；背诵《春》第3段"></textarea></label>'
       + extra
-      + '<div class="fb-cfg-actions"><button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button type="button" class="btn-primary" id="fbGenBtn">生成</button></div>'
+      + '<div class="fb-cfg-actions"><button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button type="button" class="btn-ghost" id="fbAiBtn">🤖 AI综合历史</button><button type="button" class="btn-primary" id="fbGenBtn">生成</button></div>'
       + '</div>';
     openModal(mode === 'class' ? '配置班级群反馈' : '配置单人私聊反馈', body, '');
-    
+
     // 绑定档位切换按钮（必须在 openModal 之后，DOM 已插入）
     document.querySelectorAll('.fb-tone-btn').forEach(btn => {
       btn.onclick = () => {
@@ -17142,23 +17699,72 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         window.__fbTone = btn.dataset.tone || 'warm';
       };
     });
-    
+
     const gen = document.getElementById('fbGenBtn');
     if (!gen) return;
+    const readCfg = () => ({
+      knowledge: (document.getElementById('fbKnowledge').value || '').trim(),
+      homework: (document.getElementById('fbHomework').value || '').trim(),
+      practice: mode === 'class' ? (document.getElementById('fbPractice').value || '').trim() : '',
+      classEval: mode === 'class' ? (document.getElementById('fbClassEval').value || '').trim() : '',
+      tone: window.__fbTone || 'warm'
+    });
     gen.onclick = () => {
       const tplId = document.getElementById('fbTplSel').value;
       const tpl = tpls.find(t => t.id === tplId);
       if (!tpl) { toast('请先选择或新增一个模板'); return; }
-      const cfg = {
-        knowledge: (document.getElementById('fbKnowledge').value || '').trim(),
-        homework: (document.getElementById('fbHomework').value || '').trim(),
-        practice: mode === 'class' ? (document.getElementById('fbPractice').value || '').trim() : '',
-        classEval: mode === 'class' ? (document.getElementById('fbClassEval').value || '').trim() : '',
-        tone: window.__fbTone || 'warm'
-      };
+      const cfg = readCfg();
       if (mode === 'class') fbRenderClass(tpl, stu, cfg);
       else fbRenderPrivate(tpl, stu, cfg);
     };
+    // 🤖 AI 综合历史生成：调取该生往期入门测/听写/作业，结合本次课情况综合评价
+    const aiBtn = document.getElementById('fbAiBtn');
+    if (aiBtn) aiBtn.onclick = async () => {
+      const cfg = readCfg();
+      await fbAIGenerate(mode, stu, cfg);
+    };
+  }
+  // v4.3: AI 综合历史生成课后反馈
+  async function fbAIGenerate(mode, stu, cfg) {
+    const aiUrl = (getSetting('aiApiUrl', '') || '').trim();
+    if (!aiUrl) {
+      toast('未配置 AI 接口，已用「历史增强模板」生成');
+      const tpls = state.fbTemplates.filter(t => t.type === (mode === 'class' ? 'class' : 'private'));
+      const tpl = tpls[0];
+      if (tpl) { if (mode === 'class') fbRenderClass(tpl, stu, cfg); else fbRenderPrivate(tpl, stu, cfg); }
+      return;
+    }
+    toast('🤖 AI 正在结合历史学情生成…');
+    const toneTxt = { warm: '温和温情、鼓励为主', clean: '简洁客观、直奔主题', strict: '严谨严肃、需提醒时' }[cfg.tone] || '温和温情';
+    try {
+      if (mode === 'class') {
+        const lines = stu.map(s => `· ${s.name}：\n${fbHistorySummary(s, 5)}`).join('\n\n');
+        const prompt = `你是资深中小学语文老师，擅长家校沟通。请基于【全班往期学情】和【本次课情况】，写一段发给家长群的班级学情反馈（中文，200字内），结合近期多次入门测/听写/作业的整体情况，语气${toneTxt}。\n\n【本次课】知识点：${cfg.knowledge || '（未填）'}；课后作业：${cfg.homework || '（未填）'}；班级整体评价：${cfg.classEval || '（未填）'}\n\n【全班往期学情台账】\n${lines}`;
+        const text = await callAIVision(prompt, null, '你是资深中小学语文教师，擅长学情诊断与家校沟通');
+        window.__fbClassText = text;
+        openModal('班级群反馈预览（AI）', '<pre class="fb-text" id="fbClassText">' + escapeHtml(text) + '</pre>',
+          '<button type="button" class="btn-ghost" onclick="window.copyText(window.__fbClassText)">复制全文</button>'
+          + '<button type="button" class="btn-ghost" onclick="window.__app.saveFbMaterial(window.__fbClassText)">保存到素材库</button>'
+          + '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+      } else {
+        window.__fbPrivate = {};
+        const htmlParts = [];
+        for (const s of stu) {
+          const prompt = `你是资深中小学语文老师，擅长用具体、有建设性的语言向家长反馈。请基于【该生往期学情台账】和【本次课情况】，写一段给${s.name}家长的一对一课后反馈（中文，180字左右）：①结合往期入门测/听写/作业点出进步或需巩固的点；②自然融入本次课分数与知识点；③语气${toneTxt}；④给具体家庭配合建议。\n\n【学生】${s.name}\n【本次课】知识点：${cfg.knowledge || '（未填）'}；课后作业：${cfg.homework || '（未填）'}；老师评语：${fbLastNote(s) || '（未填）'}\n\n【往期学情台账】\n${fbHistorySummary(s, 8)}`;
+          const text = await callAIVision(prompt, null, '你是资深中小学语文教师，擅长学情诊断与家校沟通');
+          window.__fbPrivate[s.id] = text;
+          htmlParts.push('<div class="fb-1to1"><div class="fb-1to1-hd">' + escapeHtml(s.name || '') + ' <button type="button" class="btn-ghost" onclick="window.copyText(window.__fbPrivate &amp;&amp; window.__fbPrivate[\'' + s.id + '\'])">复制</button></div><pre class="fb-1to1-body">' + escapeHtml(text) + '</pre></div>');
+        }
+        openModal('单人家长私聊反馈（AI·' + stu.length + '人）', '<div class="fb-1to1-list">' + htmlParts.join('') + '</div>',
+          '<button type="button" class="btn-ghost" onclick="window.__app.saveAllPrivateFb()">全部保存到素材库</button><button type="button" class="btn-ghost" onclick="window.__app.closeModal()">关闭</button>');
+      }
+      toast('✅ AI 已结合历史学情生成');
+    } catch (e) {
+      toast('AI 生成失败：' + (e.message || e) + '，已回退模板');
+      const tpls = state.fbTemplates.filter(t => t.type === (mode === 'class' ? 'class' : 'private'));
+      const tpl = tpls[0];
+      if (tpl) { if (mode === 'class') fbRenderClass(tpl, stu, cfg); else fbRenderPrivate(tpl, stu, cfg); }
+    }
   }
   function fbRenderClass(tpl, stu, cfg) {
     let text = fbFillClass(tpl.content, stu, cfg);
@@ -17629,6 +18235,113 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     toast('学情台账已导出');
   }
 
+  // ===== v4.3 导出单个学员阶段性学情汇总（选学生 + 自定义时间区间）=====
+  function openStudentSummaryExport() {
+    if (state.ledgerStudents.length === 0) { toast('暂无学情数据'); return; }
+    const opts = state.ledgerStudents.map(s => {
+      const c = s.classId ? state.classes.find(x => x.id === s.classId) : null;
+      return `<option value="${s.id}">${escapeHtml(s.name || '未命名')}${c ? '（' + escapeHtml(c.name) + '）' : ''}</option>`;
+    }).join('');
+    const t = todayStr();
+    const d = new Date();
+    const m0 = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+    const body = '<div class="lss-form">'
+      + '<label style="display:block;margin-bottom:8px">选择学员<select id="lssStu" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)">' + opts + '</select></label>'
+      + '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:6px"><label style="flex:1">起始日期<input type="date" id="lssFrom" value="' + m0 + '" style="width:100%"></label><span style="padding-bottom:6px;color:var(--text-muted)">~</span><label style="flex:1">结束日期<input type="date" id="lssTo" value="' + t + '" style="width:100%"></label></div>'
+      + '<p class="hint" style="font-size:12px;color:var(--text-muted);margin:6px 0 0">将导出该学员在此区间内全部入门测、作业、听写、课堂积分及课后反馈，生成可编辑的 WPS 文档。</p>'
+      + '</div>';
+    openModal('导出学生阶段性学情汇总', body, '<button type="button" class="btn-ghost" onclick="window.__app.closeModal()">取消</button><button type="button" class="btn-primary" id="lssGo">生成并导出</button>');
+    const go = document.getElementById('lssGo');
+    if (go) go.onclick = () => {
+      const sid = document.getElementById('lssStu').value;
+      const from = document.getElementById('lssFrom').value;
+      const to = document.getElementById('lssTo').value;
+      exportStudentSummaryDoc(sid, from, to);
+    };
+  }
+  function fmtTs(ts) {
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function exportStudentSummaryDoc(sid, from, to) {
+    const s = state.ledgerStudents.find(x => x.id === sid);
+    if (!s) { toast('学员不存在'); return; }
+    normalizeLedger(s);
+    const inR = d => (!from && !to) ? true : (!d ? false : (d >= (from || '0000-00-00') && d <= (to || '9999-12-31')));
+    const cls = s.classId ? state.classes.find(c => c.id === s.classId) : null;
+    const ets = (s.entryTests || []).filter(r => inR(r.date));
+    const hws = (s.homeworks || []).filter(r => inR(r.date));
+    const dts = (s.dictations || []).filter(r => inR(r.date));
+    const scs = (s.scores || []).filter(r => inR(r.date));
+    const fbs = (state.feedbacks || []).filter(f => f.studentId === sid && inR(fmtTs(f.ts)));
+    const html = buildStudentSummaryHtml(s, cls, from, to, { ets, hws, dts, scs, fbs });
+    const tag = (from && to) ? (from + '_' + to) : (from || to || '全部');
+    downloadHtml('学情汇总_' + (s.name || '学员') + '_' + tag + '.html', html);
+    closeModal();
+    toast('已导出 ' + (s.name || '学员') + ' 的阶段性学情汇总 ✓');
+  }
+  function buildStudentSummaryHtml(s, cls, from, to, data) {
+    const { ets, hws, dts, scs, fbs } = data;
+    const numAvg = arr => arr.length ? (arr.reduce((a, b) => a + (Number(b.score) || 0), 0) / arr.length).toFixed(1) : '—';
+    const rangeTxt = (from && to) ? (from + ' 至 ' + to) : (from || to || '全部记录');
+    // 概览
+    const etAvg = numAvg(ets), dtAvg = numAvg(dts);
+    const hwDone = hws.filter(h => h.status && h.status.indexOf('未') < 0).length;
+    const totalScore = scs.reduce((a, c) => a + (Number(c.score) || 0), 0);
+    const att = (ets.concat(hws)).filter(recordNeedsAttention).length;
+    const row = (type, date, score, note) => `<tr><td>${type}</td><td>${date || '—'}</td><td>${score}</td><td>${escapeHtml(note || '')}</td></tr>`;
+    let detailRows = '';
+    ets.forEach(r => detailRows += row('入门测', r.date, (r.fullScore ? r.score + ' / ' + r.fullScore : r.score), r.note || (r.img ? '〔含图片〕' : '')));
+    hws.forEach(r => {
+      const hwSc = (r.score != null && r.score !== '' && r.score !== 0) ? (r.score + '分') : (r.status || '');
+      detailRows += row('作业', r.date, hwSc, [r.comment, r.content].filter(Boolean).join(' · '));
+    });
+    dts.forEach(r => detailRows += row('听写', r.date, r.score != null ? r.score + '分' : '', r.note || ''));
+    scs.forEach(r => detailRows += row('课堂积分', r.date, (Number(r.score) || 0) + ' 分', r.note || ''));
+    if (!detailRows) detailRows = '<tr><td colspan="4" style="text-align:center;color:#999">该时间区间内暂无记录</td></tr>';
+    let fbHtml = '';
+    if (fbs.length) {
+      fbHtml = '<h3>课后反馈记录（' + fbs.length + ' 条）</h3><div class="lss-fb">' + fbs.slice().reverse().map(f =>
+        '<div class="lss-fb-item"><div class="lss-fb-meta">' + (f.type || '反馈') + ' · ' + fmtTs(f.ts) + '</div><div class="lss-fb-body">' + escapeHtml(f.content || '') + '</div></div>'
+      ).join('') + '</div>';
+    }
+    return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>学情汇总_${escapeHtml(s.name || '学员')}</title>
+<style>
+ *{box-sizing:border-box} body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#222;margin:0;padding:32px;line-height:1.6}
+ .doc{max-width:820px;margin:0 auto}
+ h1{font-size:24px;margin:0 0 4px} h2{font-size:18px;margin:24px 0 10px;border-left:4px solid #4a7cff;padding-left:8px}
+ h3{font-size:15px;margin:18px 0 8px}
+ .meta{color:#666;font-size:13px;margin-bottom:16px}
+ .ov{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 4px}
+ .ov .card{flex:1;min-width:120px;background:#f5f8ff;border:1px solid #e3ebff;border-radius:10px;padding:10px 12px}
+ .ov .card .k{font-size:12px;color:#888} .ov .card .v{font-size:20px;font-weight:700;color:#1a3a6b}
+ .ov .card.warn .v{color:#c0392b}
+ table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+ th,td{border:1px solid #e2e2e2;padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:#f3f6fb}
+ tr:nth-child(even) td{background:#fafbfd}
+ .lss-fb-item{border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fcfcfd}
+ .lss-fb-meta{font-size:12px;color:#888;margin-bottom:4px}
+ .footer{margin-top:28px;color:#999;font-size:12px;text-align:center}
+</style></head><body><div class="doc">
+ <h1>${escapeHtml(s.name || '学员')} · 阶段性学情汇总</h1>
+ <div class="meta">班级：${escapeHtml(cls ? cls.name : '未分班')}　|　统计区间：${rangeTxt}　|　生成日期：${todayStr()}</div>
+ <h2>学情概览</h2>
+ <div class="ov">
+  <div class="card"><div class="k">入门测均分</div><div class="v">${etAvg}</div></div>
+  <div class="card"><div class="k">听写均分</div><div class="v">${dtAvg}</div></div>
+  <div class="card"><div class="k">作业完成</div><div class="v">${hws.length ? hwDone + '/' + hws.length : '—'}</div></div>
+  <div class="card"><div class="k">课堂积分</div><div class="v">${totalScore}</div></div>
+  <div class="card ${att ? 'warn' : ''}"><div class="k">需关注项</div><div class="v">${att}</div></div>
+ </div>
+ <h2>学习记录明细</h2>
+ <table><thead><tr><th>类型</th><th>日期</th><th>分数</th><th>备注</th></tr></thead><tbody>${detailRows}</tbody></table>
+ ${fbHtml}
+ <div class="footer">由 Kissgoodbye 语文教师工作站生成 · 数据来自本地学情台账</div>
+</div></body></html>`;
+  }
+
   // ===== v3.30 学情汇总图：日期范围计算 =====
   function ledgerRangeOf(kind, cFrom, cTo) {
     const pad = n => String(n).padStart(2, '0');
@@ -18036,18 +18749,18 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     });
 
     // ===== 布局常量 =====
-    const padding = 48;
-    const headerHeight = 90;
-    const nameRowH = 46;          // 学员标题行
-    const detailRowH = 34;        // 明细行
-    const emptyRowH = 30;         // 无记录提示行
-    const summaryRowH = 32;       // v3.30 周期小结行
+    const padding = 40;
+    const headerHeight = 80;
+    const nameRowH = 40;          // 学员标题行（分区色带）
+    const detailRowH = 28;        // 明细行（压缩行高，精简纵向长度）
+    const emptyRowH = 26;         // 无记录提示行
+    const summaryRowH = 28;       // v3.30 周期小结行
     // 明细列：日期 / 类型 / 得分 / 备注
-    const dCol = [95, 76, 132, 0];
+    const dCol = [88, 70, 124, 0];
     const tableWidth = 800;
     dCol[3] = tableWidth - dCol[0] - dCol[1] - dCol[2];
-    const slotW = 176, slotH = 128, slotPad = 16;
-    const galleryLabelH = 26;
+    const slotW = 150, slotH = 104, slotPad = 14;
+    const galleryLabelH = 22;
     const galleryLineH = slotH + galleryLabelH + slotPad;
     const perLine = Math.max(1, Math.floor((tableWidth - 24 + slotPad) / (slotW + slotPad)));
 
@@ -18090,27 +18803,47 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       const ets = (s.entryTests || []).filter(inRange);
       const hws = (s.homeworks || []).filter(inRange);
       const scs = (s.scores || []).filter(inRange);
-
-      // v3.30 该时间段没有任何记录 → 默认跳过，避免一堆「暂无记录」
-      if (skipEmpty && !ets.length && !hws.length && !scs.length) { hiddenCount++; continue; }
+      const les = (s.lessons || []).filter(inRange);
+      // 主数据源：lessons（快速录入真相源，含全部照片 lessons.imgs + 备注 lessons.note）
+      // 补充：entryTests/homeworks/scores 中 lessons 未覆盖的日期（兼容 AI 直接录入）
+      const lessonDates = new Set(les.map(l => l.date));
+      const attach = (rec) => (rec.imgs && rec.imgs.length) ? rec.imgs : (rec.img ? [rec.img] : []);
+      const statusOf = (st) => {
+        st = String(st);
+        const n = Number(st) || 0;
+        if (st === '100') return { txt: '100', label: '全对', full: true, score: 100 };
+        return { txt: /^\d+$/.test(st) ? st : '—', label: n >= 80 ? '已完成' : n >= 60 ? '订正中' : '未完成', full: false, score: n };
+      };
 
       const rows = [];
-      ets.forEach(r => rows.push({
-        date: r.date || '', kind: '入门测', scoreTxt: fmtScore(r),
-        note: (r.note || '').trim(), full: isFullMark(r),
-        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
-      }));
-      hws.forEach(r => rows.push({
-        date: r.date || '', kind: '作业', scoreTxt: fmtScore(r),
-        note: [(r.status || ''), (r.comment || '').trim(), (r.content || '').trim()].filter(Boolean).join(' · '),
-        full: isFullMark(r),
-        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
-      }));
-      scs.forEach(r => rows.push({
-        date: r.date || '', kind: '积分', scoreTxt: fmtScore(r),
-        note: (r.note || '').trim(), full: false,
-        imgs: (r.imgs && r.imgs.length ? r.imgs : (r.img ? [r.img] : []))
-      }));
+      // —— 1) lessons 优先（含全部照片 + 备注）——
+      les.forEach(l => {
+        const note = (l.note || '').trim();
+        const imgs = (l.imgs && l.imgs.length) ? l.imgs : [];
+        if (l.entry && l.entry.score !== '' && l.entry.score != null) {
+          const sc = Number(l.entry.score) || 0;
+          rows.push({ date: l.date, kind: '入门测', scoreTxt: fmtScore(l.entry), scoreNum: sc, fail: sc < 60, note, full: isFullMark(l.entry), imgs });
+        }
+        if (l.homework && l.homework.status) {
+          const info = statusOf(l.homework.status);
+          rows.push({
+            date: l.date, kind: '作业', scoreTxt: info.txt, scoreNum: info.score, fail: info.score < 60,
+            note: note ? (note + ' · ' + info.label) : info.label, full: info.full, imgs
+          });
+        }
+        if (l.integral !== '' && l.integral != null) {
+          const sc = Number(l.integral) || 0;
+          rows.push({ date: l.date, kind: '积分', scoreTxt: String(sc), scoreNum: sc, fail: false, note, full: false, imgs });
+        }
+      });
+      // —— 2) 补充 lessons 未覆盖的日期（子记录，兼容 AI 直接录入）——
+      ets.forEach(r => { if (!lessonDates.has(r.date)) { const sc = Number(r.score) || 0; rows.push({ date: r.date || '', kind: '入门测', scoreTxt: fmtScore(r), scoreNum: sc, fail: sc < 60, note: (r.note || '').trim(), full: isFullMark(r), imgs: attach(r) }); } });
+      hws.forEach(r => { if (!lessonDates.has(r.date)) { const sc = Number(r.score) || 0; rows.push({ date: r.date || '', kind: '作业', scoreTxt: fmtScore(r), scoreNum: sc, fail: sc < 60, note: [(r.status || ''), (r.comment || '').trim(), (r.content || '').trim()].filter(Boolean).join(' · '), full: isFullMark(r), imgs: attach(r) }); } });
+      scs.forEach(r => { if (!lessonDates.has(r.date)) { const sc = Number(r.score) || 0; rows.push({ date: r.date || '', kind: '积分', scoreTxt: fmtScore(r), scoreNum: sc, fail: false, note: (r.note || '').trim(), full: false, imgs: attach(r) }); } });
+
+      // v3.30 该时间段没有任何记录 → 默认跳过，避免一堆「暂无记录」
+      if (skipEmpty && !rows.length) { hiddenCount++; continue; }
+
       // 按日期升序，无日期的排最后
       rows.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
 
@@ -18128,15 +18861,27 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         }
       }
       const galleryLines = loaded.length ? Math.ceil(loaded.length / perLine) : 0;
-      const totalPoints = scs.reduce((a, c) => a + (Number(c.score) || 0), 0);
 
-      // v3.30 周期小结：入门测均分 / 作业均分 / 满分次数 / 积分
-      const fullMarks = ets.filter(isFullMark).length + hws.filter(isFullMark).length;
-      // v3.31：本周期内是否有偏低分记录
-      const needsAtt = listNeedsAttention(ets, hws);
+      // —— 合并后的汇总口径（含 lessons，用于均分/满分/需关注）——
+      const mEts = [], mHws = [], mScs = [];
+      les.forEach(l => {
+        if (l.entry && l.entry.score !== '' && l.entry.score != null) mEts.push({ score: Number(l.entry.score), fullScore: l.entry.fullScore });
+        if (l.homework && l.homework.status) { const i = statusOf(l.homework.status); mHws.push({ score: i.score, fullScore: '' }); }
+        if (l.integral !== '' && l.integral != null) mScs.push({ score: Number(l.integral) || 0, fullScore: '' });
+      });
+      ets.forEach(r => { if (!lessonDates.has(r.date)) mEts.push({ score: Number(r.score) || 0, fullScore: r.fullScore }); });
+      hws.forEach(r => { if (!lessonDates.has(r.date)) mHws.push({ score: Number(r.score) || 0, fullScore: r.fullScore }); });
+      scs.forEach(r => { if (!lessonDates.has(r.date)) mScs.push({ score: Number(r.score) || 0, fullScore: r.fullScore }); });
+
+      const totalPoints = mScs.reduce((a, c) => a + (Number(c.score) || 0), 0);
+      // 周期小结：入门测均分 / 作业均分 / 满分次数 / 积分
+      const fullMarks = mEts.filter(isFullMark).length + mHws.filter(isFullMark).length;
+      // 需关注：得分率偏低 或 出现不合格（<60）
+      const hasFail = rows.some(r => r.fail);
+      const needsAtt = listNeedsAttention(mEts, mHws) || hasFail;
       const parts = [];
-      const aEt = avgTxt(avgOf(ets)); if (aEt) parts.push('入门测均分 ' + aEt);
-      const aHw = avgTxt(avgOf(hws)); if (aHw) parts.push('作业均分 ' + aHw);
+      const aEt = avgTxt(avgOf(mEts)); if (aEt) parts.push('入门测均分 ' + aEt);
+      const aHw = avgTxt(avgOf(mHws)); if (aHw) parts.push('作业均分 ' + aHw);
       if (fullMarks) parts.push(`满分 ${fullMarks} 次`);
       if (totalPoints) parts.push(`积分 ${totalPoints > 0 ? '+' : ''}${totalPoints}`);
       const summary = (wantSummary && parts.length) ? parts.join('　·　') : '';
@@ -18146,7 +18891,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         + (rows.length ? rows.length * detailRowH : emptyRowH)
         + (galleryLines ? galleryLines * galleryLineH + 10 : 0)
         + 10;
-      blocks.push({ s, rows, loaded, galleryLines, totalPoints, summary, ets, hws, scs, fullMarks, needsAtt, h });
+      blocks.push({ s, rows, loaded, galleryLines, totalPoints, summary, ets: mEts, hws: mHws, scs: mScs, fullMarks, needsAtt, failFlag: hasFail, h });
     }
 
     if (!blocks.length) {
@@ -18209,7 +18954,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       ctx.fillStyle = bi % 2 === 0 ? '#eef4ff' : '#f4f6fa';
       ctx.fillRect(padding, yTop, tableWidth, nameRowH);
       const cls = state.classes.find(c => c.id === b.s.classId);
-      const nameTxt = (showClass && cls ? `[${cls.name}] ` : '') + (b.s.name || '未命名') + (b.needsAtt ? '　⚠需关注' : '');
+      const nameTxt = (showClass && cls ? `[${cls.name}] ` : '') + (b.s.name || '未命名') + (b.failFlag ? '　⚠不合格' : (b.needsAtt ? '　⚠需关注' : ''));
       ctx.fillStyle = b.needsAtt ? '#c0392b' : '#1a3a6b';
       ctx.font = 'bold 17px ' + FONT;
       ctx.textAlign = 'left';
@@ -18265,10 +19010,10 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
           ctx.font = '13px ' + FONT;
           ctx.fillText(r.kind, cx2, dy + 9);
           cx2 += dCol[1];
-          // 得分（含满分）
-          ctx.fillStyle = r.full ? '#0f9d58' : '#222222';
+          // 得分（含满分 / 不合格）
+          ctx.fillStyle = r.fail ? '#e53935' : (r.full ? '#0f9d58' : '#222222');
           ctx.font = 'bold 14px ' + FONT;
-          const scoreShow = (r.scoreTxt || '—') + (r.full ? '  👍' : '');
+          const scoreShow = (r.scoreTxt || '—') + (r.full ? '  👍' : (r.fail ? '  不合格' : ''));
           ctx.fillText(clip(scoreShow, dCol[2] - 10), cx2, dy + 8);
           cx2 += dCol[2];
           // 备注

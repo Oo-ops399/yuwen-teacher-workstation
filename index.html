@@ -3340,7 +3340,7 @@ label input, label select, label textarea { margin-top: 4px; }
     .ql-table-wrap:has(.ql-timeline-table) .ql-timeline-table { display: none; }
     .ql-table-wrap:has(.ql-timeline-table) { overflow-x: visible; border: none; background: none; padding: 0; }
     .ql-table-wrap::after { display: none; }
-    /* 移动端：网格纵向滚、横向手势交给外层面板切换（覆盖桌面端 pan-x） */
+    /* 移动端：网格/表格纵向原生滚动(pan-y)，横向手势统一交给 JS 方向锁定接管 */
     #page-ledger .ql-table-wrap { touch-action: pan-y; overflow-x: visible; }
     .tl-mobile-grid { touch-action: pan-y; }
 
@@ -4435,7 +4435,7 @@ label input, label select, label textarea { margin-top: 4px; }
   display: flex;
   overflow-x: auto;
   overflow-y: hidden;
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -4473,7 +4473,8 @@ label input, label select, label textarea { margin-top: 4px; }
    外层：整屏左右滑动切换面板（补录 / 录入 / 台账），带圆点指示器
    内层：快速录入面板内的时间轴表格独立横向滑动查看往期成绩
    手势分流：手指落在表格区域且偏水平滑动时 → 表格横滑；否则 → 面板切换 */
-#page-ledger .own-body.pg-swipe { /* 保持 pg-swipe 默认行为 */ }
+#page-ledger .own-body.pg-swipe { touch-action: pan-y; } /* 横滑交JS接管，纵向原生滚动；仅限ledger不污染其他pg-swipe页 */
+#page-ledger .own-body.pg-swipe > .panel { touch-action: pan-y; }
 #page-ledger .own-body.pg-swipe > .panel {
   overflow-y: auto;   /* 每个面板内部纵向滚动 */
   -webkit-overflow-scrolling: touch;
@@ -4496,7 +4497,7 @@ label input, label select, label textarea { margin-top: 4px; }
 #page-ledger .own-body.pg-swipe .row-del,
 #page-ledger .own-body.pg-swipe button:not(.tl-tag-btn):not(.lq-tag-btn),
 #page-ledger .own-body.pg-swipe select,
-#page-ledger .own-body.pg-swipe input:not(.tl-note):not(.tl-entry):not(.tl-hw):not(.tl-full):not(.tl-integral),
+#page-ledger .own-body.pg-swipe input,
 #page-ledger .own-body.pg-swipe textarea,
 #page-ledger .own-body.pg-swipe a { touch-action: pan-y; }
 /* 标签按钮也要能点，不拦 */
@@ -7319,11 +7320,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // 桌面端：时间轴表格可横向滑动查看往期 → 手指落在表格区且偏水平滑动时临时锁定外层面板切换
   // 移动端：录入改为纵向紧凑网格（无内层横滑），水平手势直接交给外层面板切换，无需劫持
   function initLedgerTableSwipe() {
-    if (window.innerWidth <= 720) return; // 移动端网格无横滑，跳过手势劫持
     let body = document.querySelector('#page-ledger .own-body.pg-swipe');
     const wrap = document.querySelector('#page-ledger .ql-table-wrap');
-    if (!wrap) return;
-    
+
     // 如果 pg-swipe 未初始化（initSwipeAll 启动时 ledger 可能 hidden/未渲染完），
     // 则在此处主动补建：把 own-body 转为整屏横滑容器
     if (!body) {
@@ -7351,8 +7350,55 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         body.addEventListener('scroll', sync, { passive: true }); body._pgSync = sync; sync();
       }
     }
-    
+
     if (!body || !body.classList.contains('pg-swipe')) return;
+
+    // 移动端：网格纵向滚动、水平滑动切面板（方向锁定，互不误触，解决卡顿/失效）
+    if (window.innerWidth <= 720) { initMobilePanelSwipe(body); return; }
+    // 桌面端：表格区域水平滑动时临时锁定外层面板切换
+    initDesktopTableLock(body, wrap);
+  }
+
+  // 移动端：方向锁定的面板横滑切换（纵向原生滚动，横向由JS接管，跟手无抖动）
+  function initMobilePanelSwipe(body) {
+    if (body._mobileSwipe) return;
+    body._mobileSwipe = true;
+    let sx = 0, sy = 0, mode = null, startL = 0, w = 0;
+    const TH = 6; // 方向判定阈值(px)，降低阈值让横滑更易触发
+    body.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) { mode = null; return; }
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; mode = null;
+      startL = body.scrollLeft; w = body.clientWidth;
+      body.style.scrollSnapType = 'none'; // 拖动期间关闭吸附，纯跟手
+    }, { passive: true });
+    body.addEventListener('touchmove', e => {
+      if (e.touches.length !== 1) return;
+      if (mode === null) {
+        const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+        if (Math.abs(dx) < TH && Math.abs(dy) < TH) return;
+        mode = (Math.abs(dx) > Math.abs(dy)) ? 'h' : 'v';
+      }
+      if (mode === 'h') {
+        e.preventDefault(); // 接管横向手势 → 切换面板
+        body.scrollLeft = startL - (e.touches[0].clientX - sx);
+      }
+      // mode==='v'：不拦截，面板内部纵向滚动照常
+    }, { passive: false });
+    body.addEventListener('touchend', () => {
+      if (mode === 'h') {
+        const idx = Math.round(body.scrollLeft / Math.max(1, w));
+        body.scrollTo({ left: Math.max(0, idx) * w, behavior: 'smooth' });
+      }
+      setTimeout(() => { body.style.scrollSnapType = ''; }, 320); // 平滑结束后再恢复吸附
+      mode = null;
+    }, { passive: true });
+    body.addEventListener('touchcancel', () => { body.style.scrollSnapType = ''; mode = null; }, { passive: true });
+  }
+
+  // 桌面端：表格区域水平滑动时锁定外层面板切换
+  function initDesktopTableLock(body, wrap) {
+    if (!wrap || body._desktopLock) return;
+    body._desktopLock = true;
     let _lx = 0, _ly = 0, _locked = false, _tid = null;
     const LOCK_THRESHOLD = 8;   /* 水平超过此像素才判定为"想横滑表格" */
     const UNLOCK_DELAY = 120;   /* 触摸结束后延迟恢复外层横滑(ms) */
@@ -16747,7 +16793,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
       } catch(e) { dateEl.value = todayStr(); }
     }
 
-    const stu = state.ledgerStudents.filter(s => s.classId === cid).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
+    // 按添加/录入顺序显示（花名册习惯），不做拼音排序，避免录入时填串行
+    const stu = state.ledgerStudents.filter(s => s.classId === cid);
     if (!state.classes.length) { wrap.innerHTML = '<div class="info-block">请先「＋ 新建班级」或用「导入学员」初始化名单</div>'; return; }
     if (!cid) { wrap.innerHTML = '<div class="info-block">👆 请先在上方选择一个班级</div>'; return; }
     if (!stu.length) { wrap.innerHTML = '<div class="info-block">该班级暂无学员，请先「导入学员」或「＋ 学员」添加名单</div>'; return; }
@@ -17898,7 +17945,11 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (!cid) { toast('请先在上方选择一个班级'); return; }
     const body =
       '<div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:8px">'
-      + '把 Excel / Numbers 里的成绩表<b>复制粘贴</b>到下面（第一列是学员姓名，第一行是日期表头，交叉格是入门测分数）。系统会按<b>姓名 + 日期</b>自动匹配，填到对应那天的入门测里。</div>'
+      + '把成绩表<b>粘贴</b>到下方，或直接<b>上传 Excel / CSV 文件</b>（第一列是学员姓名，第一行是日期表头，交叉格是入门测分数）。系统按<b>姓名 + 日期</b>自动匹配，填到对应那天的入门测里。</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
+      + '<label class="btn-ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">📁 上传文件<input type="file" id="importTableFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="window.__onImportFile(this)"></label>'
+      + '<span style="font-size:12px;color:var(--text-muted)">支持 .xlsx / .xls / .csv（Word 表格可「另存为」CSV 后导入）</span>'
+      + '</div>'
       + '<textarea id="importTableText" placeholder="粘贴示例：\n姓名\t8月6日\t8月7日\t8月14日\n张三\t90\t88\t95\n李四\t85\t82\t90" style="width:100%;height:200px;font-size:13px;font-family:monospace;white-space:pre;padding:8px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box"></textarea>'
       + '<div id="importTablePreview" style="margin-top:10px"></div>';
     const footer =
@@ -17908,6 +17959,67 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     openModal('导入表 · 按日期自动定位', body, footer);
     window.__importParseResult = null;
     setTimeout(() => { const ta = document.getElementById('importTableText'); if (ta) ta.focus(); }, 120);
+  };
+  // ===== 上传 Excel / CSV 文件 → 转成内部表格文本（复用粘贴解析逻辑）=====
+  let _xlsxLib = null;
+  function loadXlsx() {
+    return new Promise((resolve, reject) => {
+      if (_xlsxLib) return resolve(_xlsxLib);
+      if (window.XLSX) return resolve(window.XLSX);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = () => { _xlsxLib = window.XLSX; resolve(window.XLSX); };
+      s.onerror = () => reject(new Error('解析库加载失败'));
+      document.head.appendChild(s);
+    });
+  }
+  function parseCsvToRows(text) {
+    const rows = []; let row = [], field = '', i = 0, inQ = false;
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    while (i < text.length) {
+      const c = text[i];
+      if (inQ) {
+        if (c === '"') { if (text[i + 1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+        field += c; i++; continue;
+      }
+      if (c === '"') { inQ = true; i++; continue; }
+      if (c === ',') { row.push(field); field = ''; i++; continue; }
+      if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      if (c === '\t' || c === ';') { row.push(field); field = ''; i++; continue; }
+      field += c; i++;
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+  window.__onImportFile = async function (input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const ta = document.getElementById('importTableText');
+    const name = (file.name || '').toLowerCase();
+    try {
+      let rows;
+      if (name.endsWith('.csv')) {
+        const text = await file.text();
+        rows = parseCsvToRows(text);
+      } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        toast('正在解析 Excel…');
+        const XLSX = await loadXlsx();
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+      } else {
+        toast('仅支持 .csv / .xlsx / .xls 文件');
+        input.value = ''; return;
+      }
+      if (!rows || !rows.length) { toast('文件为空或无法识别'); input.value = ''; return; }
+      ta.value = rows.map(r => r.map(c => String(c == null ? '' : c).replace(/\t/g, ' ')).join('\t')).join('\n');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      toast('已读取「' + file.name + '」，点「解析预览」即可按日期定位');
+    } catch (e) {
+      toast('解析失败：' + (e && e.message ? e.message : '请联网后重试，或把表格另存为 CSV 再导入'));
+    }
+    input.value = '';
   };
   window.__parseImportTable = function () {
     const ta = document.getElementById('importTableText');
@@ -17964,6 +18076,7 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     for (const r of res.matched) {
       const s = r.sObj;
       if (!s.lessons) s.lessons = [];
+      if (!Array.isArray(s.entryTests)) s.entryTests = [];
       r.scores.forEach(sc => {
         const v = (sc.val === '' || sc.val == null) ? null : Number(sc.val);
         if (v === null || isNaN(v)) return;
@@ -17971,6 +18084,9 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
         if (!lesson) { lesson = { id: 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: sc.iso, entry: { score: '', fullScore: '', level: '', note: '' }, homework: { status: '', note: '' }, integral: 0, note: '', imgs: [], ts: Date.now() }; s.lessons.push(lesson); }
         if (!lesson.entry) lesson.entry = { score: '', fullScore: '', level: '', note: '' };
         lesson.entry.score = v;
+        // 镜像到 entryTests：保证「班级学员学情台账」面板与导出能看到本次导入成绩
+        s.entryTests = s.entryTests.filter(e => e.date !== sc.iso);
+        s.entryTests.push({ date: sc.iso, subject: '入门测', score: v, fullScore: undefined, note: '', img: '' });
         total++;
       });
       students++;
@@ -17980,7 +18096,8 @@ ${note ? '补充背景：' + note : ''}${toneSuffix(tone)}${profileSuffix(profil
     if (cf) cf.style.display = 'none';
     closeModal();
     renderQuickLesson();
-    toast('已导入 ' + students + ' 名学员的 ' + total + ' 条入门测成绩（按日期自动定位）');
+    renderLedger();
+    toast('已导入 ' + students + ' 名学员的 ' + total + ' 条入门测成绩（已同步到学情台账）');
   };
   function parseImportDate(raw) {
     if (!raw) return null;
